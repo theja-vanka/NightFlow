@@ -1,12 +1,38 @@
-import { signal } from "@preact/signals";
 import { useEffect } from "preact/hooks";
 import { invoke } from "@tauri-apps/api/core";
+import { currentPage } from "./state/router.js";
+import { Sidebar } from "./components/Sidebar.jsx";
+import { Header } from "./components/Header.jsx";
+import { DashboardView } from "./views/DashboardView.jsx";
+import { ExperimentsView } from "./views/ExperimentsView.jsx";
+import { ChartsView } from "./views/ChartsView.jsx";
+import { SettingsView } from "./views/SettingsView.jsx";
+import { NetronView } from "./views/NetronView.jsx";
+import { InterpretationView } from "./views/InterpretationView.jsx";
 
-const name = signal("");
-const greeting = signal("");
+// Ensure state modules initialize
+import "./state/theme.js";
+import "./state/projects.js";
+import { CreateProjectWizard } from "./components/CreateProjectWizard.jsx";
+import { DeleteProjectDialog } from "./components/DeleteProjectDialog.jsx";
 
-async function handleGreet() {
-  greeting.value = await invoke("greet", { name: name.value });
+function CurrentView() {
+  switch (currentPage.value) {
+    case "dashboard":
+      return <DashboardView />;
+    case "experiments":
+      return <ExperimentsView />;
+    case "charts":
+      return <ChartsView />;
+    case "interpretation":
+      return <InterpretationView />;
+    case "netron":
+      return <NetronView />;
+    case "settings":
+      return <SettingsView />;
+    default:
+      return <DashboardView />;
+  }
 }
 
 export function App() {
@@ -18,20 +44,16 @@ export function App() {
   }, []);
 
   return (
-    <main>
-      <img src="/assets/image.png" alt="NightForge Logo" class="logo" />
-      <h1>NightForge</h1>
-      <p>A Tauri + Preact App</p>
-      <div class="input-row">
-        <input
-          type="text"
-          placeholder="Enter your name..."
-          value={name}
-          onInput={(e) => (name.value = e.currentTarget.value)}
-        />
-        <button onClick={handleGreet}>Greet</button>
+    <div class="app-shell">
+      <Sidebar />
+      <div class="app-main">
+        <Header />
+        <div class="app-content">
+          <CurrentView />
+        </div>
       </div>
-      {greeting.value && <p class="greeting">{greeting}</p>}
-    </main>
+      <CreateProjectWizard />
+      <DeleteProjectDialog />
+    </div>
   );
 }

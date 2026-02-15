@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/nicoverbruggen/tauri-schema/refs/heads/v2/schema.json",
   "productName": "NightForge",
   "version": "0.1.0",
-  "identifier": "com.nightforge.app",
+  "identifier": "com.nightforge.desktop",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -24,10 +24,14 @@
     "windows": [
       {
         "label": "main",
-        "title": "NightForge",
-        "width": 800,
-        "height": 600,
-        "visible": false
+        "title": "",
+        "width": 1200,
+        "height": 800,
+        "visible": false,
+        "maximized": true,
+        "decorations": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true
       },
       {
         "label": "splashscreen",
