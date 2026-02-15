@@ -1,6 +1,8 @@
 import { signal, computed } from "@preact/signals";
+import { invoke } from "@tauri-apps/api/core";
 import { projectRuns } from "./experiments.js";
 import { currentProject } from "./projects.js";
+import { navigate } from "./router.js";
 
 export const stats = computed(() => {
   const r = projectRuns.value;
@@ -28,9 +30,9 @@ export const stats = computed(() => {
 });
 
 // ── SSH connection state ──
+// Real state: driven by whether the terminal PTY is alive with an SSH command
 
 export const sshConnected = signal(false);
-export const sshConnecting = signal(false);
 export const sshConnectedAt = signal(null);
 
 export const sshInfo = computed(() => {
@@ -45,35 +47,26 @@ export const sshInfo = computed(() => {
     command: project.sshCommand,
     host: target,
     connected: sshConnected.value,
-    connecting: sshConnecting.value,
     connectedAt: sshConnectedAt.value,
   };
 });
 
-export function toggleSshConnection() {
-  if (sshConnecting.value) return;
-  sshConnecting.value = true;
-
-  if (sshConnected.value) {
-    // Disconnecting
-    setTimeout(() => {
-      sshConnected.value = false;
-      sshConnectedAt.value = null;
-      sshConnecting.value = false;
-    }, 1500);
+export function setSshConnected(connected) {
+  sshConnected.value = connected;
+  if (connected) {
+    sshConnectedAt.value = new Date().toISOString();
   } else {
-    // Connecting
-    setTimeout(() => {
-      sshConnected.value = true;
-      sshConnectedAt.value = new Date().toISOString();
-      sshConnecting.value = false;
-    }, 2000);
+    sshConnectedAt.value = null;
   }
 }
 
-// Mock: auto-connect projects that have an SSH command
-const project = currentProject.value;
-if (project?.sshCommand) {
-  sshConnected.value = true;
-  sshConnectedAt.value = new Date(Date.now() - 47 * 60000).toISOString();
+export async function toggleSshConnection() {
+  if (sshConnected.value) {
+    // Disconnect: kill the terminal
+    await invoke("kill_terminal");
+    setSshConnected(false);
+  } else {
+    // Connect: navigate to terminal page — it will auto-spawn SSH
+    navigate("terminal");
+  }
 }

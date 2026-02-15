@@ -9,6 +9,7 @@ struct PtyState {
     writer: Mutex<Option<Box<dyn Write + Send>>>,
     master: Mutex<Option<Box<dyn MasterPty + Send>>>,
     alive: Mutex<bool>,
+    ssh_command: Mutex<Option<String>>,
 }
 
 #[command]
@@ -32,6 +33,7 @@ fn spawn_terminal(
     state: State<'_, PtyState>,
     rows: Option<u16>,
     cols: Option<u16>,
+    ssh_command: Option<String>,
 ) -> Result<(), String> {
     // If already running, skip
     if *state.alive.lock().unwrap() {
@@ -49,11 +51,30 @@ fn spawn_terminal(
         })
         .map_err(|e| e.to_string())?;
 
-    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
-    let mut cmd = CommandBuilder::new(&shell);
-    cmd.arg("-l");
-    cmd.env("TERM", "xterm-256color");
-    cmd.env("COLORTERM", "truecolor");
+    let cmd = if let Some(ref ssh_cmd) = ssh_command {
+        // Parse the SSH command string and spawn it in the PTY
+        let parts: Vec<&str> = ssh_cmd.trim().split_whitespace().collect();
+        if parts.is_empty() {
+            return Err("Empty SSH command".to_string());
+        }
+        let mut cmd = CommandBuilder::new(parts[0]);
+        for arg in &parts[1..] {
+            cmd.arg(arg);
+        }
+        cmd.env("TERM", "xterm-256color");
+        cmd.env("COLORTERM", "truecolor");
+        cmd
+    } else {
+        let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+        let mut cmd = CommandBuilder::new(&shell);
+        cmd.arg("-l");
+        cmd.env("TERM", "xterm-256color");
+        cmd.env("COLORTERM", "truecolor");
+        cmd
+    };
+
+    // Store the SSH command for later queries
+    *state.ssh_command.lock().unwrap() = ssh_command;
 
     let mut child = pair
         .slave
@@ -129,6 +150,7 @@ fn kill_terminal(state: State<'_, PtyState>) -> Result<(), String> {
     *state.writer.lock().unwrap() = None;
     *state.master.lock().unwrap() = None;
     *state.alive.lock().unwrap() = false;
+    *state.ssh_command.lock().unwrap() = None;
     Ok(())
 }
 
@@ -138,7 +160,7 @@ fn is_terminal_alive(state: State<'_, PtyState>) -> bool {
 }
 
 #[command]
-fn get_terminal_info() -> std::collections::HashMap<String, String> {
+fn get_terminal_info(state: State<'_, PtyState>) -> std::collections::HashMap<String, String> {
     let mut info = std::collections::HashMap::new();
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
     let shell_name = shell.rsplit('/').next().unwrap_or(&shell).to_string();
@@ -155,6 +177,19 @@ fn get_terminal_info() -> std::collections::HashMap<String, String> {
         info.insert("home".into(), home);
     }
     info.insert("pid".into(), std::process::id().to_string());
+
+    // Include SSH session info if active
+    if let Some(ref ssh_cmd) = *state.ssh_command.lock().unwrap() {
+        info.insert("isSSH".into(), "true".into());
+        info.insert("sshCommand".into(), ssh_cmd.clone());
+        // Extract target (user@host) from the command
+        let parts: Vec<&str> = ssh_cmd.trim().split_whitespace().collect();
+        if let Some(target) = parts.iter().find(|p| p.contains('@')) {
+            info.insert("sshTarget".into(), target.to_string());
+        } else if let Some(last) = parts.last() {
+            info.insert("sshTarget".into(), last.to_string());
+        }
+    }
     info
 }
 
@@ -164,6 +199,7 @@ fn main() {
             writer: Mutex::new(None),
             master: Mutex::new(None),
             alive: Mutex::new(false),
+            ssh_command: Mutex::new(None),
         })
         .setup(|app| {
             if let Some(splash) = app.get_webview_window("splashscreen") {

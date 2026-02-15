@@ -23,11 +23,11 @@ function StepSSH() {
   return (
     <div>
       <p class="wizard-step-title">Connect to Instance</p>
-      <p class="wizard-step-desc">Paste the SSH command to connect to your remote instance.</p>
+      <p class="wizard-step-desc">Paste the SSH command to connect to your remote instance, or leave empty for localhost.</p>
       <input
         class="wizard-input wizard-input-mono"
         type="text"
-        placeholder="e.g. ssh user@192.168.1.100"
+        placeholder="localhost (default)"
         value={wizardData.value.sshCommand}
         onInput={(e) => wizardSetField("sshCommand", e.target.value)}
         onKeyDown={(e) => {

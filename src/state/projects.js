@@ -134,7 +134,7 @@ export const STEP_LABELS = [
 export const wizardCanProceed = computed(() => {
   const d = wizardData.value;
   const step = wizardStep.value;
-  if (step === 0) return d.sshCommand.trim().length > 0;
+  if (step === 0) return true; // empty = localhost
   if (step === 1) return d.name.trim().length > 0;
   if (step === 2) return d.taskType !== "";
   if (step === 3) return d.modelCategory !== "";

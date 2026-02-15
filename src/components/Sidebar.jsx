@@ -1,3 +1,4 @@
+import { useState } from "preact/hooks";
 import { currentPage, navigate } from "../state/router.js";
 import { projectList, currentProjectId, selectProject, openWizard, openDeleteDialog } from "../state/projects.js";
 
@@ -39,7 +40,11 @@ const navItems = [
   },
 ];
 
+const chevronIcon = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
+
 export function Sidebar() {
+  const [projectsOpen, setProjectsOpen] = useState(true);
+
   return (
     <nav class="sidebar">
       <div class="sidebar-logo">
@@ -58,26 +63,35 @@ export function Sidebar() {
         ))}
       </div>
       <div class="sidebar-projects">
-        <span class="sidebar-projects-label">Projects</span>
-        <div class="sidebar-projects-list">
-          {projectList.value.map((p) => (
-            <div key={p.id} class="sidebar-project-wrap">
-              <button
-                class={`sidebar-project-btn${currentProjectId.value === p.id ? " active" : ""}`}
-                onClick={() => selectProject(p.id)}
-                title={p.name}
-              >
-                {p.name[0].toUpperCase()}
-              </button>
-              <button
-                class="sidebar-project-delete"
-                onClick={(e) => { e.stopPropagation(); openDeleteDialog(p.id); }}
-                title="Delete project"
-              >
-                &times;
-              </button>
-            </div>
-          ))}
+        <button
+          class="sidebar-projects-toggle"
+          onClick={() => setProjectsOpen(!projectsOpen)}
+          title={projectsOpen ? "Collapse projects" : "Expand projects"}
+        >
+          <span class="sidebar-projects-label">Projects</span>
+          <span class={`sidebar-projects-chevron${projectsOpen ? "" : " collapsed"}`} dangerouslySetInnerHTML={{ __html: chevronIcon }} />
+        </button>
+        <div class={`sidebar-projects-collapsible${projectsOpen ? " open" : ""}`}>
+          <div class="sidebar-projects-list">
+            {projectList.value.map((p) => (
+              <div key={p.id} class="sidebar-project-wrap">
+                <button
+                  class={`sidebar-project-btn${currentProjectId.value === p.id ? " active" : ""}`}
+                  onClick={() => selectProject(p.id)}
+                  title={p.name}
+                >
+                  {p.name[0].toUpperCase()}
+                </button>
+                <button
+                  class="sidebar-project-delete"
+                  onClick={(e) => { e.stopPropagation(); openDeleteDialog(p.id); }}
+                  title="Delete project"
+                >
+                  &times;
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
         <button class="sidebar-add-btn" onClick={openWizard} title="New Project">+</button>
       </div>
