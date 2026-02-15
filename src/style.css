@@ -1,0 +1,69 @@
+:root {
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  color: #e0e0e0;
+  background-color: #0a1628;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+main {
+  text-align: center;
+  padding: 2rem;
+}
+
+.logo {
+  width: 120px;
+  height: 120px;
+  margin-bottom: 1rem;
+}
+
+h1 {
+  font-size: 2.5rem;
+  color: #dc2626;
+}
+
+.input-row {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+
+input {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1px solid #1e3a5f;
+  background: #0f2744;
+  color: #e0e0e0;
+  font-size: 1rem;
+}
+
+input:focus {
+  outline: none;
+  border-color: #2563eb;
+}
+
+button {
+  padding: 0.5rem 1.5rem;
+  border-radius: 6px;
+  border: none;
+  background: #dc2626;
+  color: white;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #b91c1c;
+}
+
+.greeting {
+  margin-top: 1.5rem;
+  font-size: 1.25rem;
+  color: #3b82f6;
+}
