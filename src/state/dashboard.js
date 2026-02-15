@@ -1,5 +1,6 @@
-import { computed } from "@preact/signals";
+import { signal, computed } from "@preact/signals";
 import { projectRuns } from "./experiments.js";
+import { currentProject } from "./projects.js";
 
 export const stats = computed(() => {
   const r = projectRuns.value;
@@ -25,3 +26,54 @@ export const stats = computed(() => {
     avgLoss,
   };
 });
+
+// ── SSH connection state ──
+
+export const sshConnected = signal(false);
+export const sshConnecting = signal(false);
+export const sshConnectedAt = signal(null);
+
+export const sshInfo = computed(() => {
+  const project = currentProject.value;
+  if (!project || !project.sshCommand) return null;
+
+  // Parse host from ssh command (e.g. "ssh user@host" → "user@host")
+  const parts = project.sshCommand.trim().split(/\s+/);
+  const target = parts.find((p) => p.includes("@")) || parts[parts.length - 1];
+
+  return {
+    command: project.sshCommand,
+    host: target,
+    connected: sshConnected.value,
+    connecting: sshConnecting.value,
+    connectedAt: sshConnectedAt.value,
+  };
+});
+
+export function toggleSshConnection() {
+  if (sshConnecting.value) return;
+  sshConnecting.value = true;
+
+  if (sshConnected.value) {
+    // Disconnecting
+    setTimeout(() => {
+      sshConnected.value = false;
+      sshConnectedAt.value = null;
+      sshConnecting.value = false;
+    }, 1500);
+  } else {
+    // Connecting
+    setTimeout(() => {
+      sshConnected.value = true;
+      sshConnectedAt.value = new Date().toISOString();
+      sshConnecting.value = false;
+    }, 2000);
+  }
+}
+
+// Mock: auto-connect projects that have an SSH command
+const project = currentProject.value;
+if (project?.sshCommand) {
+  sshConnected.value = true;
+  sshConnectedAt.value = new Date(Date.now() - 47 * 60000).toISOString();
+}

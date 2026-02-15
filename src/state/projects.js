@@ -192,6 +192,12 @@ export function wizardCreate() {
   closeWizard();
 }
 
+export function updateProject(id, fields) {
+  projectList.value = projectList.value.map((p) =>
+    p.id === id ? { ...p, ...fields } : p
+  );
+}
+
 export function selectProject(id) {
   currentProjectId.value = id;
 }

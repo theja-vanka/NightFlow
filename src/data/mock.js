@@ -1,9 +1,9 @@
 // Mock experiment data for NightForge dashboard
 
 export const projects = [
-  { id: "proj-1", name: "ImageNet Classifier", taskType: "Classification", datasetType: "Folder" },
-  { id: "proj-2", name: "COCO Detector", taskType: "Object Detection", datasetType: "JSONL" },
-  { id: "proj-3", name: "Street Segmenter", taskType: "Semantic Segmentation", datasetType: "Folder" },
+  { id: "proj-1", name: "ImageNet Classifier", taskType: "Classification", datasetType: "Folder", sshCommand: "ssh user@gpu-cluster-01.lab.ai" },
+  { id: "proj-2", name: "COCO Detector", taskType: "Object Detection", datasetType: "JSONL", sshCommand: "ssh admin@192.168.1.42" },
+  { id: "proj-3", name: "Street Segmenter", taskType: "Semantic Segmentation", datasetType: "Folder", sshCommand: "" },
 ];
 
 function generateLossCurve(epochs, startLoss, endLoss, noise = 0.05) {

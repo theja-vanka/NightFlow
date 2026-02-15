@@ -1,8 +1,59 @@
 import { SummaryCard } from "../components/SummaryCard.jsx";
 import { ChartPanel } from "../components/ChartPanel.jsx";
 import { LineChart } from "../components/LineChart.jsx";
-import { stats } from "../state/dashboard.js";
+import { stats, sshInfo, toggleSshConnection } from "../state/dashboard.js";
 import { projectRuns } from "../state/experiments.js";
+
+function SshStatusBanner() {
+  const info = sshInfo.value;
+  if (!info) return null;
+
+  const elapsed = info.connectedAt
+    ? Math.floor((Date.now() - new Date(info.connectedAt).getTime()) / 60000)
+    : 0;
+  const uptime = elapsed >= 60
+    ? `${Math.floor(elapsed / 60)}h ${elapsed % 60}m`
+    : `${elapsed}m`;
+
+  const bannerClass = info.connecting
+    ? "ssh-status-banner ssh-connecting"
+    : `ssh-status-banner ${info.connected ? "ssh-connected" : "ssh-disconnected"}`;
+
+  const statusLabel = info.connecting
+    ? (info.connected ? "Disconnecting…" : "Connecting…")
+    : (info.connected ? "Connected" : "Disconnected");
+
+  const buttonLabel = info.connected ? "Disconnect" : "Connect";
+
+  return (
+    <div class={bannerClass}>
+      {info.connecting ? (
+        <div class="ssh-status-spinner" />
+      ) : (
+        <div class="ssh-status-dot" />
+      )}
+      <div class="ssh-status-info">
+        <span class="ssh-status-label">{statusLabel}</span>
+        <span class="ssh-status-host">{info.host}</span>
+      </div>
+      {info.connected && !info.connecting && (
+        <span class="ssh-status-uptime">Uptime: {uptime}</span>
+      )}
+      <button
+        class={`ssh-toggle-btn ${info.connected && !info.connecting ? "ssh-toggle-disconnect" : ""}`}
+        onClick={toggleSshConnection}
+        disabled={info.connecting}
+      >
+        {info.connecting ? (
+          <svg class="ssh-btn-spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <path d="M12 2a10 10 0 0 1 10 10" />
+          </svg>
+        ) : null}
+        {info.connecting ? (info.connected ? "Disconnecting" : "Connecting") : buttonLabel}
+      </button>
+    </div>
+  );
+}
 
 const icons = {
   total: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>`,
@@ -20,6 +71,7 @@ export function DashboardView() {
 
   return (
     <div class="dashboard-view">
+      <SshStatusBanner />
       <div class="summary-grid">
         <SummaryCard label="Total Runs" value={s.totalRuns} icon={icons.total} />
         <SummaryCard label="Running" value={s.running} icon={icons.running} />

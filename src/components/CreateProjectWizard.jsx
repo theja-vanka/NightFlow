@@ -313,42 +313,43 @@ function StepTaskType() {
 
 // ── Model category preview data ──
 
+// Benchmarks: timm v0.9, ImageNet-1K, 224×224, V100 batch=1
 const MODEL_PREVIEWS = {
   Edge: {
-    speed: 92,
-    accuracy: 60,
+    speed: 95,
+    accuracy: 55,
     params: "2.5–11.7M",
-    latency: "0.8–3.2 ms",
-    flops: "0.06–1.8 GFLOPs",
+    latency: "1.0–3.5 ms",
+    gflops: "0.12–3.64 GMACs",
     target: "Mobile, IoT, Edge TPU",
-    topAcc: "67.7–77.1%",
+    topAcc: "67.7–77.7%",
   },
   Balanced: {
-    speed: 65,
-    accuracy: 78,
-    params: "9.1–28.3M",
-    latency: "3.5–12.4 ms",
-    flops: "1.8–4.5 GFLOPs",
+    speed: 62,
+    accuracy: 75,
+    params: "9.1–28.6M",
+    latency: "3.5–6.2 ms",
+    gflops: "1.1–4.5 GMACs",
     target: "API servers, desktop apps",
-    topAcc: "78.5–81.3%",
+    topAcc: "80.4–82.1%",
   },
   Cloud: {
-    speed: 38,
+    speed: 35,
     accuracy: 88,
-    params: "19.5–87.8M",
-    latency: "8.6–28.5 ms",
-    flops: "4.5–15.4 GFLOPs",
+    params: "19.3–88.6M",
+    latency: "5.8–12.5 ms",
+    gflops: "4.5–15.4 GMACs",
     target: "GPU servers, batch inference",
-    topAcc: "81.5–83.4%",
+    topAcc: "81.9–83.8%",
   },
   Research: {
-    speed: 22,
-    accuracy: 94,
+    speed: 25,
+    accuracy: 92,
     params: "22.1–86.6M",
-    latency: "12.8–45.2 ms",
-    flops: "4.6–17.6 GFLOPs",
+    latency: "3.2–5.5 ms",
+    gflops: "4.6–17.6 GMACs",
     target: "A100 / H100 GPUs",
-    topAcc: "81.2–85.2%",
+    topAcc: "81.4–85.2%",
   },
 };
 
@@ -386,8 +387,8 @@ function ModelPreview({ category }) {
           <span class="wizard-model-stat-label">Latency</span>
         </div>
         <div class="wizard-model-stat">
-          <span class="wizard-model-stat-value">{preview.flops}</span>
-          <span class="wizard-model-stat-label">FLOPs</span>
+          <span class="wizard-model-stat-value">{preview.gflops}</span>
+          <span class="wizard-model-stat-label">GMACs</span>
         </div>
         <div class="wizard-model-stat">
           <span class="wizard-model-stat-value">{preview.topAcc}</span>
