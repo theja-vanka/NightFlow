@@ -193,6 +193,80 @@ fn get_terminal_info(state: State<'_, PtyState>) -> std::collections::HashMap<St
     info
 }
 
+#[derive(serde::Serialize)]
+struct PathValidationResult {
+    valid: bool,
+    error: Option<String>,
+}
+
+#[command]
+fn validate_folder_path(path: String) -> PathValidationResult {
+    use std::path::Path;
+
+    let path_obj = Path::new(&path);
+
+    if !path_obj.exists() {
+        return PathValidationResult {
+            valid: false,
+            error: Some("Path does not exist".to_string()),
+        };
+    }
+
+    if !path_obj.is_dir() {
+        return PathValidationResult {
+            valid: false,
+            error: Some("Path is not a directory".to_string()),
+        };
+    }
+
+    PathValidationResult {
+        valid: true,
+        error: None,
+    }
+}
+
+#[command]
+fn validate_file_path(path: String, expected_extension: Option<String>) -> PathValidationResult {
+    use std::path::Path;
+
+    let path_obj = Path::new(&path);
+
+    if !path_obj.exists() {
+        return PathValidationResult {
+            valid: false,
+            error: Some("File does not exist".to_string()),
+        };
+    }
+
+    if !path_obj.is_file() {
+        return PathValidationResult {
+            valid: false,
+            error: Some("Path is not a file".to_string()),
+        };
+    }
+
+    if let Some(ext) = expected_extension {
+        if let Some(file_ext) = path_obj.extension() {
+            if file_ext.to_string_lossy().to_lowercase() != ext.to_lowercase() {
+                return PathValidationResult {
+                    valid: false,
+                    error: Some(format!("File must have .{} extension", ext)),
+                };
+            }
+        } else {
+            return PathValidationResult {
+                valid: false,
+                error: Some(format!("File must have .{} extension", ext)),
+            };
+        }
+    }
+
+    PathValidationResult {
+        valid: true,
+        error: None,
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .manage(PtyState {
@@ -216,6 +290,8 @@ fn main() {
             kill_terminal,
             is_terminal_alive,
             get_terminal_info,
+            validate_folder_path,
+            validate_file_path,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

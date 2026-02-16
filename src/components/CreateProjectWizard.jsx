@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import {
   wizardOpen,
   wizardStep,
@@ -15,6 +16,10 @@ import {
   DETECTION_ARCHS,
   SEG_HEAD_TYPES,
   DATASET_FORMATS,
+  folderPathError,
+  trainPathError,
+  valPathError,
+  testPathError,
 } from "../state/projects.js";
 
 // ── Step 0: SSH ──
@@ -761,9 +766,86 @@ function StructurePreview({ taskType, format }) {
 
 // ── Step 4: Dataset Format ──
 
+// Debounce timer
+let validationTimeout = null;
+
+async function validateFolderPath(path) {
+  if (!path || path.trim() === "") {
+    folderPathError.value = "";
+    return;
+  }
+
+  try {
+    const result = await invoke("validate_folder_path", { path: path.trim() });
+    folderPathError.value = result.valid ? "" : result.error;
+  } catch (err) {
+    folderPathError.value = "Failed to validate path";
+  }
+}
+
+async function validateFilePath(path, extension, errorSignal) {
+  if (!path || path.trim() === "") {
+    errorSignal.value = "";
+    return;
+  }
+
+  try {
+    const result = await invoke("validate_file_path", {
+      path: path.trim(),
+      expectedExtension: extension
+    });
+    errorSignal.value = result.valid ? "" : result.error;
+  } catch (err) {
+    errorSignal.value = "Failed to validate path";
+  }
+}
+
 function StepDataset() {
   const d = wizardData.value;
   const formats = DATASET_FORMATS[d.taskType] || [];
+  const isFolderFormat = d.datasetFormat === "Folder";
+  const isCsvOrJsonl = d.datasetFormat === "CSV" || d.datasetFormat === "JSONL";
+  const fileExtension = d.datasetFormat === "CSV" ? "csv" : d.datasetFormat === "JSONL" ? "jsonl" : null;
+
+  const handleFolderPathInput = (e) => {
+    const value = e.target.value;
+    wizardSetField("folderPath", value);
+
+    clearTimeout(validationTimeout);
+    validationTimeout = setTimeout(() => {
+      validateFolderPath(value);
+    }, 500);
+  };
+
+  const handleTrainPathInput = (e) => {
+    const value = e.target.value;
+    wizardSetField("trainPath", value);
+
+    clearTimeout(validationTimeout);
+    validationTimeout = setTimeout(() => {
+      validateFilePath(value, fileExtension, trainPathError);
+    }, 500);
+  };
+
+  const handleValPathInput = (e) => {
+    const value = e.target.value;
+    wizardSetField("valPath", value);
+
+    clearTimeout(validationTimeout);
+    validationTimeout = setTimeout(() => {
+      validateFilePath(value, fileExtension, valPathError);
+    }, 500);
+  };
+
+  const handleTestPathInput = (e) => {
+    const value = e.target.value;
+    wizardSetField("testPath", value);
+
+    clearTimeout(validationTimeout);
+    validationTimeout = setTimeout(() => {
+      validateFilePath(value, fileExtension, testPathError);
+    }, 500);
+  };
 
   return (
     <div>
@@ -775,7 +857,14 @@ function StepDataset() {
             <button
               key={f.id}
               class={`wizard-category${d.datasetFormat === f.id ? " selected" : ""}`}
-              onClick={() => wizardSetField("datasetFormat", f.id)}
+              onClick={() => {
+                wizardSetField("datasetFormat", f.id);
+                // Clear validation errors when changing format
+                folderPathError.value = "";
+                trainPathError.value = "";
+                valPathError.value = "";
+                testPathError.value = "";
+              }}
             >
               <span class="wizard-category-name">{f.label}</span>
               <span class="wizard-category-desc">{f.desc}</span>
@@ -786,6 +875,79 @@ function StepDataset() {
           <StructurePreview taskType={d.taskType} format={d.datasetFormat} />
         )}
       </div>
+      {isFolderFormat && (
+        <div class="wizard-folder-path-section">
+          <p class="wizard-sub-label">
+            Dataset Folder Path <span class="wizard-required-indicator">*</span>
+          </p>
+          <input
+            class="wizard-input wizard-input-mono"
+            type="text"
+            placeholder="/path/to/dataset"
+            value={d.folderPath}
+            onInput={handleFolderPathInput}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && wizardCanProceed.value && !folderPathError.value) wizardNext();
+            }}
+          />
+          {folderPathError.value && (
+            <div class="wizard-validation-error">{folderPathError.value}</div>
+          )}
+        </div>
+      )}
+      {isCsvOrJsonl && (
+        <div class="wizard-file-paths-section">
+          <p class="wizard-sub-label">Dataset File Paths</p>
+          <div class="wizard-file-path-group">
+            <label class="wizard-file-path-label">
+              Train <span class="wizard-required-indicator">*</span>
+            </label>
+            <input
+              class="wizard-input wizard-input-mono"
+              type="text"
+              placeholder={`/path/to/train.${fileExtension}`}
+              value={d.trainPath}
+              onInput={handleTrainPathInput}
+            />
+            {trainPathError.value && (
+              <div class="wizard-validation-error">{trainPathError.value}</div>
+            )}
+          </div>
+          <div class="wizard-file-path-group">
+            <label class="wizard-file-path-label">
+              Val <span class="wizard-optional-indicator">(optional)</span>
+            </label>
+            <input
+              class="wizard-input wizard-input-mono"
+              type="text"
+              placeholder={`/path/to/val.${fileExtension}`}
+              value={d.valPath}
+              onInput={handleValPathInput}
+            />
+            {valPathError.value && (
+              <div class="wizard-validation-error">{valPathError.value}</div>
+            )}
+          </div>
+          <div class="wizard-file-path-group">
+            <label class="wizard-file-path-label">
+              Test <span class="wizard-required-indicator">*</span>
+            </label>
+            <input
+              class="wizard-input wizard-input-mono"
+              type="text"
+              placeholder={`/path/to/test.${fileExtension}`}
+              value={d.testPath}
+              onInput={handleTestPathInput}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && wizardCanProceed.value && !trainPathError.value && !testPathError.value) wizardNext();
+              }}
+            />
+            {testPathError.value && (
+              <div class="wizard-validation-error">{testPathError.value}</div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -794,6 +956,8 @@ function StepDataset() {
 
 function StepConfirm() {
   const d = wizardData.value;
+  const isCsvOrJsonl = d.datasetFormat === "CSV" || d.datasetFormat === "JSONL";
+
   const rows = [
     ["SSH Command", d.sshCommand],
     ["Project Name", d.name],
@@ -802,6 +966,10 @@ function StepConfirm() {
     d.taskType === "Semantic Segmentation" ? ["Seg Head", d.segHeadType === "deeplabv3plus" ? "DeepLabV3+" : "FCN"] : null,
     ["Model Category", d.modelCategory],
     ["Dataset Format", d.datasetFormat],
+    d.datasetFormat === "Folder" && d.folderPath ? ["Folder Path", d.folderPath] : null,
+    isCsvOrJsonl && d.trainPath ? ["Train Path", d.trainPath] : null,
+    isCsvOrJsonl && d.valPath ? ["Val Path", d.valPath] : null,
+    isCsvOrJsonl && d.testPath ? ["Test Path", d.testPath] : null,
   ].filter(Boolean);
 
   return (

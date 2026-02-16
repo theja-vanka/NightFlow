@@ -1812,6 +1812,55 @@ select.wizard-input {
   margin-top: 12px;
 }
 
+.wizard-folder-path-section {
+  margin-top: 20px;
+}
+
+.wizard-folder-path-section .wizard-sub-label {
+  margin-bottom: 8px;
+}
+
+.wizard-file-paths-section {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.wizard-file-paths-section .wizard-sub-label {
+  margin-bottom: 12px;
+}
+
+.wizard-file-path-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wizard-file-path-label {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.wizard-required-indicator {
+  color: #e55555;
+  font-weight: 600;
+}
+
+.wizard-optional-indicator {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 400;
+}
+
+.wizard-validation-error {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: #e55555;
+  font-weight: 500;
+}
+
 .wizard-footer {
   display: flex;
   justify-content: space-between;

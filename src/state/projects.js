@@ -133,6 +133,10 @@ const defaultData = {
   segHeadType: "deeplabv3plus",
   datasetFormat: "",
   openSourceDataset: "",
+  folderPath: "",
+  trainPath: "",
+  valPath: "",
+  testPath: "",
 };
 
 export const STEP_COUNT = 6;
@@ -140,6 +144,12 @@ export const STEP_COUNT = 6;
 export const wizardOpen = signal(false);
 export const wizardStep = signal(0);
 export const wizardData = signal({ ...defaultData });
+
+// Path validation error signals
+export const folderPathError = signal("");
+export const trainPathError = signal("");
+export const valPathError = signal("");
+export const testPathError = signal("");
 
 export const STEP_LABELS = [
   "SSH",
@@ -157,7 +167,22 @@ export const wizardCanProceed = computed(() => {
   if (step === 1) return d.name.trim().length > 0;
   if (step === 2) return d.taskType !== "";
   if (step === 3) return d.modelCategory !== "";
-  if (step === 4) return d.datasetFormat !== "";
+  if (step === 4) {
+    if (!d.datasetFormat) return false;
+    // For Folder format, require folder path and check validation
+    if (d.datasetFormat === "Folder") {
+      return d.folderPath.trim().length > 0 && folderPathError.value === "";
+    }
+    // For CSV and JSONL, require train and test paths (val is optional) and check validation
+    if (d.datasetFormat === "CSV" || d.datasetFormat === "JSONL") {
+      const hasRequiredPaths = d.trainPath.trim().length > 0 && d.testPath.trim().length > 0;
+      const noErrors = trainPathError.value === "" && testPathError.value === "";
+      // Val is optional, only check if it's filled
+      const valValid = d.valPath.trim() === "" || valPathError.value === "";
+      return hasRequiredPaths && noErrors && valValid;
+    }
+    return true;
+  }
   if (step === 5) return true;
   return false;
 });
@@ -166,10 +191,20 @@ export function openWizard() {
   wizardData.value = { ...defaultData };
   wizardStep.value = 0;
   wizardOpen.value = true;
+  // Reset validation errors
+  folderPathError.value = "";
+  trainPathError.value = "";
+  valPathError.value = "";
+  testPathError.value = "";
 }
 
 export function closeWizard() {
   wizardOpen.value = false;
+  // Reset validation errors
+  folderPathError.value = "";
+  trainPathError.value = "";
+  valPathError.value = "";
+  testPathError.value = "";
 }
 
 export function wizardNext() {
@@ -212,6 +247,10 @@ export function wizardCreate() {
     detectionArch: d.detectionArch,
     segHeadType: d.segHeadType,
     datasetFormat: d.datasetFormat,
+    folderPath: d.folderPath.trim(),
+    trainPath: d.trainPath.trim(),
+    valPath: d.valPath.trim(),
+    testPath: d.testPath.trim(),
   };
   addProject(project);
   closeWizard();
