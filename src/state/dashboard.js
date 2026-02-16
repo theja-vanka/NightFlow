@@ -33,14 +33,28 @@ export const stats = computed(() => {
 // Real state: driven by whether the terminal PTY is alive with an SSH command
 
 export const sshConnected = signal(false);
+export const sshConnecting = signal(false);
 export const sshConnectedAt = signal(null);
+export const shouldAutoConnect = signal(false);
 
 export const sshInfo = computed(() => {
   const project = currentProject.value;
   if (!project || !project.sshCommand) return null;
 
+  const cmd = project.sshCommand.trim();
+
+  // Handle localhost specially
+  if (cmd.toLowerCase() === "localhost") {
+    return {
+      command: "localhost",
+      host: "localhost",
+      connected: sshConnected.value,
+      connectedAt: sshConnectedAt.value,
+    };
+  }
+
   // Parse host from ssh command (e.g. "ssh user@host" → "user@host")
-  const parts = project.sshCommand.trim().split(/\s+/);
+  const parts = cmd.split(/\s+/);
   const target = parts.find((p) => p.includes("@")) || parts[parts.length - 1];
 
   return {
@@ -62,11 +76,43 @@ export function setSshConnected(connected) {
 
 export async function toggleSshConnection() {
   if (sshConnected.value) {
-    // Disconnect: kill the terminal
-    await invoke("kill_terminal");
+    // Disconnect: kill the terminal and reset state
+    sshConnecting.value = true;
+    try {
+      await invoke("kill_terminal");
+    } catch (err) {
+      console.error("Error killing terminal:", err);
+    }
     setSshConnected(false);
+    shouldAutoConnect.value = false;
+    sshConnecting.value = false;
   } else {
-    // Connect: navigate to terminal page — it will auto-spawn SSH
-    navigate("terminal");
+    // Connect: spawn terminal in background
+    sshConnecting.value = true;
+    shouldAutoConnect.value = true;
+
+    try {
+      const project = currentProject.value;
+      if (!project) {
+        sshConnecting.value = false;
+        return;
+      }
+
+      const rawSsh = project.sshCommand;
+      const sshCommand = rawSsh && rawSsh.trim() && rawSsh.trim().toLowerCase() !== "localhost"
+        ? rawSsh.trim()
+        : null;
+
+      const spawnArgs = { rows: 24, cols: 80 };
+      if (sshCommand) spawnArgs.sshCommand = sshCommand;
+
+      await invoke("spawn_terminal", spawnArgs);
+      setSshConnected(true);
+      sshConnecting.value = false;
+    } catch (err) {
+      console.error("Failed to spawn terminal:", err);
+      sshConnecting.value = false;
+      shouldAutoConnect.value = false;
+    }
   }
 }

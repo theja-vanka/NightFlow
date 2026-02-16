@@ -1,6 +1,8 @@
 import { useEffect } from "preact/hooks";
 import { invoke } from "@tauri-apps/api/core";
 import { currentPage } from "./state/router.js";
+import { projectList, loadProjects } from "./state/projects.js";
+import { loadRuns } from "./state/experiments.js";
 import { Sidebar } from "./components/Sidebar.jsx";
 import { Header } from "./components/Header.jsx";
 import { DashboardView } from "./views/DashboardView.jsx";
@@ -16,6 +18,7 @@ import "./state/theme.js";
 import "./state/projects.js";
 import { CreateProjectWizard } from "./components/CreateProjectWizard.jsx";
 import { DeleteProjectDialog } from "./components/DeleteProjectDialog.jsx";
+import { EmptyProjectsScreen } from "./components/EmptyProjectsScreen.jsx";
 
 function CurrentView() {
   switch (currentPage.value) {
@@ -40,23 +43,36 @@ function CurrentView() {
 
 export function App() {
   useEffect(() => {
+    // Load data from database
+    loadProjects();
+    loadRuns();
+
+    // Close splash screen after delay
     const timer = setTimeout(() => {
       invoke("close_splash");
     }, 2000);
     return () => clearTimeout(timer);
   }, []);
 
+  const hasProjects = projectList.value.length > 0;
+
   return (
-    <div class="app-shell">
-      <Sidebar />
-      <div class="app-main">
-        <Header />
-        <div class="app-content">
-          <CurrentView />
+    <>
+      {!hasProjects ? (
+        <EmptyProjectsScreen />
+      ) : (
+        <div class="app-shell">
+          <Sidebar />
+          <div class="app-main">
+            <Header />
+            <div class="app-content">
+              <CurrentView />
+            </div>
+          </div>
         </div>
-      </div>
+      )}
       <CreateProjectWizard />
       <DeleteProjectDialog />
-    </div>
+    </>
   );
 }

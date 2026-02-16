@@ -7,7 +7,7 @@ import { WebglAddon } from "@xterm/addon-webgl";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { theme } from "../state/theme.js";
 import { currentProject } from "../state/projects.js";
-import { setSshConnected } from "../state/dashboard.js";
+import { setSshConnected, shouldAutoConnect, sshConnecting } from "../state/dashboard.js";
 
 const darkTheme = {
   background: "#0f0f1a",
@@ -70,15 +70,15 @@ const clearIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" s
 // ── Persistent module-level state ──
 // The terminal instance, addons, and PTY event listeners survive
 // across page navigations so scrollback and session are preserved.
-let persistent = null; // { term, fit, onData, onResize, unlistenOutput, unlistenExit, info, alive, sshCommand }
+let persistent = null; // { term, fit, onData, onResize, unlistenOutput, unlistenExit, info, alive, sshCommand, isProjectConnection }
 
-async function createPersistentTerminal(container, sshCommand = null) {
+async function createPersistentTerminal(container, sshCommand = null, isProjectConnection = false, autoConnect = false) {
 
   const term = new Terminal({
     fontSize: 13,
     fontFamily: '"Hack Nerd Font Mono", "SF Mono", "Fira Code", "Cascadia Code", "Menlo", "Consolas", monospace',
-    cursorBlink: true,
-    cursorStyle: "bar",
+    cursorBlink: false,
+    cursorStyle: "block",
     scrollback: 10000,
     allowProposedApi: true,
     macOptionIsMeta: true,
@@ -98,6 +98,7 @@ async function createPersistentTerminal(container, sshCommand = null) {
     info: null,
     alive: true,
     sshCommand,
+    isProjectConnection,
     onData: null,
     onResize: null,
     unlistenOutput: null,
@@ -113,18 +114,36 @@ async function createPersistentTerminal(container, sshCommand = null) {
 
   state.unlistenExit = await listen("pty-exit", () => {
     state.alive = false;
-    if (sshCommand) setSshConnected(false);
+    if (isProjectConnection) setSshConnected(false);
     if (state.onAliveChange) state.onAliveChange(false);
     term.writeln("\r\n\x1b[2m[Process exited — press Restart to relaunch]\x1b[0m");
   });
 
   try {
-    const spawnArgs = { rows: term.rows, cols: term.cols };
-    if (sshCommand) spawnArgs.sshCommand = sshCommand;
-    await invoke("spawn_terminal", spawnArgs);
-    if (sshCommand) setSshConnected(true);
+    // Check if terminal info exists (PTY already spawned)
+    const existingInfo = await invoke("get_terminal_info").catch(() => null);
+
+    if (!existingInfo) {
+      // No existing PTY, spawn new one
+      const spawnArgs = { rows: term.rows, cols: term.cols };
+      if (sshCommand) spawnArgs.sshCommand = sshCommand;
+      await invoke("spawn_terminal", spawnArgs);
+      // Only set connected if user explicitly requested connection (autoConnect)
+      // OR if this is a remote SSH connection (not localhost)
+      if (isProjectConnection && (autoConnect || sshCommand)) {
+        setSshConnected(true);
+      }
+    } else {
+      // PTY already exists (spawned in background), just connect UI
+      term.writeln("\r\n\x1b[32m[Connected to existing session]\x1b[0m\r\n");
+    }
+
+    // Clear connecting state on success
+    sshConnecting.value = false;
   } catch (err) {
     term.writeln(`\r\n\x1b[31mFailed to spawn terminal: ${err}\x1b[0m`);
+    // Clear connecting state on error
+    sshConnecting.value = false;
   }
 
   // Fetch terminal info after spawn (includes SSH state)
@@ -161,9 +180,10 @@ export function TerminalView() {
   const [alive, setAlive] = useState(true);
   const [info, setInfo] = useState(null);
 
-  // Get the current project's SSH command — normalize empty/missing to null (= localhost)
+  // Get the current project's SSH command — normalize empty/missing/localhost to null (= local terminal)
   const rawSsh = currentProject.value?.sshCommand;
-  const projectSshCommand = rawSsh && rawSsh.trim() ? rawSsh.trim() : null;
+  const projectSshCommand = rawSsh && rawSsh.trim() && rawSsh.trim().toLowerCase() !== "localhost" ? rawSsh.trim() : null;
+  const hasProject = !!currentProject.value;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -182,11 +202,17 @@ export function TerminalView() {
 
       if (!persistent) {
         // First time or after restart — create the terminal
-        const state = await createPersistentTerminal(container, projectSshCommand);
+        const autoConnect = shouldAutoConnect.value;
+        const state = await createPersistentTerminal(container, projectSshCommand, hasProject, autoConnect);
         if (cancelled) return;
         setInfo(state.info);
         setAlive(state.alive);
         setDims({ cols: state.term.cols, rows: state.term.rows });
+
+        // Clear auto-connect flag after successful spawn
+        if (autoConnect) {
+          shouldAutoConnect.value = false;
+        }
       } else {
         // Reattach existing terminal to this container
         const termEl = persistent.term.element;
@@ -243,9 +269,11 @@ export function TerminalView() {
     await invoke("kill_terminal");
     setAlive(false);
     if (persistent) {
-      if (persistent.sshCommand) setSshConnected(false);
+      if (persistent.isProjectConnection) setSshConnected(false);
       persistent.alive = false;
       persistent.term.writeln("\r\n\x1b[2m[Terminal killed]\x1b[0m");
+      // Destroy persistent terminal to ensure fresh start on reconnect
+      destroyPersistentTerminal();
     }
   }
 
@@ -256,7 +284,8 @@ export function TerminalView() {
     if (!container) return;
     // Clear stale DOM
     container.innerHTML = "";
-    const state = await createPersistentTerminal(container, projectSshCommand);
+    const autoConnect = shouldAutoConnect.value;
+    const state = await createPersistentTerminal(container, projectSshCommand, hasProject, autoConnect);
     setInfo(state.info);
     setAlive(state.alive);
     setDims({ cols: state.term.cols, rows: state.term.rows });

@@ -1,6 +1,7 @@
 import { useState } from "preact/hooks";
 import { currentPage, navigate } from "../state/router.js";
 import { projectList, currentProjectId, selectProject, openWizard, openDeleteDialog } from "../state/projects.js";
+import { sshConnected, shouldAutoConnect } from "../state/dashboard.js";
 
 const navItems = [
   {
@@ -45,13 +46,21 @@ const chevronIcon = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none"
 export function Sidebar() {
   const [projectsOpen, setProjectsOpen] = useState(true);
 
+  // Filter navigation items - only show terminal when connected or pending connection
+  const visibleNavItems = navItems.filter((item) => {
+    if (item.id === "terminal") {
+      return sshConnected.value || shouldAutoConnect.value;
+    }
+    return true;
+  });
+
   return (
     <nav class="sidebar">
       <div class="sidebar-logo">
         <img src="/assets/image.png" alt="NightForge" width="28" height="28" />
       </div>
       <div class="sidebar-nav">
-        {navItems.map((item) => (
+        {visibleNavItems.map((item) => (
           <button
             key={item.id}
             class={`sidebar-btn${currentPage.value === item.id ? " active" : ""}`}

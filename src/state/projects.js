@@ -1,8 +1,26 @@
 import { signal, computed } from "@preact/signals";
-import { projects as mockProjects } from "../data/mock.js";
+import {
+  getAllProjects,
+  saveProject,
+  updateProject as dbUpdateProject,
+  deleteProject as dbDeleteProject,
+} from "../db/database.js";
 
-export const projectList = signal([...mockProjects]);
-export const currentProjectId = signal(mockProjects[0].id);
+export const projectList = signal([]);
+export const currentProjectId = signal(null);
+
+// Load projects from database on initialization
+export async function loadProjects() {
+  try {
+    const projects = await getAllProjects();
+    projectList.value = projects;
+    if (projects.length > 0 && !currentProjectId.value) {
+      currentProjectId.value = projects[0].id;
+    }
+  } catch (error) {
+    console.error("Failed to load projects:", error);
+  }
+}
 
 export const currentProject = computed(() =>
   projectList.value.find((p) => p.id === currentProjectId.value) || null
@@ -106,7 +124,8 @@ export const OPENSOURCE_DATASETS = {
 // ── Wizard state ──
 
 const defaultData = {
-  sshCommand: "",
+  connectionType: "localhost",
+  sshCommand: "localhost",
   name: "",
   taskType: "Classification",
   modelCategory: "",
@@ -170,9 +189,15 @@ export function wizardSetField(field, value) {
   wizardData.value = { ...wizardData.value, [field]: value };
 }
 
-export function addProject(project) {
-  projectList.value = [...projectList.value, project];
-  currentProjectId.value = project.id;
+export async function addProject(project) {
+  try {
+    await saveProject(project);
+    projectList.value = [...projectList.value, project];
+    currentProjectId.value = project.id;
+  } catch (error) {
+    console.error("Failed to save project:", error);
+    throw error;
+  }
 }
 
 export function wizardCreate() {
@@ -192,10 +217,16 @@ export function wizardCreate() {
   closeWizard();
 }
 
-export function updateProject(id, fields) {
-  projectList.value = projectList.value.map((p) =>
-    p.id === id ? { ...p, ...fields } : p
-  );
+export async function updateProject(id, fields) {
+  try {
+    await dbUpdateProject(id, fields);
+    projectList.value = projectList.value.map((p) =>
+      p.id === id ? { ...p, ...fields } : p
+    );
+  } catch (error) {
+    console.error("Failed to update project:", error);
+    throw error;
+  }
 }
 
 export function selectProject(id) {
@@ -228,13 +259,19 @@ export function closeDeleteDialog() {
   deleteConfirmText.value = "";
 }
 
-export function confirmDeleteProject() {
+export async function confirmDeleteProject() {
   if (!deleteConfirmed.value) return;
   const id = deleteTargetId.value;
-  const list = projectList.value.filter((p) => p.id !== id);
-  projectList.value = list;
-  if (currentProjectId.value === id && list.length > 0) {
-    currentProjectId.value = list[0].id;
+  try {
+    await dbDeleteProject(id);
+    const list = projectList.value.filter((p) => p.id !== id);
+    projectList.value = list;
+    if (currentProjectId.value === id) {
+      currentProjectId.value = list.length > 0 ? list[0].id : null;
+    }
+    closeDeleteDialog();
+  } catch (error) {
+    console.error("Failed to delete project:", error);
+    throw error;
   }
-  closeDeleteDialog();
 }

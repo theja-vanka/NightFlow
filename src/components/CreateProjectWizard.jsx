@@ -20,21 +20,64 @@ import {
 // ── Step 0: SSH ──
 
 function StepSSH() {
+  const isRemote = wizardData.value.connectionType === "remote";
+
   return (
     <div>
       <p class="wizard-step-title">Connect to Instance</p>
-      <p class="wizard-step-desc">Paste the SSH command to connect to your remote instance, or leave empty for localhost.</p>
-      <input
-        class="wizard-input wizard-input-mono"
-        type="text"
-        placeholder="localhost (default)"
-        value={wizardData.value.sshCommand}
-        onInput={(e) => wizardSetField("sshCommand", e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && wizardCanProceed.value) wizardNext();
-        }}
-        autoFocus
-      />
+      <p class="wizard-step-desc">Choose where to run your training.</p>
+
+      <div class="wizard-radio-group">
+        <label class={`wizard-radio-option ${!isRemote ? "selected" : ""}`}>
+          <input
+            type="radio"
+            name="connectionType"
+            value="localhost"
+            checked={!isRemote}
+            onChange={() => {
+              wizardSetField("connectionType", "localhost");
+              wizardSetField("sshCommand", "localhost");
+            }}
+          />
+          <div class="wizard-radio-content">
+            <span class="wizard-radio-label">Localhost</span>
+            <span class="wizard-radio-desc">Run on this machine</span>
+          </div>
+        </label>
+
+        <label class={`wizard-radio-option ${isRemote ? "selected" : ""}`}>
+          <input
+            type="radio"
+            name="connectionType"
+            value="remote"
+            checked={isRemote}
+            onChange={() => {
+              wizardSetField("connectionType", "remote");
+              wizardSetField("sshCommand", "");
+            }}
+          />
+          <div class="wizard-radio-content">
+            <span class="wizard-radio-label">Remote Instance</span>
+            <span class="wizard-radio-desc">Connect via SSH</span>
+          </div>
+        </label>
+      </div>
+
+      {isRemote && (
+        <div class="wizard-ssh-input-section">
+          <input
+            class="wizard-input wizard-input-mono"
+            type="text"
+            placeholder="ssh user@gpu-server.example.com"
+            value={wizardData.value.sshCommand}
+            onInput={(e) => wizardSetField("sshCommand", e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && wizardCanProceed.value) wizardNext();
+            }}
+            autoFocus
+          />
+        </div>
+      )}
     </div>
   );
 }

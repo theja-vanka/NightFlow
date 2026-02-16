@@ -13,6 +13,15 @@ export function DeleteProjectDialog() {
   const project = deleteTarget.value;
   if (!project) return null;
 
+  const handleDelete = async () => {
+    try {
+      await confirmDeleteProject();
+    } catch (error) {
+      console.error("Error deleting project:", error);
+      // Could show an error message to user here
+    }
+  };
+
   return (
     <div class="wizard-overlay" onClick={(e) => { if (e.target === e.currentTarget) closeDeleteDialog(); }}>
       <div class="delete-dialog">
@@ -34,7 +43,7 @@ export function DeleteProjectDialog() {
             value={deleteConfirmText.value}
             onInput={(e) => { deleteConfirmText.value = e.target.value; }}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && deleteConfirmed.value) confirmDeleteProject();
+              if (e.key === "Enter" && deleteConfirmed.value) handleDelete();
             }}
             autoFocus
           />
@@ -46,7 +55,7 @@ export function DeleteProjectDialog() {
           <button
             class="wizard-btn wizard-btn-danger"
             disabled={!deleteConfirmed.value}
-            onClick={confirmDeleteProject}
+            onClick={handleDelete}
           >
             Delete
           </button>

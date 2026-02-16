@@ -1,8 +1,58 @@
 import { signal, computed } from "@preact/signals";
-import { runs } from "../data/mock.js";
 import { currentProjectId } from "./projects.js";
+import {
+  getAllRuns,
+  saveRun,
+  updateRun as dbUpdateRun,
+  deleteRun as dbDeleteRun,
+} from "../db/database.js";
 
-export const allRuns = signal(runs);
+export const allRuns = signal([]);
+
+// Load runs from database on initialization
+export async function loadRuns() {
+  try {
+    const runs = await getAllRuns();
+    allRuns.value = runs;
+  } catch (error) {
+    console.error("Failed to load runs:", error);
+  }
+}
+
+// Add a new run
+export async function addRun(run) {
+  try {
+    await saveRun(run);
+    allRuns.value = [...allRuns.value, run];
+  } catch (error) {
+    console.error("Failed to save run:", error);
+    throw error;
+  }
+}
+
+// Update an existing run
+export async function updateRun(id, updates) {
+  try {
+    await dbUpdateRun(id, updates);
+    allRuns.value = allRuns.value.map((r) =>
+      r.id === id ? { ...r, ...updates } : r
+    );
+  } catch (error) {
+    console.error("Failed to update run:", error);
+    throw error;
+  }
+}
+
+// Delete a run
+export async function deleteRun(id) {
+  try {
+    await dbDeleteRun(id);
+    allRuns.value = allRuns.value.filter((r) => r.id !== id);
+  } catch (error) {
+    console.error("Failed to delete run:", error);
+    throw error;
+  }
+}
 
 export const projectRuns = computed(() =>
   allRuns.value.filter((r) => r.projectId === currentProjectId.value)

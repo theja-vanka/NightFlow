@@ -1,11 +1,9 @@
 import { SummaryCard } from "../components/SummaryCard.jsx";
-import { ChartPanel } from "../components/ChartPanel.jsx";
-import { LineChart } from "../components/LineChart.jsx";
-import { stats, sshInfo, toggleSshConnection } from "../state/dashboard.js";
-import { projectRuns } from "../state/experiments.js";
+import { stats, sshInfo, toggleSshConnection, sshConnecting } from "../state/dashboard.js";
 
 function SshStatusBanner() {
   const info = sshInfo.value;
+  const connecting = sshConnecting.value;
   if (!info) return null;
 
   const elapsed = info.connectedAt
@@ -15,24 +13,36 @@ function SshStatusBanner() {
     ? `${Math.floor(elapsed / 60)}h ${elapsed % 60}m`
     : `${elapsed}m`;
 
-  const bannerClass = `ssh-status-banner ${info.connected ? "ssh-connected" : "ssh-disconnected"}`;
-  const statusLabel = info.connected ? "Connected" : "Disconnected";
-  const buttonLabel = info.connected ? "Disconnect" : "Connect";
+  const bannerClass = `ssh-status-banner ${
+    connecting ? "ssh-connecting" : info.connected ? "ssh-connected" : "ssh-disconnected"
+  }`;
+  const statusLabel = connecting ? "Connecting..." : info.connected ? "Connected" : "Disconnected";
+  const buttonLabel = connecting ? "Connecting..." : info.connected ? "Disconnect" : "Connect";
 
   return (
     <div class={bannerClass}>
-      <div class="ssh-status-dot" />
+      {connecting ? (
+        <div class="ssh-status-spinner" />
+      ) : (
+        <div class="ssh-status-dot" />
+      )}
       <div class="ssh-status-info">
         <span class="ssh-status-label">{statusLabel}</span>
         <span class="ssh-status-host">{info.host}</span>
       </div>
-      {info.connected && (
+      {info.connected && !connecting && (
         <span class="ssh-status-uptime">Uptime: {uptime}</span>
       )}
       <button
         class={`ssh-toggle-btn ${info.connected ? "ssh-toggle-disconnect" : ""}`}
         onClick={toggleSshConnection}
+        disabled={connecting}
       >
+        {connecting && (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="ssh-btn-spinner">
+            <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+          </svg>
+        )}
         {buttonLabel}
       </button>
     </div>
@@ -48,10 +58,6 @@ const icons = {
 
 export function DashboardView() {
   const s = stats.value;
-  const runs = projectRuns.value;
-
-  // Pick top 3 completed runs for charts
-  const completed = runs.filter((r) => r.status === "completed").slice(0, 3);
 
   return (
     <div class="dashboard-view">
@@ -61,20 +67,6 @@ export function DashboardView() {
         <SummaryCard label="Running" value={s.running} icon={icons.running} />
         <SummaryCard label="Best Accuracy" value={s.bestAcc != null ? (s.bestAcc * 100).toFixed(1) + "%" : "—"} icon={icons.accuracy} />
         <SummaryCard label="Avg Val Loss" value={s.avgLoss != null ? s.avgLoss.toFixed(4) : "—"} icon={icons.loss} />
-      </div>
-      <div class="chart-grid-2">
-        <ChartPanel title="Training Loss">
-          <LineChart
-            series={completed.map((r) => ({ label: r.id, data: r.lossCurve }))}
-            yLabel="Loss"
-          />
-        </ChartPanel>
-        <ChartPanel title="Accuracy">
-          <LineChart
-            series={completed.map((r) => ({ label: r.id, data: r.accCurve }))}
-            yLabel="Acc"
-          />
-        </ChartPanel>
       </div>
     </div>
   );

@@ -69,11 +69,16 @@ export function SettingsView() {
     setSaved(false);
   }
 
-  function handleSave() {
-    updateProject(proj.id, { ...draft });
-    setSaved(true);
-    clearTimeout(savedTimer.current);
-    savedTimer.current = setTimeout(() => setSaved(false), 2000);
+  async function handleSave() {
+    try {
+      await updateProject(proj.id, { ...draft });
+      setSaved(true);
+      clearTimeout(savedTimer.current);
+      savedTimer.current = setTimeout(() => setSaved(false), 2000);
+    } catch (error) {
+      console.error("Error saving project:", error);
+      // Could show an error message to user here
+    }
   }
 
   function handleDiscard() {
