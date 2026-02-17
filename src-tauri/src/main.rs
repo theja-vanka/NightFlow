@@ -27,6 +27,15 @@ fn close_splash(app: tauri::AppHandle) {
     }
 }
 
+fn expand_tilde(path: &str) -> String {
+    if path.starts_with('~') {
+        if let Ok(home) = std::env::var("HOME") {
+            return path.replacen('~', &home, 1);
+        }
+    }
+    path.to_string()
+}
+
 #[command]
 fn spawn_terminal(
     app: tauri::AppHandle,
@@ -34,6 +43,7 @@ fn spawn_terminal(
     rows: Option<u16>,
     cols: Option<u16>,
     ssh_command: Option<String>,
+    cwd: Option<String>,
 ) -> Result<(), String> {
     // If already running, skip
     if *state.alive.lock().unwrap() {
@@ -70,6 +80,13 @@ fn spawn_terminal(
         cmd.arg("-l");
         cmd.env("TERM", "xterm-256color");
         cmd.env("COLORTERM", "truecolor");
+        // Set working directory for local shells
+        if let Some(ref dir) = cwd {
+            let expanded = expand_tilde(dir);
+            if !expanded.is_empty() {
+                cmd.cwd(&expanded);
+            }
+        }
         cmd
     };
 

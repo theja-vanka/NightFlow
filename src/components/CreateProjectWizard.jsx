@@ -25,60 +25,54 @@ import {
 // ── Step 0: SSH ──
 
 function StepSSH() {
-  const isRemote = wizardData.value.connectionType === "remote";
+  const d = wizardData.value;
+  const isRemote = d.connectionType === "remote";
+
+  const connectionTypes = [
+    { id: "localhost", label: "Localhost", desc: "Run on this machine" },
+    { id: "remote", label: "Remote Instance", desc: "Connect via SSH" },
+  ];
 
   return (
     <div>
       <p class="wizard-step-title">Connect to Instance</p>
       <p class="wizard-step-desc">Choose where to run your training.</p>
 
-      <div class="wizard-radio-group">
-        <label class={`wizard-radio-option ${!isRemote ? "selected" : ""}`}>
-          <input
-            type="radio"
-            name="connectionType"
-            value="localhost"
-            checked={!isRemote}
-            onChange={() => {
-              wizardSetField("connectionType", "localhost");
-              wizardSetField("sshCommand", "localhost");
+      <div class="wizard-category-list">
+        {connectionTypes.map((type) => (
+          <button
+            key={type.id}
+            class={`wizard-category${d.connectionType === type.id ? " selected" : ""}`}
+            onClick={() => {
+              wizardSetField("connectionType", type.id);
+              if (type.id === "localhost") {
+                wizardSetField("sshCommand", "localhost");
+              } else {
+                wizardSetField("sshCommand", "");
+              }
             }}
-          />
-          <div class="wizard-radio-content">
-            <span class="wizard-radio-label">Localhost</span>
-            <span class="wizard-radio-desc">Run on this machine</span>
-          </div>
-        </label>
-
-        <label class={`wizard-radio-option ${isRemote ? "selected" : ""}`}>
-          <input
-            type="radio"
-            name="connectionType"
-            value="remote"
-            checked={isRemote}
-            onChange={() => {
-              wizardSetField("connectionType", "remote");
-              wizardSetField("sshCommand", "");
-            }}
-          />
-          <div class="wizard-radio-content">
-            <span class="wizard-radio-label">Remote Instance</span>
-            <span class="wizard-radio-desc">Connect via SSH</span>
-          </div>
-        </label>
+          >
+            <span class="wizard-category-name">{type.label}</span>
+            <span class="wizard-category-desc">{type.desc}</span>
+          </button>
+        ))}
       </div>
 
       {isRemote && (
         <div class="wizard-ssh-input-section">
+          <p class="wizard-sub-label">
+            SSH Command <span class="wizard-required-indicator">*</span>
+          </p>
           <input
             class="wizard-input wizard-input-mono"
             type="text"
             placeholder="ssh user@gpu-server.example.com"
-            value={wizardData.value.sshCommand}
+            value={d.sshCommand}
             onInput={(e) => wizardSetField("sshCommand", e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && wizardCanProceed.value) wizardNext();
             }}
+            autoComplete="off"
             autoFocus
           />
         </div>
@@ -90,6 +84,30 @@ function StepSSH() {
 // ── Step 1: Name ──
 
 function StepName() {
+  const d = wizardData.value;
+
+  // Sanitize project name for use in file path
+  const sanitizeName = (name) => {
+    return name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric chars with hyphens
+      .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
+  };
+
+  const handleNameInput = (e) => {
+    const name = e.target.value;
+    wizardSetField("name", name);
+
+    // Auto-update project path based on name
+    if (name.trim()) {
+      const sanitized = sanitizeName(name);
+      wizardSetField("projectPath", `~/NightForge/projects/${sanitized}`);
+    } else {
+      wizardSetField("projectPath", "~/NightForge/projects");
+    }
+  };
+
   return (
     <div>
       <p class="wizard-step-title">Project Name</p>
@@ -98,13 +116,30 @@ function StepName() {
         class="wizard-input"
         type="text"
         placeholder="e.g. ImageNet Classifier"
-        value={wizardData.value.name}
-        onInput={(e) => wizardSetField("name", e.target.value)}
+        value={d.name}
+        onInput={handleNameInput}
         onKeyDown={(e) => {
           if (e.key === "Enter" && wizardCanProceed.value) wizardNext();
         }}
+        autoComplete="off"
         autoFocus
       />
+
+      <div class="wizard-project-path-section">
+        <p class="wizard-sub-label">
+          Project Path <span class="wizard-optional-indicator">(optional)</span>
+        </p>
+        <input
+          class="wizard-input wizard-input-mono"
+          type="text"
+          placeholder="~/NightForge/projects"
+          value={d.projectPath}
+          onInput={(e) => wizardSetField("projectPath", e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && wizardCanProceed.value) wizardNext();
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -803,8 +838,8 @@ async function validateFilePath(path, extension, errorSignal) {
 function StepDataset() {
   const d = wizardData.value;
   const formats = DATASET_FORMATS[d.taskType] || [];
-  const isFolderFormat = d.datasetFormat === "Folder";
   const isCsvOrJsonl = d.datasetFormat === "CSV" || d.datasetFormat === "JSONL";
+  const needsFolderPath = d.datasetFormat && !isCsvOrJsonl; // All formats except CSV/JSONL need folder path
   const fileExtension = d.datasetFormat === "CSV" ? "csv" : d.datasetFormat === "JSONL" ? "jsonl" : null;
 
   const handleFolderPathInput = (e) => {
@@ -875,7 +910,7 @@ function StepDataset() {
           <StructurePreview taskType={d.taskType} format={d.datasetFormat} />
         )}
       </div>
-      {isFolderFormat && (
+      {needsFolderPath && (
         <div class="wizard-folder-path-section">
           <p class="wizard-sub-label">
             Dataset Folder Path <span class="wizard-required-indicator">*</span>
@@ -961,6 +996,7 @@ function StepConfirm() {
   const rows = [
     ["SSH Command", d.sshCommand],
     ["Project Name", d.name],
+    d.projectPath ? ["Project Path", d.projectPath] : null,
     ["Task Type", d.taskType],
     d.taskType === "Object Detection" ? ["Detection Arch", d.detectionArch.toUpperCase()] : null,
     d.taskType === "Semantic Segmentation" ? ["Seg Head", d.segHeadType === "deeplabv3plus" ? "DeepLabV3+" : "FCN"] : null,

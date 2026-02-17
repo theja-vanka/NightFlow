@@ -66,6 +66,18 @@ body {
   overflow: hidden;
 }
 
+/* Disable autocomplete tooltips */
+input {
+  -webkit-user-modify: read-write-plaintext-only;
+}
+
+input[type="text"],
+input[type="password"],
+textarea {
+  autocomplete: off;
+  -webkit-autocomplete: off;
+}
+
 /* ========================================
    App Shell — Sidebar + Main
    ======================================== */
@@ -370,30 +382,178 @@ body {
 }
 
 /* ========================================
+   Modal / Popup
+   ======================================== */
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: modal-fade-in 0.2s ease;
+}
+
+@keyframes modal-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-dialog {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  max-width: 500px;
+  width: 90%;
+  animation: modal-slide-up 0.2s ease;
+}
+
+@keyframes modal-slide-up {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.modal-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.modal-close-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.modal-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* SSH Error Modal Specific Styles */
+
+.ssh-error-modal .modal-title {
+  color: #ef4444;
+}
+
+.ssh-error-icon {
+  color: #ef4444;
+  opacity: 0.9;
+}
+
+.ssh-error-message {
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  text-align: center;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.btn {
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary {
+  background: #3b82f6;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #2563eb;
+}
+
+/* ========================================
    Chart Panel
    ======================================== */
 
 .chart-panel {
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
-  border-radius: 10px;
+  border-radius: 12px;
   overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s ease;
+}
+
+.chart-panel:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
 }
 
 .chart-panel-header {
-  padding: 8px 12px;
-  font-size: 0.72rem;
+  padding: 12px 16px;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border-color);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  background: rgba(0, 0, 0, 0.02);
 }
 
 .chart-panel-body {
-  padding: 10px;
+  padding: 16px;
   display: flex;
   justify-content: center;
+  min-height: 250px;
 }
 
 .chart-grid-2 {
@@ -404,8 +564,9 @@ body {
 
 .chart-grid-2x2 {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  width: 100%;
 }
 
 /* ========================================
@@ -724,6 +885,134 @@ body {
 
 .terminal-xterm-container .xterm-viewport::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* ── SSH Connection Overlay ── */
+
+.terminal-connection-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-app);
+  z-index: 100;
+  animation: fadeIn 0.2s ease;
+}
+
+.terminal-connection-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 32px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  min-width: 320px;
+}
+
+.terminal-connection-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-color);
+  border-top-color: #60a5fa;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.terminal-connection-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: bold;
+  border-radius: 50%;
+}
+
+.terminal-connection-icon.success {
+  color: #4ade80;
+  background: #4ade8020;
+}
+
+.terminal-connection-icon.failed {
+  color: #f87171;
+  background: #f8717120;
+}
+
+.terminal-connection-text {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.terminal-connection-text.success {
+  color: #4ade80;
+}
+
+.terminal-connection-text.failed {
+  color: #f87171;
+}
+
+.terminal-connection-progress {
+  width: 100%;
+  height: 4px;
+  background: var(--bg-input);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.terminal-connection-progress-bar {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.terminal-connection-progress-bar.connecting {
+  width: 70%;
+  background: #60a5fa;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.terminal-connection-progress-bar.success {
+  width: 100%;
+  background: #4ade80;
+}
+
+.terminal-connection-progress-bar.failed {
+  width: 100%;
+  background: #f87171;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .terminal-xterm-container .xterm-viewport::-webkit-scrollbar-thumb {
@@ -1109,9 +1398,38 @@ body {
    ======================================== */
 
 .dashboard-view,
-.experiments-view,
+.experiments-view {
+  width: 100%;
+}
+
 .charts-view {
   width: 100%;
+  padding: 24px;
+  min-height: calc(100vh - 60px);
+  display: flex;
+  flex-direction: column;
+}
+
+.charts-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  flex: 1;
+}
+
+.charts-empty-text {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0 0 8px 0;
+}
+
+.charts-empty-hint {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin: 0;
 }
 
 /* ========================================
@@ -1719,97 +2037,20 @@ select.wizard-input {
   cursor: pointer;
 }
 
-.wizard-radio-group {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 16px;
-}
-
-.wizard-radio-option {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 12px 14px;
-  border-radius: 8px;
-  border: 2px solid var(--border-color);
-  background: var(--bg-surface);
-  cursor: pointer;
-  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
-}
-
-.wizard-radio-option:hover {
-  border-color: var(--text-secondary);
-}
-
-.wizard-radio-option.selected {
-  border-color: var(--accent);
-  background: var(--bg-primary);
-  box-shadow: 0 0 0 3px var(--shadow-color);
-}
-
-.wizard-radio-option input[type="radio"] {
-  margin-top: 2px;
-  cursor: pointer;
-  flex-shrink: 0;
-  width: 18px;
-  height: 18px;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-  border: 2px solid var(--border-color);
-  border-radius: 50%;
-  background: var(--bg-primary);
-  position: relative;
-  transition: border-color 0.2s ease, background 0.2s ease;
-}
-
-.wizard-radio-option input[type="radio"]:hover {
-  border-color: var(--text-secondary);
-}
-
-.wizard-radio-option input[type="radio"]:checked {
-  border-color: var(--text-primary);
-  background: var(--bg-primary);
-}
-
-.wizard-radio-option input[type="radio"]:checked::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--text-primary);
-}
-
-.wizard-radio-content {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
-}
-
-.wizard-radio-label {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  transition: color 0.2s ease;
-}
-
-.wizard-radio-option.selected .wizard-radio-label {
-  color: var(--accent);
-}
-
-.wizard-radio-desc {
-  font-size: 0.72rem;
-  color: var(--text-muted);
-}
-
 .wizard-ssh-input-section {
-  margin-top: 12px;
+  margin-top: 20px;
+}
+
+.wizard-ssh-input-section .wizard-sub-label {
+  margin-bottom: 8px;
+}
+
+.wizard-project-path-section {
+  margin-top: 20px;
+}
+
+.wizard-project-path-section .wizard-sub-label {
+  margin-bottom: 8px;
 }
 
 .wizard-folder-path-section {

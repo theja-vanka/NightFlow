@@ -1,8 +1,12 @@
 import { signal, computed } from "@preact/signals";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { projectRuns } from "./experiments.js";
 import { currentProject } from "./projects.js";
-import { navigate } from "./router.js";
+import { navigate, currentPage } from "./router.js";
+// Incremented to force useTerminal to tear down and reinitialize the PTY session
+export const terminalKey = signal(0);
+export function bumpTerminalKey() { terminalKey.value++; }
 
 export const stats = computed(() => {
   const r = projectRuns.value;
@@ -36,6 +40,83 @@ export const sshConnected = signal(false);
 export const sshConnecting = signal(false);
 export const sshConnectedAt = signal(null);
 export const shouldAutoConnect = signal(false);
+
+// SSH connection error state
+export const sshConnectionError = signal(null); // { message: string } or null
+
+// Global SSH connection monitoring
+let sshConnectionTimeout = null;
+let globalPtyOutputListener = null;
+
+// Set up global PTY output listener to monitor SSH connections
+async function setupGlobalSshMonitoring() {
+  if (globalPtyOutputListener) return; // Already set up
+
+  globalPtyOutputListener = await listen("pty-output", (event) => {
+    // Only monitor if we're in a connecting state
+    if (!sshConnecting.value) return;
+
+    const output = event.payload;
+    const lowerOutput = output.toLowerCase();
+
+    // SSH connection success indicators
+    if (lowerOutput.includes("welcome") ||
+        lowerOutput.includes("last login") ||
+        lowerOutput.match(/[\$#]\s*$/)) {
+      // Clear timeout on success
+      if (sshConnectionTimeout) {
+        clearTimeout(sshConnectionTimeout);
+        sshConnectionTimeout = null;
+      }
+      setSshConnected(true);
+      sshConnecting.value = false;
+      // Clear any error on successful connection
+      sshConnectionError.value = null;
+    }
+
+    // SSH connection failure indicators
+    if (lowerOutput.includes("connection refused") ||
+        lowerOutput.includes("connection timed out") ||
+        lowerOutput.includes("connection closed") ||
+        lowerOutput.includes("connection reset") ||
+        lowerOutput.includes("permission denied") ||
+        lowerOutput.includes("authentication failed") ||
+        lowerOutput.includes("publickey") ||
+        lowerOutput.includes("no such identity") ||
+        lowerOutput.includes("host key verification failed") ||
+        lowerOutput.includes("no route to host") ||
+        lowerOutput.includes("network is unreachable") ||
+        lowerOutput.includes("could not resolve hostname") ||
+        lowerOutput.includes("operation timed out") ||
+        lowerOutput.includes("broken pipe")) {
+      // Clear timeout on failure
+      if (sshConnectionTimeout) {
+        clearTimeout(sshConnectionTimeout);
+        sshConnectionTimeout = null;
+      }
+      setSshConnected(false);
+      sshConnecting.value = false;
+
+      // Set error message for popup
+      let errorMsg = "SSH connection failed";
+      if (lowerOutput.includes("connection refused")) errorMsg = "Connection refused - server is not accepting connections";
+      else if (lowerOutput.includes("connection timed out")) errorMsg = "Connection timed out - server is not responding";
+      else if (lowerOutput.includes("permission denied")) errorMsg = "Permission denied - check your credentials";
+      else if (lowerOutput.includes("authentication failed")) errorMsg = "Authentication failed - invalid credentials";
+      else if (lowerOutput.includes("host key verification failed")) errorMsg = "Host key verification failed - check your known_hosts file";
+      else if (lowerOutput.includes("no route to host")) errorMsg = "No route to host - check network connectivity";
+      else if (lowerOutput.includes("could not resolve hostname")) errorMsg = "Could not resolve hostname - check the server address";
+
+      sshConnectionError.value = { message: errorMsg };
+
+      // Kill the terminal process on failure to ensure clean state
+      invoke("kill_terminal").catch(() => {});
+    }
+  });
+}
+
+// Initialize global monitoring on module load
+setupGlobalSshMonitoring();
 
 export const sshInfo = computed(() => {
   const project = currentProject.value;
@@ -71,13 +152,26 @@ export function setSshConnected(connected) {
     sshConnectedAt.value = new Date().toISOString();
   } else {
     sshConnectedAt.value = null;
+    // If user is on terminal view when disconnected, redirect to dashboard
+    if (currentPage.value === "terminal") {
+      navigate("dashboard");
+    }
   }
+}
+
+export function clearSshConnectionError() {
+  sshConnectionError.value = null;
 }
 
 export async function toggleSshConnection() {
   if (sshConnected.value) {
     // Disconnect: kill the terminal and reset state
     sshConnecting.value = true;
+    // Clear any pending timeout
+    if (sshConnectionTimeout) {
+      clearTimeout(sshConnectionTimeout);
+      sshConnectionTimeout = null;
+    }
     try {
       await invoke("kill_terminal");
     } catch (err) {
@@ -87,32 +181,28 @@ export async function toggleSshConnection() {
     shouldAutoConnect.value = false;
     sshConnecting.value = false;
   } else {
-    // Connect: spawn terminal in background
-    sshConnecting.value = true;
-    shouldAutoConnect.value = true;
+    // Connect: signal useTerminal to spawn a fresh session
+    sshConnectionError.value = null;
 
-    try {
-      const project = currentProject.value;
-      if (!project) {
-        sshConnecting.value = false;
-        return;
-      }
+    const project = currentProject.value;
+    if (!project) return;
 
-      const rawSsh = project.sshCommand;
-      const sshCommand = rawSsh && rawSsh.trim() && rawSsh.trim().toLowerCase() !== "localhost"
-        ? rawSsh.trim()
-        : null;
+    const rawSsh = project.sshCommand;
+    const isSSH = rawSsh && rawSsh.trim() && rawSsh.trim().toLowerCase() !== "localhost";
 
-      const spawnArgs = { rows: 24, cols: 80 };
-      if (sshCommand) spawnArgs.sshCommand = sshCommand;
+    // Kill any existing PTY first
+    try { await invoke("kill_terminal"); } catch (_) {}
 
-      await invoke("spawn_terminal", spawnArgs);
+    if (isSSH) {
+      // SSH: set connecting state; useTerminal will spawn after registering its listener
+      sshConnecting.value = true;
+      shouldAutoConnect.value = true;
+    } else {
+      // Local: mark connected immediately; useTerminal spawns when terminal tab is opened
       setSshConnected(true);
-      sshConnecting.value = false;
-    } catch (err) {
-      console.error("Failed to spawn terminal:", err);
-      sshConnecting.value = false;
-      shouldAutoConnect.value = false;
     }
+
+    // Bump key so useTerminal tears down any stale _p and calls _init fresh
+    bumpTerminalKey();
   }
 }

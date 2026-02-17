@@ -1,7 +1,7 @@
 import { useState } from "preact/hooks";
 import { currentPage, navigate } from "../state/router.js";
 import { projectList, currentProjectId, selectProject, openWizard, openDeleteDialog } from "../state/projects.js";
-import { sshConnected, shouldAutoConnect } from "../state/dashboard.js";
+import { sshConnected, shouldAutoConnect, sshConnecting } from "../state/dashboard.js";
 
 const navItems = [
   {
@@ -46,10 +46,12 @@ const chevronIcon = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none"
 export function Sidebar() {
   const [projectsOpen, setProjectsOpen] = useState(true);
 
-  // Filter navigation items - only show terminal when connected or pending connection
+  // Filter navigation items - only show terminal when connected
   const visibleNavItems = navItems.filter((item) => {
     if (item.id === "terminal") {
-      return sshConnected.value || shouldAutoConnect.value;
+      // Only show terminal when actually connected
+      // Hide when disconnected, connecting, or failed
+      return sshConnected.value;
     }
     return true;
   });

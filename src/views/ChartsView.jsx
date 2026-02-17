@@ -6,6 +6,18 @@ export function ChartsView() {
   const runs = projectRuns.value;
   const completed = runs.filter((r) => r.status === "completed");
 
+  // If no completed runs, show empty state
+  if (completed.length === 0) {
+    return (
+      <div class="charts-view">
+        <div class="charts-empty">
+          <p class="charts-empty-text">No completed runs yet</p>
+          <p class="charts-empty-hint">Charts will appear here once training runs are completed</p>
+        </div>
+      </div>
+    );
+  }
+
   // Group by model for comparison
   const byModel = {};
   completed.forEach((r) => {
@@ -27,30 +39,38 @@ export function ChartsView() {
   return (
     <div class="charts-view">
       <div class="chart-grid-2x2">
-        <ChartPanel title="Loss by Model">
-          <LineChart
-            series={modelRuns.map((r) => ({ label: r.model, data: r.lossCurve }))}
-            yLabel="Loss"
-          />
-        </ChartPanel>
-        <ChartPanel title="Accuracy by Model">
-          <LineChart
-            series={modelRuns.map((r) => ({ label: r.model, data: r.accCurve }))}
-            yLabel="Acc"
-          />
-        </ChartPanel>
-        <ChartPanel title="Top Accuracy Runs">
-          <LineChart
-            series={topAcc.map((r) => ({ label: r.id, data: r.accCurve }))}
-            yLabel="Acc"
-          />
-        </ChartPanel>
-        <ChartPanel title="Lowest Loss Runs">
-          <LineChart
-            series={topLoss.map((r) => ({ label: r.id, data: r.lossCurve }))}
-            yLabel="Loss"
-          />
-        </ChartPanel>
+        {modelRuns.length > 0 && (
+          <ChartPanel title="Loss by Model">
+            <LineChart
+              series={modelRuns.map((r) => ({ label: r.model, data: r.lossCurve }))}
+              yLabel="Loss"
+            />
+          </ChartPanel>
+        )}
+        {modelRuns.length > 0 && (
+          <ChartPanel title="Accuracy by Model">
+            <LineChart
+              series={modelRuns.map((r) => ({ label: r.model, data: r.accCurve }))}
+              yLabel="Acc"
+            />
+          </ChartPanel>
+        )}
+        {topAcc.length > 0 && (
+          <ChartPanel title="Top Accuracy Runs">
+            <LineChart
+              series={topAcc.map((r) => ({ label: r.id, data: r.accCurve }))}
+              yLabel="Acc"
+            />
+          </ChartPanel>
+        )}
+        {topLoss.length > 0 && (
+          <ChartPanel title="Lowest Loss Runs">
+            <LineChart
+              series={topLoss.map((r) => ({ label: r.id, data: r.lossCurve }))}
+              yLabel="Loss"
+            />
+          </ChartPanel>
+        )}
       </div>
     </div>
   );

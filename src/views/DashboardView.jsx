@@ -1,5 +1,5 @@
 import { SummaryCard } from "../components/SummaryCard.jsx";
-import { stats, sshInfo, toggleSshConnection, sshConnecting } from "../state/dashboard.js";
+import { stats, sshInfo, toggleSshConnection, sshConnecting, sshConnectionError, clearSshConnectionError } from "../state/dashboard.js";
 
 function SshStatusBanner() {
   const info = sshInfo.value;
@@ -56,6 +56,40 @@ const icons = {
   loss: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
 };
 
+function SshErrorModal() {
+  const error = sshConnectionError.value;
+  if (!error) return null;
+
+  return (
+    <div class="modal-overlay" onClick={clearSshConnectionError}>
+      <div class="modal-dialog ssh-error-modal" onClick={(e) => e.stopPropagation()}>
+        <div class="modal-header">
+          <h3 class="modal-title">SSH Connection Failed</h3>
+          <button class="modal-close-btn" onClick={clearSshConnectionError}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="ssh-error-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+          <p class="ssh-error-message">{error.message}</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" onClick={clearSshConnectionError}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function DashboardView() {
   const s = stats.value;
 
@@ -68,6 +102,7 @@ export function DashboardView() {
         <SummaryCard label="Best Accuracy" value={s.bestAcc != null ? (s.bestAcc * 100).toFixed(1) + "%" : "—"} icon={icons.accuracy} />
         <SummaryCard label="Avg Val Loss" value={s.avgLoss != null ? s.avgLoss.toFixed(4) : "—"} icon={icons.loss} />
       </div>
+      <SshErrorModal />
     </div>
   );
 }

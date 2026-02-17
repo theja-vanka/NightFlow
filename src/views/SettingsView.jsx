@@ -14,13 +14,25 @@ import { sshConnected } from "../state/dashboard.js";
 import { DeleteProjectDialog } from "../components/DeleteProjectDialog.jsx";
 
 const EDITABLE_KEYS = [
-  "name", "sshCommand", "taskType", "modelCategory",
-  "detectionArch", "segHeadType", "datasetFormat",
+  "name", "connectionType", "sshCommand", "projectPath", "modelCategory",
+  "detectionArch", "segHeadType", "datasetFormat", "folderPath",
+  "trainPath", "valPath", "testPath",
 ];
+
+// Read-only fields that need to be included in draft for rendering
+const READONLY_KEYS = ["taskType"];
 
 function pick(obj) {
   const out = {};
-  for (const k of EDITABLE_KEYS) out[k] = obj[k];
+  // Include editable fields
+  for (const k of EDITABLE_KEYS) {
+    // Provide default values for fields that might not exist in older projects
+    out[k] = obj[k] !== undefined ? obj[k] : "";
+  }
+  // Include read-only fields (needed for rendering but not editable)
+  for (const k of READONLY_KEYS) {
+    out[k] = obj[k];
+  }
   return out;
 }
 
@@ -39,13 +51,36 @@ const lockIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" st
 
 export function SettingsView() {
   const proj = currentProject.value;
-  const [draft, setDraft] = useState(() => proj ? pick(proj) : {});
+  const [draft, setDraft] = useState(() => {
+    if (!proj) return {};
+    const pickedData = pick(proj);
+    // Ensure critical fields have values for proper rendering
+    if (!pickedData.connectionType) pickedData.connectionType = "localhost";
+    if (!pickedData.sshCommand) pickedData.sshCommand = "localhost";
+    if (!pickedData.taskType) pickedData.taskType = "Classification";
+    if (!pickedData.modelCategory) pickedData.modelCategory = "Edge";
+    if (!pickedData.datasetFormat) pickedData.datasetFormat = "Folder";
+    if (!pickedData.detectionArch) pickedData.detectionArch = "fcos";
+    if (!pickedData.segHeadType) pickedData.segHeadType = "deeplabv3plus";
+    return pickedData;
+  });
   const [saved, setSaved] = useState(false);
   const savedTimer = useRef(null);
 
   // Re-sync draft when switching projects
   useEffect(() => {
-    if (proj) setDraft(pick(proj));
+    if (proj) {
+      const pickedData = pick(proj);
+      // Ensure critical fields have values for proper rendering
+      if (!pickedData.connectionType) pickedData.connectionType = "localhost";
+      if (!pickedData.sshCommand) pickedData.sshCommand = "localhost";
+      if (!pickedData.taskType) pickedData.taskType = "Classification";
+      if (!pickedData.modelCategory) pickedData.modelCategory = "Edge";
+      if (!pickedData.datasetFormat) pickedData.datasetFormat = "Folder";
+      if (!pickedData.detectionArch) pickedData.detectionArch = "fcos";
+      if (!pickedData.segHeadType) pickedData.segHeadType = "deeplabv3plus";
+      setDraft(pickedData);
+    }
   }, [proj?.id]);
 
   if (!proj) return <div class="settings-view"><p class="settings-empty">No project selected.</p></div>;
@@ -113,6 +148,20 @@ export function SettingsView() {
         <div class="settings-card">
           <div class="settings-card-row">
             <label class="settings-field">
+              <span class="settings-label">Project ID</span>
+              <span class="settings-hint">Unique identifier (read-only)</span>
+              <input
+                class="settings-input settings-input-mono"
+                type="text"
+                value={proj.id}
+                disabled
+                readOnly
+              />
+            </label>
+          </div>
+          <div class="settings-card-divider" />
+          <div class="settings-card-row">
+            <label class="settings-field">
               <span class="settings-label">Project Name</span>
               <input
                 class="settings-input"
@@ -127,14 +176,54 @@ export function SettingsView() {
           <div class="settings-card-divider" />
           <div class="settings-card-row">
             <label class="settings-field">
+              <span class="settings-label">Project Path</span>
+              <span class="settings-hint">Local directory for project files</span>
+              <input
+                class="settings-input settings-input-mono"
+                type="text"
+                value={draft.projectPath || ""}
+                placeholder="~/NightForge/projects"
+                disabled={locked}
+                onInput={(e) => set("projectPath", e.target.value)}
+              />
+            </label>
+          </div>
+          <div class="settings-card-divider" />
+          <div class="settings-card-row settings-row-grid">
+            <label class="settings-field">
+              <span class="settings-label">Connection Type</span>
+              <span class="settings-hint">Where to run training</span>
+              <div class="settings-select-wrap">
+                <select
+                  class="settings-select"
+                  value={draft.connectionType || "localhost"}
+                  disabled={locked}
+                  onChange={(e) => {
+                    const newType = e.target.value;
+                    set("connectionType", newType);
+                    if (newType === "localhost") {
+                      set("sshCommand", "localhost");
+                    } else if (draft.sshCommand === "localhost") {
+                      set("sshCommand", "");
+                    }
+                  }}
+                >
+                  <option value="localhost">Localhost</option>
+                  <option value="remote">Remote Instance</option>
+                </select>
+              </div>
+            </label>
+            <label class="settings-field">
               <span class="settings-label">SSH Command</span>
-              <span class="settings-hint">Remote machine connection string</span>
+              <span class="settings-hint">
+                {draft.connectionType === "remote" ? "Remote machine connection string" : "Set to localhost"}
+              </span>
               <input
                 class="settings-input settings-input-mono"
                 type="text"
                 value={draft.sshCommand}
-                placeholder="ssh user@host"
-                disabled={locked}
+                placeholder={draft.connectionType === "remote" ? "ssh user@host" : "localhost"}
+                disabled={locked || draft.connectionType !== "remote"}
                 onInput={(e) => set("sshCommand", e.target.value)}
               />
             </label>
@@ -152,11 +241,12 @@ export function SettingsView() {
           <div class="settings-card-row settings-row-grid">
             <label class="settings-field">
               <span class="settings-label">Task Type</span>
+              <span class="settings-hint">Set at project creation (read-only)</span>
               <div class="settings-select-wrap">
                 <select
                   class="settings-select"
                   value={draft.taskType}
-                  disabled={locked}
+                  disabled
                   onChange={(e) => onTaskTypeChange(e.target.value)}
                 >
                   {TASK_TYPES.map((t) => (
@@ -168,6 +258,7 @@ export function SettingsView() {
             </label>
             <label class="settings-field">
               <span class="settings-label">Model Category</span>
+              <span class="settings-hint">Deployment target tier</span>
               <div class="settings-select-wrap">
                 <select
                   class="settings-select"
@@ -241,7 +332,7 @@ export function SettingsView() {
       <section class="settings-section">
         <div class="settings-section-header">
           <h2 class="settings-heading">Dataset</h2>
-          <p class="settings-heading-desc">Data format for training pipeline</p>
+          <p class="settings-heading-desc">Data format and paths for training pipeline</p>
         </div>
         <div class="settings-card">
           <div class="settings-card-row">
@@ -253,7 +344,7 @@ export function SettingsView() {
               <div class="settings-select-wrap">
                 <select
                   class="settings-select"
-                  value={draft.datasetFormat}
+                  value={draft.datasetFormat || ""}
                   disabled={locked}
                   onChange={(e) => set("datasetFormat", e.target.value)}
                 >
@@ -266,6 +357,76 @@ export function SettingsView() {
               </div>
             </label>
           </div>
+
+          {draft.datasetFormat && draft.datasetFormat !== "CSV" && draft.datasetFormat !== "JSONL" && (
+            <>
+              <div class="settings-card-divider" />
+              <div class="settings-card-row">
+                <label class="settings-field">
+                  <span class="settings-label">Dataset Folder Path</span>
+                  <span class="settings-hint">Path to {draft.datasetFormat} dataset folder</span>
+                  <input
+                    class="settings-input settings-input-mono"
+                    type="text"
+                    value={draft.folderPath || ""}
+                    placeholder="/path/to/dataset"
+                    disabled={locked}
+                    onInput={(e) => set("folderPath", e.target.value)}
+                  />
+                </label>
+              </div>
+            </>
+          )}
+
+          {(draft.datasetFormat === "CSV" || draft.datasetFormat === "JSONL") && (
+            <>
+              <div class="settings-card-divider" />
+              <div class="settings-card-row">
+                <label class="settings-field">
+                  <span class="settings-label">Train Path</span>
+                  <span class="settings-hint">Path to training data file</span>
+                  <input
+                    class="settings-input settings-input-mono"
+                    type="text"
+                    value={draft.trainPath || ""}
+                    placeholder={`/path/to/train.${draft.datasetFormat.toLowerCase()}`}
+                    disabled={locked}
+                    onInput={(e) => set("trainPath", e.target.value)}
+                  />
+                </label>
+              </div>
+              <div class="settings-card-divider" />
+              <div class="settings-card-row">
+                <label class="settings-field">
+                  <span class="settings-label">Val Path</span>
+                  <span class="settings-hint">Path to validation data file (optional)</span>
+                  <input
+                    class="settings-input settings-input-mono"
+                    type="text"
+                    value={draft.valPath || ""}
+                    placeholder={`/path/to/val.${draft.datasetFormat.toLowerCase()}`}
+                    disabled={locked}
+                    onInput={(e) => set("valPath", e.target.value)}
+                  />
+                </label>
+              </div>
+              <div class="settings-card-divider" />
+              <div class="settings-card-row">
+                <label class="settings-field">
+                  <span class="settings-label">Test Path</span>
+                  <span class="settings-hint">Path to test data file</span>
+                  <input
+                    class="settings-input settings-input-mono"
+                    type="text"
+                    value={draft.testPath || ""}
+                    placeholder={`/path/to/test.${draft.datasetFormat.toLowerCase()}`}
+                    disabled={locked}
+                    onInput={(e) => set("testPath", e.target.value)}
+                  />
+                </label>
+              </div>
+            </>
+          )}
         </div>
       </section>
 

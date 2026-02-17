@@ -13,9 +13,42 @@ export const currentProjectId = signal(null);
 export async function loadProjects() {
   try {
     const projects = await getAllProjects();
-    projectList.value = projects;
-    if (projects.length > 0 && !currentProjectId.value) {
-      currentProjectId.value = projects[0].id;
+    // Add default values for fields that might not exist in older projects
+    const updatedProjects = projects.map((p) => {
+      // Determine task type (use existing or default)
+      const taskType = p.taskType || "Classification";
+
+      // Set appropriate dataset format default based on task type
+      let defaultFormat = "";
+      if (!p.datasetFormat) {
+        if (taskType === "Classification") defaultFormat = "Folder";
+        else if (taskType === "Multi-Label Classification") defaultFormat = "CSV";
+        else if (taskType === "Object Detection") defaultFormat = "COCO JSON";
+        else if (taskType === "Semantic Segmentation") defaultFormat = "PNG Masks";
+        else if (taskType === "Instance Segmentation") defaultFormat = "COCO JSON";
+      }
+
+      // Only add defaults for fields that don't exist
+      return {
+        ...p, // Keep all existing fields
+        // Add missing fields with defaults (these won't override existing values due to || operator)
+        ...((!p.connectionType) && { connectionType: "localhost" }),
+        ...((!p.sshCommand) && { sshCommand: "localhost" }),
+        ...((!p.taskType) && { taskType: "Classification" }),
+        ...((!p.modelCategory) && { modelCategory: "Edge" }),
+        ...((!p.detectionArch) && { detectionArch: "fcos" }),
+        ...((!p.segHeadType) && { segHeadType: "deeplabv3plus" }),
+        ...((!p.projectPath) && { projectPath: "~/NightForge/projects" }),
+        ...((!p.datasetFormat) && { datasetFormat: defaultFormat }),
+        ...((!p.folderPath) && { folderPath: "" }),
+        ...((!p.trainPath) && { trainPath: "" }),
+        ...((!p.valPath) && { valPath: "" }),
+        ...((!p.testPath) && { testPath: "" }),
+      };
+    });
+    projectList.value = updatedProjects;
+    if (updatedProjects.length > 0 && !currentProjectId.value) {
+      currentProjectId.value = updatedProjects[0].id;
     }
   } catch (error) {
     console.error("Failed to load projects:", error);
@@ -127,11 +160,12 @@ const defaultData = {
   connectionType: "localhost",
   sshCommand: "localhost",
   name: "",
+  projectPath: "~/NightForge/projects",
   taskType: "Classification",
-  modelCategory: "",
+  modelCategory: "Edge",
   detectionArch: "fcos",
   segHeadType: "deeplabv3plus",
-  datasetFormat: "",
+  datasetFormat: "Folder",
   openSourceDataset: "",
   folderPath: "",
   trainPath: "",
@@ -163,16 +197,19 @@ export const STEP_LABELS = [
 export const wizardCanProceed = computed(() => {
   const d = wizardData.value;
   const step = wizardStep.value;
-  if (step === 0) return true; // empty = localhost
+  if (step === 0) {
+    // For remote instance, require SSH command
+    if (d.connectionType === "remote") {
+      return d.sshCommand.trim().length > 0;
+    }
+    // Localhost is always valid
+    return true;
+  }
   if (step === 1) return d.name.trim().length > 0;
   if (step === 2) return d.taskType !== "";
   if (step === 3) return d.modelCategory !== "";
   if (step === 4) {
     if (!d.datasetFormat) return false;
-    // For Folder format, require folder path and check validation
-    if (d.datasetFormat === "Folder") {
-      return d.folderPath.trim().length > 0 && folderPathError.value === "";
-    }
     // For CSV and JSONL, require train and test paths (val is optional) and check validation
     if (d.datasetFormat === "CSV" || d.datasetFormat === "JSONL") {
       const hasRequiredPaths = d.trainPath.trim().length > 0 && d.testPath.trim().length > 0;
@@ -181,7 +218,9 @@ export const wizardCanProceed = computed(() => {
       const valValid = d.valPath.trim() === "" || valPathError.value === "";
       return hasRequiredPaths && noErrors && valValid;
     }
-    return true;
+    // For all other formats (Folder, COCO JSON, COCO, PNG Masks, Cityscapes, VOC, etc.)
+    // require folder path and check validation
+    return d.folderPath.trim().length > 0 && folderPathError.value === "";
   }
   if (step === 5) return true;
   return false;
@@ -240,8 +279,10 @@ export function wizardCreate() {
   const d = wizardData.value;
   const project = {
     id: `proj-${Date.now()}`,
+    connectionType: d.connectionType,
     sshCommand: d.sshCommand.trim(),
     name: d.name.trim(),
+    projectPath: d.projectPath.trim(),
     taskType: d.taskType,
     modelCategory: d.modelCategory,
     detectionArch: d.detectionArch,
