@@ -1,8 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
+import { useState } from "preact/hooks";
 import {
   wizardOpen,
   wizardStep,
   wizardData,
+  wizardCwd,
   wizardCanProceed,
   closeWizard,
   wizardNext,
@@ -27,11 +29,31 @@ import {
 function StepSSH() {
   const d = wizardData.value;
   const isRemote = d.connectionType === "remote";
+  const [testStatus, setTestStatus] = useState("idle"); // "idle" | "testing" | "success" | "error"
+  const [testMessage, setTestMessage] = useState("");
 
   const connectionTypes = [
     { id: "localhost", label: "Localhost", desc: "Run on this machine" },
     { id: "remote", label: "Remote Instance", desc: "Connect via SSH" },
   ];
+
+  const isValidSshCommand = (cmd) => {
+    const parts = cmd.trim().split(/\s+/);
+    return parts.length >= 2 && parts[0] === "ssh";
+  };
+
+  const handleTestSSH = async () => {
+    setTestStatus("testing");
+    setTestMessage("");
+    try {
+      const msg = await invoke("test_ssh", { sshCommand: d.sshCommand });
+      setTestStatus("success");
+      setTestMessage(msg);
+    } catch (err) {
+      setTestStatus("error");
+      setTestMessage(typeof err === "string" ? err : "Connection failed");
+    }
+  };
 
   return (
     <div>
@@ -45,6 +67,8 @@ function StepSSH() {
             class={`wizard-category${d.connectionType === type.id ? " selected" : ""}`}
             onClick={() => {
               wizardSetField("connectionType", type.id);
+              setTestStatus("idle");
+              setTestMessage("");
               if (type.id === "localhost") {
                 wizardSetField("sshCommand", "localhost");
               } else {
@@ -68,13 +92,34 @@ function StepSSH() {
             type="text"
             placeholder="ssh user@gpu-server.example.com"
             value={d.sshCommand}
-            onInput={(e) => wizardSetField("sshCommand", e.target.value)}
+            onInput={(e) => {
+              wizardSetField("sshCommand", e.target.value);
+              setTestStatus("idle");
+              setTestMessage("");
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && wizardCanProceed.value) wizardNext();
             }}
             autoComplete="off"
             autoFocus
           />
+          <div class="wizard-ssh-test-row">
+            <button
+              class="wizard-btn wizard-btn-secondary wizard-ssh-test-btn"
+              onClick={handleTestSSH}
+              disabled={!isValidSshCommand(d.sshCommand) || testStatus === "testing"}
+            >
+              {testStatus === "testing" ? "Testing…" : "Test SSH"}
+            </button>
+            {testMessage && (
+              <div class={`wizard-ssh-test-result ${testStatus}`}>
+                <span class="wizard-ssh-test-icon">
+                  {testStatus === "success" ? "✓" : "✗"}
+                </span>
+                <span class="wizard-ssh-test-message">{testMessage}</span>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -95,17 +140,27 @@ function StepName() {
       .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
   };
 
+  const base = wizardCwd.value || "/opt/nightforge/";
+
   const handleNameInput = (e) => {
     const name = e.target.value;
     wizardSetField("name", name);
 
-    // Auto-update project path based on name
+    // Auto-update project path folder based on name
     if (name.trim()) {
       const sanitized = sanitizeName(name);
-      wizardSetField("projectPath", `~/NightForge/projects/${sanitized}`);
+      wizardSetField("projectPath", `${base}${sanitized}`);
     } else {
-      wizardSetField("projectPath", "~/NightForge/projects");
+      wizardSetField("projectPath", base);
     }
+  };
+
+  const folderName = d.projectPath.startsWith(base)
+    ? d.projectPath.slice(base.length)
+    : d.projectPath;
+
+  const handleFolderInput = (e) => {
+    wizardSetField("projectPath", `${base}${e.target.value}`);
   };
 
   return (
@@ -129,16 +184,19 @@ function StepName() {
         <p class="wizard-sub-label">
           Project Path <span class="wizard-optional-indicator">(optional)</span>
         </p>
-        <input
-          class="wizard-input wizard-input-mono"
-          type="text"
-          placeholder="~/NightForge/projects"
-          value={d.projectPath}
-          onInput={(e) => wizardSetField("projectPath", e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && wizardCanProceed.value) wizardNext();
-          }}
-        />
+        <div class="wizard-path-input-wrap">
+          <span class="wizard-path-prefix">{base}</span>
+          <input
+            class="wizard-path-folder-input wizard-input-mono"
+            type="text"
+            placeholder="imagenet-classifier"
+            value={folderName}
+            onInput={handleFolderInput}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && wizardCanProceed.value) wizardNext();
+            }}
+          />
+        </div>
       </div>
     </div>
   );

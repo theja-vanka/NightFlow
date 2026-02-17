@@ -177,6 +177,38 @@ fn is_terminal_alive(state: State<'_, PtyState>) -> bool {
 }
 
 #[command]
+fn test_ssh(ssh_command: String) -> Result<String, String> {
+    let parts: Vec<&str> = ssh_command.trim().split_whitespace().collect();
+    if parts.is_empty() {
+        return Err("Empty SSH command".to_string());
+    }
+    let mut cmd = std::process::Command::new(parts[0]);
+    cmd.args(["-o", "BatchMode=yes", "-o", "ConnectTimeout=5"]);
+    for arg in &parts[1..] {
+        cmd.arg(arg);
+    }
+    cmd.arg("exit");
+    let output = cmd.output().map_err(|e| e.to_string())?;
+    if output.status.success() {
+        Ok("Connected successfully".to_string())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        Err(if stderr.is_empty() {
+            "Connection failed".to_string()
+        } else {
+            stderr
+        })
+    }
+}
+
+#[command]
+fn get_cwd() -> String {
+    std::env::current_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default()
+}
+
+#[command]
 fn get_terminal_info(state: State<'_, PtyState>) -> std::collections::HashMap<String, String> {
     let mut info = std::collections::HashMap::new();
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
@@ -307,6 +339,8 @@ fn main() {
             kill_terminal,
             is_terminal_alive,
             get_terminal_info,
+            test_ssh,
+            get_cwd,
             validate_folder_path,
             validate_file_path,
         ])

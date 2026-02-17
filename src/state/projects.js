@@ -1,4 +1,5 @@
 import { signal, computed } from "@preact/signals";
+import { invoke } from "@tauri-apps/api/core";
 import {
   getAllProjects,
   saveProject,
@@ -160,7 +161,7 @@ const defaultData = {
   connectionType: "localhost",
   sshCommand: "localhost",
   name: "",
-  projectPath: "~/NightForge/projects",
+  projectPath: "",
   taskType: "Classification",
   modelCategory: "Edge",
   detectionArch: "fcos",
@@ -178,6 +179,7 @@ export const STEP_COUNT = 6;
 export const wizardOpen = signal(false);
 export const wizardStep = signal(0);
 export const wizardData = signal({ ...defaultData });
+export const wizardCwd = signal("");
 
 // Path validation error signals
 export const folderPathError = signal("");
@@ -226,8 +228,11 @@ export const wizardCanProceed = computed(() => {
   return false;
 });
 
-export function openWizard() {
-  wizardData.value = { ...defaultData };
+const PROJECT_BASE_PATH = "/opt/nightforge/";
+
+export async function openWizard() {
+  wizardCwd.value = PROJECT_BASE_PATH;
+  wizardData.value = { ...defaultData, projectPath: PROJECT_BASE_PATH };
   wizardStep.value = 0;
   wizardOpen.value = true;
   // Reset validation errors

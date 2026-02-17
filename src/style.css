@@ -2045,12 +2045,101 @@ select.wizard-input {
   margin-bottom: 8px;
 }
 
+.wizard-ssh-test-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.wizard-ssh-test-btn {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  font-size: 0.78rem;
+}
+
+.wizard-ssh-test-result {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  border: 1px solid transparent;
+}
+
+.wizard-ssh-test-result.success {
+  background: #4ade8010;
+  border-color: #4ade8030;
+  color: #4ade80;
+}
+
+.wizard-ssh-test-result.error {
+  background: #f8717110;
+  border-color: #f8717130;
+  color: #f87171;
+}
+
+.wizard-ssh-test-icon {
+  flex-shrink: 0;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.wizard-ssh-test-message {
+  word-break: break-word;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+}
+
 .wizard-project-path-section {
   margin-top: 20px;
 }
 
 .wizard-project-path-section .wizard-sub-label {
   margin-bottom: 8px;
+}
+
+.wizard-path-input-wrap {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-input);
+  overflow: hidden;
+  transition: border-color 0.2s ease;
+}
+
+.wizard-path-input-wrap:focus-within {
+  border-color: var(--border-focus);
+}
+
+.wizard-path-prefix {
+  padding: 10px 0 10px 14px;
+  color: var(--text-muted);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8rem;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.wizard-path-folder-input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 14px 10px 0;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  outline: none;
+}
+
+.wizard-path-folder-input::placeholder {
+  color: var(--text-muted);
 }
 
 .wizard-folder-path-section {
