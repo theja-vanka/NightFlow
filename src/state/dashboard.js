@@ -1,12 +1,52 @@
 import { signal, computed } from "@preact/signals";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { projectRuns, loadRuns } from "./experiments.js";
-import { currentProject } from "./projects.js";
+import { currentProject, currentProjectId } from "./projects.js";
 import { navigate, currentPage } from "./router.js";
-// Incremented to force useTerminal to tear down and reinitialize the PTY session
+
+// ── Per-project SSH state ─────────────────────────────────────────────────────
+// Each project maintains its own independent connection state.
+
+const _defaultState = () => ({
+  connected: false,
+  connecting: false,
+  connectedAt: null,
+  shouldAutoConnect: false,
+  synced: false,
+  syncing: false,
+  error: null,
+});
+
+const _projectState = signal({}); // { [projectId]: ProjectState }
+
+function _getState(projectId) {
+  return _projectState.value[projectId] ?? _defaultState();
+}
+
+function _setState(projectId, updates) {
+  const current = _getState(projectId);
+  _projectState.value = {
+    ..._projectState.value,
+    [projectId]: { ...current, ...updates },
+  };
+}
+
+// ── Computed signals (always reflect the active project) ──────────────────────
+
+export const sshConnected = computed(() => _getState(currentProjectId.value).connected);
+export const sshConnecting = computed(() => _getState(currentProjectId.value).connecting);
+export const sshConnectedAt = computed(() => _getState(currentProjectId.value).connectedAt);
+export const shouldAutoConnect = computed(() => _getState(currentProjectId.value).shouldAutoConnect);
+export const dashboardSynced = computed(() => _getState(currentProjectId.value).synced);
+export const dashboardSyncing = computed(() => _getState(currentProjectId.value).syncing);
+export const sshConnectionError = computed(() => _getState(currentProjectId.value).error);
+
+// ── Incremented to force useTerminal to tear down and reinitialize a session ──
+
 export const terminalKey = signal(0);
 export function bumpTerminalKey() { terminalKey.value++; }
+
+// ── Stats (unchanged) ─────────────────────────────────────────────────────────
 
 export const stats = computed(() => {
   const r = projectRuns.value;
@@ -14,14 +54,12 @@ export const stats = computed(() => {
   const running = r.filter((x) => x.status === "running");
   const failed = r.filter((x) => x.status === "failed");
   const queued = r.filter((x) => x.status === "queued");
-
   const bestAcc = completed.length
     ? Math.max(...completed.map((x) => x.bestAcc ?? 0))
     : null;
   const avgLoss = completed.length
     ? +(completed.reduce((s, x) => s + (x.valLoss ?? 0), 0) / completed.length).toFixed(4)
     : null;
-
   return {
     totalRuns: r.length,
     completed: completed.length,
@@ -33,105 +71,31 @@ export const stats = computed(() => {
   };
 });
 
-// ── SSH connection state ──
-// Real state: driven by whether the terminal PTY is alive with an SSH command
+// ── SSH state setters ─────────────────────────────────────────────────────────
 
-export const sshConnected = signal(false);
-export const sshConnecting = signal(false);
-export const sshConnectedAt = signal(null);
-export const shouldAutoConnect = signal(false);
-export const dashboardSynced = signal(false);
-export const dashboardSyncing = signal(false);
-
-// Dataset path existence checks (populated during sync)
-// { folderPath: bool|null, trainPath: bool|null, valPath: bool|null, testPath: bool|null }
-export const datasetPathStatus = signal({ folderPath: null, trainPath: null, valPath: null, testPath: null });
-
-// SSH connection error state
-export const sshConnectionError = signal(null); // { message: string } or null
-
-// Global SSH connection monitoring
-let sshConnectionTimeout = null;
-let globalPtyOutputListener = null;
-
-// Set up global PTY output listener to monitor SSH connections
-async function setupGlobalSshMonitoring() {
-  if (globalPtyOutputListener) return; // Already set up
-
-  globalPtyOutputListener = await listen("pty-output", (event) => {
-    // Only monitor if we're in a connecting state
-    if (!sshConnecting.value) return;
-
-    const output = event.payload;
-    const lowerOutput = output.toLowerCase();
-
-    // SSH connection success indicators
-    if (lowerOutput.includes("welcome") ||
-        lowerOutput.includes("last login") ||
-        lowerOutput.match(/[$#]\s*$/)) {
-      // Clear timeout on success
-      if (sshConnectionTimeout) {
-        clearTimeout(sshConnectionTimeout);
-        sshConnectionTimeout = null;
-      }
-      setSshConnected(true);
-      sshConnecting.value = false;
-      // Clear any error on successful connection
-      sshConnectionError.value = null;
-      return;
-    }
-
-    // SSH connection failure indicators
-    if (lowerOutput.includes("connection refused") ||
-        lowerOutput.includes("connection timed out") ||
-        lowerOutput.includes("connection closed") ||
-        lowerOutput.includes("connection reset") ||
-        lowerOutput.includes("permission denied") ||
-        lowerOutput.includes("authentication failed") ||
-        lowerOutput.includes("publickey") ||
-        lowerOutput.includes("no such identity") ||
-        lowerOutput.includes("host key verification failed") ||
-        lowerOutput.includes("no route to host") ||
-        lowerOutput.includes("network is unreachable") ||
-        lowerOutput.includes("could not resolve hostname") ||
-        lowerOutput.includes("operation timed out") ||
-        lowerOutput.includes("broken pipe")) {
-      // Clear timeout on failure
-      if (sshConnectionTimeout) {
-        clearTimeout(sshConnectionTimeout);
-        sshConnectionTimeout = null;
-      }
-      setSshConnected(false);
-      sshConnecting.value = false;
-
-      // Set error message for popup
-      let errorMsg = "SSH connection failed";
-      if (lowerOutput.includes("connection refused")) errorMsg = "Connection refused - server is not accepting connections";
-      else if (lowerOutput.includes("connection timed out")) errorMsg = "Connection timed out - server is not responding";
-      else if (lowerOutput.includes("permission denied")) errorMsg = "Permission denied - check your credentials";
-      else if (lowerOutput.includes("authentication failed")) errorMsg = "Authentication failed - invalid credentials";
-      else if (lowerOutput.includes("host key verification failed")) errorMsg = "Host key verification failed - check your known_hosts file";
-      else if (lowerOutput.includes("no route to host")) errorMsg = "No route to host - check network connectivity";
-      else if (lowerOutput.includes("could not resolve hostname")) errorMsg = "Could not resolve hostname - check the server address";
-
-      sshConnectionError.value = { message: errorMsg };
-
-      // Kill the terminal process on failure to ensure clean state
-      invoke("kill_terminal").catch(() => {});
-    }
+export function setSshConnected(connected, projectId = currentProjectId.value) {
+  _setState(projectId, {
+    connected,
+    connectedAt: connected ? new Date().toISOString() : null,
+    // Clear synced when disconnecting
+    ...(!connected && { synced: false }),
   });
+  // Navigate away from terminal if the active project disconnects
+  if (!connected && projectId === currentProjectId.value && currentPage.value === "terminal") {
+    navigate("dashboard");
+  }
 }
 
-// Initialize global monitoring on module load
-setupGlobalSshMonitoring();
+export function setSshConnecting(val, projectId = currentProjectId.value) {
+  _setState(projectId, { connecting: val });
+}
+
+// ── SSH info computed ─────────────────────────────────────────────────────────
 
 export const sshInfo = computed(() => {
   const project = currentProject.value;
   if (!project || !project.sshCommand) return null;
-
   const cmd = project.sshCommand.trim();
-
-  // Handle localhost specially
   if (cmd.toLowerCase() === "localhost") {
     return {
       command: "localhost",
@@ -140,11 +104,8 @@ export const sshInfo = computed(() => {
       connectedAt: sshConnectedAt.value,
     };
   }
-
-  // Parse host from ssh command (e.g. "ssh user@host" → "user@host")
   const parts = cmd.split(/\s+/);
   const target = parts.find((p) => p.includes("@")) || parts[parts.length - 1];
-
   return {
     command: project.sshCommand,
     host: target,
@@ -153,107 +114,37 @@ export const sshInfo = computed(() => {
   };
 });
 
-export function setSshConnected(connected) {
-  sshConnected.value = connected;
-  if (connected) {
-    sshConnectedAt.value = new Date().toISOString();
-  } else {
-    sshConnectedAt.value = null;
-    dashboardSynced.value = false;
-    // If user is on terminal view when disconnected, redirect to dashboard
-    if (currentPage.value === "terminal") {
-      navigate("dashboard");
-    }
-  }
+// ── Dataset path status ───────────────────────────────────────────────────────
+
+export const datasetPathStatus = signal({
+  folderPath: null, trainPath: null, valPath: null, testPath: null,
+});
+
+// ── Error helpers ─────────────────────────────────────────────────────────────
+
+export function clearSshConnectionError(projectId = currentProjectId.value) {
+  _setState(projectId, { error: null });
 }
 
-export async function syncDashboard() {
-  dashboardSyncing.value = true;
-  const minDelay = new Promise((r) => setTimeout(r, 800));
-  try {
-    // Ensure project folder exists before syncing (best-effort, don't block sync)
-    const project = currentProject.value;
-    if (project?.projectPath) {
-      const rawSsh = project.sshCommand;
-      const isSSH = rawSsh && rawSsh.trim() && rawSsh.trim().toLowerCase() !== "localhost";
-
-      try {
-        if (isSSH) {
-          // Run mkdir on remote via a separate non-interactive SSH process
-          // (avoids writing to the interactive PTY which can trigger disconnect detection)
-          await invoke("ssh_mkdir", { sshCommand: rawSsh.trim(), path: project.projectPath });
-        } else {
-          const result = await invoke("ensure_project_dir", { path: project.projectPath });
-          console.log("[syncDashboard] ensure_project_dir:", result);
-        }
-      } catch (dirErr) {
-        console.warn("[syncDashboard] Could not ensure project directory:", dirErr);
-      }
-
-      // Check if dataset paths exist
-      const status = { folderPath: null, trainPath: null, valPath: null, testPath: null };
-      const pathsToCheck = [];
-
-      if (project.folderPath) pathsToCheck.push({ key: "folderPath", path: project.folderPath });
-      if (project.trainPath) pathsToCheck.push({ key: "trainPath", path: project.trainPath });
-      if (project.valPath) pathsToCheck.push({ key: "valPath", path: project.valPath });
-      if (project.testPath) pathsToCheck.push({ key: "testPath", path: project.testPath });
-
-      if (pathsToCheck.length > 0) {
-        const checks = pathsToCheck.map(async ({ key, path }) => {
-          try {
-            let exists;
-            if (isSSH) {
-              exists = await invoke("ssh_check_path", { sshCommand: rawSsh.trim(), path });
-            } else {
-              exists = await invoke("check_path_exists", { path });
-            }
-            status[key] = exists;
-          } catch (err) {
-            console.warn(`[syncDashboard] Could not check ${key}:`, err);
-            status[key] = null;
-          }
-        });
-        await Promise.all(checks);
-      }
-
-      datasetPathStatus.value = status;
-      console.log("[syncDashboard] dataset path status:", status);
-    }
-
-    await Promise.all([loadRuns(), minDelay]);
-    dashboardSynced.value = true;
-  } catch (err) {
-    console.error("[syncDashboard] error:", err);
-  } finally {
-    dashboardSyncing.value = false;
-  }
-}
-
-export function clearSshConnectionError() {
-  sshConnectionError.value = null;
-}
+// ── Connect / disconnect ──────────────────────────────────────────────────────
 
 export async function toggleSshConnection() {
+  const projectId = currentProjectId.value;
+  if (!projectId) return;
+
   if (sshConnected.value) {
-    // Disconnect: kill the terminal and reset state
-    sshConnecting.value = true;
-    // Clear any pending timeout
-    if (sshConnectionTimeout) {
-      clearTimeout(sshConnectionTimeout);
-      sshConnectionTimeout = null;
-    }
+    // Disconnect: kill this project's terminal session
+    setSshConnecting(true, projectId);
     try {
-      await invoke("kill_terminal");
+      await invoke("kill_terminal", { sessionId: projectId });
     } catch (err) {
       console.error("Error killing terminal:", err);
     }
-    setSshConnected(false);
-    shouldAutoConnect.value = false;
-    sshConnecting.value = false;
+    setSshConnected(false, projectId);
+    _setState(projectId, { shouldAutoConnect: false, connecting: false });
   } else {
-    // Connect: signal useTerminal to spawn a fresh session
-    sshConnectionError.value = null;
+    // Connect
+    _setState(projectId, { error: null });
 
     const project = currentProject.value;
     if (!project) return;
@@ -261,42 +152,96 @@ export async function toggleSshConnection() {
     const rawSsh = project.sshCommand;
     const isSSH = rawSsh && rawSsh.trim() && rawSsh.trim().toLowerCase() !== "localhost";
 
-    // Kill any existing PTY first
-    try { await invoke("kill_terminal"); } catch (_) { /* ignore */ }
+    // Kill any existing session for this project first
+    try { await invoke("kill_terminal", { sessionId: projectId }); } catch (_) {}
 
     if (isSSH) {
-      sshConnecting.value = true;
-      shouldAutoConnect.value = true;
+      setSshConnecting(true, projectId);
+      _setState(projectId, { shouldAutoConnect: true });
 
-      // 1. Verify SSH connectivity first (fast, reliable, no output parsing)
+      // 1. Verify SSH connectivity (fast, no output parsing)
       try {
         await invoke("test_ssh", { sshCommand: rawSsh.trim() });
       } catch (err) {
-        setSshConnected(false);
-        sshConnecting.value = false;
-        sshConnectionError.value = { message: `${err}` };
+        setSshConnected(false, projectId);
+        setSshConnecting(false, projectId);
+        _setState(projectId, { error: { message: `${err}` } });
         return;
       }
 
-      // 2. SSH is reachable — spawn the interactive PTY session
+      // 2. Spawn the interactive PTY session for this project
       try {
-        await invoke("spawn_terminal", { sshCommand: rawSsh.trim() });
+        await invoke("spawn_terminal", { sessionId: projectId, sshCommand: rawSsh.trim() });
       } catch (err) {
-        setSshConnected(false);
-        sshConnecting.value = false;
-        sshConnectionError.value = { message: `Failed to start SSH: ${err}` };
+        setSshConnected(false, projectId);
+        setSshConnecting(false, projectId);
+        _setState(projectId, { error: { message: `Failed to start SSH: ${err}` } });
         return;
       }
 
-      // 3. Mark connected — no fragile output parsing needed
-      setSshConnected(true);
-      sshConnecting.value = false;
+      // 3. Mark connected — test_ssh already verified reachability
+      setSshConnected(true, projectId);
+      setSshConnecting(false, projectId);
     } else {
-      // Local: mark connected immediately; useTerminal spawns when terminal tab is opened
-      setSshConnected(true);
+      // Local: mark connected immediately
+      setSshConnected(true, projectId);
     }
 
-    // Bump key so useTerminal tears down any stale _p and reattaches when navigated to
+    // Bump key so useTerminal reinitializes for this project
     bumpTerminalKey();
+  }
+}
+
+// ── Dashboard sync ────────────────────────────────────────────────────────────
+
+export async function syncDashboard() {
+  const projectId = currentProjectId.value;
+  _setState(projectId, { syncing: true });
+  const minDelay = new Promise((r) => setTimeout(r, 800));
+  try {
+    const project = currentProject.value;
+    if (project?.projectPath) {
+      const rawSsh = project.sshCommand;
+      const isSSH = rawSsh && rawSsh.trim() && rawSsh.trim().toLowerCase() !== "localhost";
+
+      try {
+        if (isSSH) {
+          await invoke("ssh_mkdir", { sshCommand: rawSsh.trim(), path: project.projectPath });
+        } else {
+          await invoke("ensure_project_dir", { path: project.projectPath });
+        }
+      } catch (dirErr) {
+        console.warn("[syncDashboard] Could not ensure project directory:", dirErr);
+      }
+
+      const status = { folderPath: null, trainPath: null, valPath: null, testPath: null };
+      const pathsToCheck = [];
+      if (project.folderPath) pathsToCheck.push({ key: "folderPath", path: project.folderPath });
+      if (project.trainPath) pathsToCheck.push({ key: "trainPath", path: project.trainPath });
+      if (project.valPath) pathsToCheck.push({ key: "valPath", path: project.valPath });
+      if (project.testPath) pathsToCheck.push({ key: "testPath", path: project.testPath });
+
+      if (pathsToCheck.length > 0) {
+        await Promise.all(
+          pathsToCheck.map(async ({ key, path }) => {
+            try {
+              status[key] = isSSH
+                ? await invoke("ssh_check_path", { sshCommand: rawSsh.trim(), path })
+                : await invoke("check_path_exists", { path });
+            } catch {
+              status[key] = null;
+            }
+          })
+        );
+      }
+      datasetPathStatus.value = status;
+    }
+
+    await Promise.all([loadRuns(), minDelay]);
+    _setState(projectId, { synced: true });
+  } catch (err) {
+    console.error("[syncDashboard] error:", err);
+  } finally {
+    _setState(projectId, { syncing: false });
   }
 }

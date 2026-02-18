@@ -170,6 +170,24 @@ function SyncScreen() {
   );
 }
 
+function ResyncButton() {
+  const syncing = dashboardSyncing.value;
+  return (
+    <button
+      class={`resync-fab${syncing ? " resync-fab--spinning" : ""}`}
+      onClick={syncDashboard}
+      disabled={syncing}
+      title="Re-sync project data"
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M23 4v6h-6"/>
+        <path d="M1 20v-6h6"/>
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+      </svg>
+    </button>
+  );
+}
+
 export function DashboardView() {
   const s = stats.value;
   const connected = sshConnected.value;
@@ -189,6 +207,7 @@ export function DashboardView() {
             <SummaryCard label="Best Accuracy" value={s.bestAcc != null ? (s.bestAcc * 100).toFixed(1) + "%" : "—"} icon={icons.accuracy} />
             <SummaryCard label="Avg Val Loss" value={s.avgLoss != null ? s.avgLoss.toFixed(4) : "—"} icon={icons.loss} />
           </div>
+          <ResyncButton />
         </>
       )}
       <SshErrorModal />

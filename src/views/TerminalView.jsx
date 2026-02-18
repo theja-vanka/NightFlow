@@ -1,4 +1,4 @@
-import { useTerminal, sshConnectionStatus, sshConnectionMessage } from "../hooks/useTerminal.js";
+import { useTerminal } from "../hooks/useTerminal.js";
 import { currentProject } from "../state/projects.js";
 import { sshConnected, sshConnecting } from "../state/dashboard.js";
 
@@ -7,29 +7,32 @@ const restartIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
 const clearIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></svg>`;
 
 export function TerminalView() {
-  const rawSsh = currentProject.value?.sshCommand;
+  const project = currentProject.value;
+  const rawSsh = project?.sshCommand;
   const projectSshCommand =
     rawSsh && rawSsh.trim() && rawSsh.trim().toLowerCase() !== "localhost"
       ? rawSsh.trim()
       : null;
-  const hasProject = !!currentProject.value;
+  const hasProject = !!project;
   const isSSH = !!projectSshCommand;
+  const projectId = project?.id ?? null;
 
   const enabled = !isSSH || sshConnected.value || sshConnecting.value;
   const showTerminal = !isSSH || sshConnected.value;
 
-  const { containerRef, dims, alive, info, clear, kill, restart, focus } = useTerminal({
-    sshCommand: projectSshCommand,
-    isProject: hasProject,
-    projectPath: currentProject.value?.projectPath ?? null,
-    enabled,
-  });
+  const { containerRef, dims, alive, info, sshStatus, sshMessage, clear, kill, restart, focus } =
+    useTerminal({
+      projectId,
+      sshCommand: projectSshCommand,
+      isProject: hasProject,
+      projectPath: project?.projectPath ?? null,
+      enabled,
+    });
 
-  const status = sshConnectionStatus.value;
-  const showOverlay = isSSH && status !== "idle";
-  const isConnecting = status === "connecting";
-  const isConnected = status === "connected";
-  const isFailed = status === "failed";
+  const showOverlay = isSSH && sshStatus !== "idle";
+  const isConnecting = sshStatus === "connecting";
+  const isConnected = sshStatus === "connected";
+  const isFailed = sshStatus === "failed";
 
   return (
     <div class="terminal-view">
@@ -39,7 +42,7 @@ export function TerminalView() {
             {isConnecting && (
               <>
                 <div class="terminal-connection-spinner" />
-                <div class="terminal-connection-text">{sshConnectionMessage.value}</div>
+                <div class="terminal-connection-text">{sshMessage}</div>
                 <div class="terminal-connection-progress">
                   <div class="terminal-connection-progress-bar connecting" />
                 </div>
@@ -48,7 +51,7 @@ export function TerminalView() {
             {isConnected && (
               <>
                 <div class="terminal-connection-icon success">✓</div>
-                <div class="terminal-connection-text success">{sshConnectionMessage.value}</div>
+                <div class="terminal-connection-text success">{sshMessage}</div>
                 <div class="terminal-connection-progress">
                   <div class="terminal-connection-progress-bar success" />
                 </div>
@@ -57,7 +60,7 @@ export function TerminalView() {
             {isFailed && (
               <>
                 <div class="terminal-connection-icon failed">✕</div>
-                <div class="terminal-connection-text failed">{sshConnectionMessage.value}</div>
+                <div class="terminal-connection-text failed">{sshMessage}</div>
                 <div class="terminal-connection-progress">
                   <div class="terminal-connection-progress-bar failed" />
                 </div>
