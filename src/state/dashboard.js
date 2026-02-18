@@ -72,6 +72,7 @@ async function setupGlobalSshMonitoring() {
       sshConnecting.value = false;
       // Clear any error on successful connection
       sshConnectionError.value = null;
+      return;
     }
 
     // SSH connection failure indicators
@@ -194,15 +195,38 @@ export async function toggleSshConnection() {
     try { await invoke("kill_terminal"); } catch (_) {}
 
     if (isSSH) {
-      // SSH: set connecting state; useTerminal will spawn after registering its listener
       sshConnecting.value = true;
       shouldAutoConnect.value = true;
+
+      // 1. Verify SSH connectivity first (fast, reliable, no output parsing)
+      try {
+        await invoke("test_ssh", { sshCommand: rawSsh.trim() });
+      } catch (err) {
+        setSshConnected(false);
+        sshConnecting.value = false;
+        sshConnectionError.value = { message: `${err}` };
+        return;
+      }
+
+      // 2. SSH is reachable — spawn the interactive PTY session
+      try {
+        await invoke("spawn_terminal", { sshCommand: rawSsh.trim() });
+      } catch (err) {
+        setSshConnected(false);
+        sshConnecting.value = false;
+        sshConnectionError.value = { message: `Failed to start SSH: ${err}` };
+        return;
+      }
+
+      // 3. Mark connected — no fragile output parsing needed
+      setSshConnected(true);
+      sshConnecting.value = false;
     } else {
       // Local: mark connected immediately; useTerminal spawns when terminal tab is opened
       setSshConnected(true);
     }
 
-    // Bump key so useTerminal tears down any stale _p and calls _init fresh
+    // Bump key so useTerminal tears down any stale _p and reattaches when navigated to
     bumpTerminalKey();
   }
 }

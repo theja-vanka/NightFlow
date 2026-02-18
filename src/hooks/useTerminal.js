@@ -93,28 +93,30 @@ function _handleSshOutput(out) {
   const low = out.toLowerCase();
   const status = sshConnectionStatus.value;
 
-  if (status === "connecting") {
-    const success =
-      low.includes("welcome") ||
-      low.includes("last login") ||
-      /[$#]\s*$/.test(low);
+  // Only process output when a terminal-initiated connection is in progress.
+  // Dashboard-initiated connections are handled by the global listener in dashboard.js.
+  if (status !== "connecting") return;
 
-    if (success) {
-      if (_sshTimeout) { clearTimeout(_sshTimeout); _sshTimeout = null; }
-      _setSshStatus("connected", "SSH connection established");
-      setSshConnected(true);
-      sshConnecting.value = false;
-      // Navigate to project path on the remote host
-      if (_p?.projectPath) {
-        setTimeout(() => {
-          invoke("pty_write", { data: `cd ${_p.projectPath}\r` });
-        }, 300);
-      }
+  const success =
+    low.includes("welcome") ||
+    low.includes("last login") ||
+    /[$#]\s*$/.test(low);
+
+  if (success) {
+    if (_sshTimeout) { clearTimeout(_sshTimeout); _sshTimeout = null; }
+    _setSshStatus("connected", "SSH connection established");
+    setSshConnected(true);
+    sshConnecting.value = false;
+    // Navigate to project path on the remote host
+    if (_p?.projectPath) {
       setTimeout(() => {
-        if (sshConnectionStatus.value === "connected") sshConnectionStatus.value = "idle";
-      }, 3000);
-      return;
+        invoke("pty_write", { data: `cd ${_p.projectPath}\r` });
+      }, 300);
     }
+    setTimeout(() => {
+      if (sshConnectionStatus.value === "connected") sshConnectionStatus.value = "idle";
+    }, 3000);
+    return;
   }
 
   const failure =
