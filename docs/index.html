@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NightForge — Deep Learning Experiment Manager</title>
+  <meta name="description" content="A native, privacy-first desktop app for managing, running, and analyzing deep-learning experiments. No cloud, no telemetry, no account required." />
+  <meta property="og:title" content="NightForge" />
+  <meta property="og:description" content="Native desktop app for deep-learning experiments." />
+  <meta property="og:type" content="website" />
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#0a0a0f;
+      --surface:#12121a;
+      --surface2:#1a1a26;
+      --border:#2a2a3a;
+      --text:#e4e4ef;
+      --text2:#9395a5;
+      --accent:#6c5ce7;
+      --accent2:#a29bfe;
+      --green:#00b894;
+      --radius:12px;
+      --max-w:1080px;
+    }
+    html{scroll-behavior:smooth}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased}
+    a{color:var(--accent2);text-decoration:none}
+    a:hover{text-decoration:underline}
+
+    /* ── NAV ── */
+    nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(10,10,15,.85);backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}
+    .nav-inner{max-width:var(--max-w);margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:56px}
+    .nav-brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:1.1rem;color:var(--text)}
+    .nav-brand img{height:28px;width:auto;border-radius:6px}
+    .nav-links{display:flex;gap:24px;font-size:.9rem}
+    .nav-links a{color:var(--text2);transition:color .2s}
+    .nav-links a:hover{color:var(--text);text-decoration:none}
+
+    /* ── HERO ── */
+    .hero{padding:140px 24px 80px;text-align:center}
+    .hero img{height:96px;width:auto;border-radius:20px;margin-bottom:24px}
+    .hero h1{font-size:3rem;font-weight:800;letter-spacing:-.02em;margin-bottom:12px;background:linear-gradient(135deg,var(--accent2),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .hero p{color:var(--text2);font-size:1.2rem;max-width:560px;margin:0 auto 32px}
+    .hero-buttons{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:10px;font-weight:600;font-size:.95rem;transition:all .2s}
+    .btn-primary{background:var(--accent);color:#fff}
+    .btn-primary:hover{background:#5a4bd6;text-decoration:none}
+    .btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+    .btn-outline:hover{border-color:var(--accent2);color:var(--accent2);text-decoration:none}
+
+    /* ── SECTIONS ── */
+    section{max-width:var(--max-w);margin:0 auto;padding:80px 24px}
+    section h2{font-size:2rem;font-weight:700;margin-bottom:12px}
+    section .subtitle{color:var(--text2);font-size:1.05rem;margin-bottom:48px}
+
+    /* ── FEATURES ── */
+    .features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}
+    .feature-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;transition:border-color .2s}
+    .feature-card:hover{border-color:var(--accent)}
+    .feature-icon{font-size:1.6rem;margin-bottom:12px}
+    .feature-card h3{font-size:1.1rem;margin-bottom:6px}
+    .feature-card p{color:var(--text2);font-size:.9rem;line-height:1.5}
+
+    /* ── DOWNLOAD ── */
+    .download-section{text-align:center}
+    #releases-container{margin-top:32px}
+    .release-block{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;margin-bottom:20px;text-align:left}
+    .release-block h3{font-size:1.25rem;margin-bottom:4px}
+    .release-meta{color:var(--text2);font-size:.85rem;margin-bottom:16px}
+    .release-assets{display:flex;flex-wrap:wrap;gap:10px}
+    .asset-link{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:.85rem;color:var(--text);transition:all .2s}
+    .asset-link:hover{border-color:var(--accent);color:var(--accent2);text-decoration:none}
+    .asset-link .platform-icon{font-size:1rem}
+    .release-loading{color:var(--text2);padding:40px 0;font-size:.95rem}
+    .release-error{color:#ff6b6b;padding:40px 0}
+
+    /* ── TECH ── */
+    .tech-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+    .tech-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;text-align:center}
+    .tech-item .label{font-size:.8rem;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+    .tech-item .value{font-weight:600;font-size:1rem}
+
+    /* ── FOOTER ── */
+    footer{border-top:1px solid var(--border);text-align:center;padding:32px 24px;color:var(--text2);font-size:.85rem}
+    footer a{color:var(--accent2)}
+
+    /* ── RESPONSIVE ── */
+    @media(max-width:640px){
+      .hero h1{font-size:2rem}
+      .hero p{font-size:1rem}
+      .nav-links{gap:16px}
+      section{padding:60px 16px}
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <div class="nav-brand">
+      <img src="logo.png" alt="NightForge" />
+      NightForge
+    </div>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#download">Download</a>
+      <a href="#tech">Tech Stack</a>
+      <a href="https://github.com/theja-vanka/NightForge" target="_blank">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <img src="logo.png" alt="NightForge logo" />
+  <h1>NightForge</h1>
+  <p>A native, privacy-first desktop app for managing, running, and analyzing deep-learning experiments.</p>
+  <div class="hero-buttons">
+    <a href="#download" class="btn btn-primary">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download
+    </a>
+    <a href="https://github.com/theja-vanka/NightForge" target="_blank" class="btn btn-outline">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.37.5 0 5.78 0 12.292c0 5.211 3.438 9.63 8.205 11.188.6.111.82-.254.82-.567 0-.28-.01-1.022-.015-2.005-3.338.711-4.042-1.582-4.042-1.582-.546-1.361-1.333-1.723-1.333-1.723-1.089-.73.083-.716.083-.716 1.205.083 1.838 1.215 1.838 1.215 1.07 1.803 2.809 1.282 3.495.98.108-.763.417-1.282.76-1.577-2.665-.295-5.466-1.309-5.466-5.827 0-1.287.465-2.339 1.235-3.164-.135-.298-.54-1.497.105-3.121 0 0 1.005-.316 3.3 1.209A11.615 11.615 0 0112 6.844c1.02.005 2.047.136 3.006.404 2.28-1.525 3.285-1.209 3.285-1.209.645 1.624.24 2.823.12 3.121.765.825 1.23 1.877 1.23 3.164 0 4.53-2.805 5.527-5.475 5.817.42.354.81 1.077.81 2.182 0 1.578-.015 2.846-.015 3.229 0 .309.21.678.825.56C20.565 21.917 24 17.495 24 12.292 24 5.78 18.627.5 12 .5z"/></svg>
+      View on GitHub
+    </a>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<section id="features">
+  <h2>Features</h2>
+  <p class="subtitle">Everything you need to manage your ML workflow — no cloud required.</p>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">📊</div>
+      <h3>Project Management</h3>
+      <p>Create and organize ML projects with dataset, model, and training configurations in one place.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🧪</div>
+      <h3>Experiment Tracking</h3>
+      <p>View runs, metrics, and training history in a structured, sortable table.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📈</div>
+      <h3>Charts & Visualization</h3>
+      <p>Interactive loss curves, accuracy plots, and custom metric charts rendered in real time.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🧠</div>
+      <h3>Model Interpretation</h3>
+      <p>Built-in interpretability tools to understand what your model is learning.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔬</div>
+      <h3>Netron Integration</h3>
+      <p>Visualize neural network architectures directly inside the app.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">💻</div>
+      <h3>Integrated Terminal</h3>
+      <p>Full PTY terminal with SSH support for remote training servers — no context switching.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔒</div>
+      <h3>100% Private</h3>
+      <p>No telemetry, no tracking, no cloud. All your data is stored locally on your machine.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⚡</div>
+      <h3>Lightweight & Fast</h3>
+      <p>Built with Tauri + Rust for a tiny footprint and native performance. No Electron bloat.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🌐</div>
+      <h3>Cross-Platform</h3>
+      <p>Runs natively on macOS (Intel & Apple Silicon), Windows, and Linux.</p>
+    </div>
+  </div>
+</section>
+
+<!-- DOWNLOAD -->
+<section id="download" class="download-section">
+  <h2>Download</h2>
+  <p class="subtitle">Grab the latest release for your platform — or browse all versions below.</p>
+  <div id="releases-container">
+    <p class="release-loading">Loading releases…</p>
+  </div>
+</section>
+
+<!-- TECH STACK -->
+<section id="tech">
+  <h2>Tech Stack</h2>
+  <p class="subtitle">Modern, minimal, and built for performance.</p>
+  <div class="tech-grid">
+    <div class="tech-item">
+      <div class="label">UI Framework</div>
+      <div class="value">Preact + Signals</div>
+    </div>
+    <div class="tech-item">
+      <div class="label">Bundler</div>
+      <div class="value">Vite</div>
+    </div>
+    <div class="tech-item">
+      <div class="label">Desktop Runtime</div>
+      <div class="value">Tauri v2</div>
+    </div>
+    <div class="tech-item">
+      <div class="label">Terminal</div>
+      <div class="value">xterm.js + WebGL</div>
+    </div>
+    <div class="tech-item">
+      <div class="label">Storage</div>
+      <div class="value">IndexedDB (idb)</div>
+    </div>
+    <div class="tech-item">
+      <div class="label">Backend</div>
+      <div class="value">Rust + Tokio</div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <p>
+    Released under the <a href="https://github.com/theja-vanka/NightForge/blob/main/LICENSE" target="_blank">Apache License 2.0</a>.
+    Built with 🔥 by Krishnatheja Vanka.
+  </p>
+  <p style="margin-top:8px">
+    <a href="https://github.com/theja-vanka/NightForge" target="_blank">GitHub</a>
+  </p>
+</footer>
+
+<script>
+(async () => {
+  const REPO = "theja-vanka/NightForge";
+  const container = document.getElementById("releases-container");
+
+  // Map file extensions to platform info
+  function platformInfo(name) {
+    const n = name.toLowerCase();
+    if (n.endsWith(".dmg"))       return { icon: "🍎", platform: "macOS", ext: ".dmg" };
+    if (n.endsWith(".exe"))       return { icon: "🪟", platform: "Windows", ext: ".exe" };
+    if (n.endsWith(".appimage"))  return { icon: "🐧", platform: "Linux", ext: ".AppImage" };
+    if (n.endsWith(".deb"))       return { icon: "🐧", platform: "Linux", ext: ".deb" };
+    if (n.endsWith(".msi"))       return { icon: "🪟", platform: "Windows", ext: ".msi" };
+    return null;
+  }
+
+  function formatDate(dateStr) {
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      year: "numeric", month: "short", day: "numeric"
+    });
+  }
+
+  function formatSize(bytes) {
+    if (bytes > 1e9) return (bytes / 1e9).toFixed(1) + " GB";
+    if (bytes > 1e6) return (bytes / 1e6).toFixed(1) + " MB";
+    return (bytes / 1e3).toFixed(0) + " KB";
+  }
+
+  try {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/releases`);
+    if (!res.ok) throw new Error(`GitHub API returned ${res.status}`);
+    const releases = await res.json();
+
+    if (!releases.length) {
+      container.innerHTML = `
+        <p class="release-loading">No releases yet — check back soon!</p>
+        <p style="margin-top:12px">
+          <a href="https://github.com/${REPO}/releases" target="_blank" class="btn btn-outline">View on GitHub</a>
+        </p>`;
+      return;
+    }
+
+    container.innerHTML = releases.map((release, i) => {
+      const assets = release.assets
+        .map(a => {
+          const info = platformInfo(a.name);
+          if (!info) return "";
+          return `<a class="asset-link" href="${a.browser_download_url}" title="${a.name} (${formatSize(a.size)})">
+            <span class="platform-icon">${info.icon}</span>
+            ${info.platform} ${info.ext}
+          </a>`;
+        })
+        .filter(Boolean)
+        .join("");
+
+      const tag = release.tag_name;
+      const isLatest = i === 0;
+
+      return `
+        <div class="release-block">
+          <h3>
+            ${tag}${isLatest ? ' <span style="background:var(--green);color:#000;font-size:.7rem;padding:2px 8px;border-radius:6px;font-weight:700;margin-left:8px">LATEST</span>' : ""}
+          </h3>
+          <div class="release-meta">
+            Released ${formatDate(release.published_at)}
+            · <a href="${release.html_url}" target="_blank">Release notes</a>
+          </div>
+          ${assets ? `<div class="release-assets">${assets}</div>` : '<p style="color:var(--text2);font-size:.85rem">No app bundles in this release.</p>'}
+        </div>`;
+    }).join("");
+  } catch (e) {
+    container.innerHTML = `
+      <p class="release-error">Could not load releases. Please visit GitHub directly.</p>
+      <p style="margin-top:12px">
+        <a href="https://github.com/${REPO}/releases" target="_blank" class="btn btn-outline">View Releases on GitHub</a>
+      </p>`;
+  }
+})();
+</script>
+
+</body>
+</html>

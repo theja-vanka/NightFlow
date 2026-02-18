@@ -173,5 +173,5 @@ Released under the [Apache License 2.0](LICENSE).
 ---
 
 <div align="center">
-<sub>Built with 🔥 by the NightForge team</sub>
+<sub>Built with 🔥 by Krishnatheja Vanka</sub>
 </div>
