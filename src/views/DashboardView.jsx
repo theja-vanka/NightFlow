@@ -3,7 +3,9 @@ import {
   stats, sshInfo, toggleSshConnection, sshConnecting, sshConnected,
   sshConnectionError, clearSshConnectionError,
   dashboardSynced, dashboardSyncing, syncDashboard,
+  datasetPathStatus,
 } from "../state/dashboard.js";
+import { currentProject } from "../state/projects.js";
 
 function SshStatusBanner() {
   const info = sshInfo.value;
@@ -94,6 +96,49 @@ function SshErrorModal() {
   );
 }
 
+function DatasetStatusBanner() {
+  const project = currentProject.value;
+  const status = datasetPathStatus.value;
+  if (!project) return null;
+
+  const fmt = project.datasetFormat;
+  const usesSplitFiles = fmt === "CSV" || fmt === "JSONL";
+
+  const paths = [];
+  if (usesSplitFiles) {
+    if (project.trainPath) paths.push({ label: "Train", path: project.trainPath, exists: status.trainPath });
+    if (project.valPath) paths.push({ label: "Validation", path: project.valPath, exists: status.valPath });
+    if (project.testPath) paths.push({ label: "Test", path: project.testPath, exists: status.testPath });
+  } else {
+    if (project.folderPath) paths.push({ label: "Dataset Folder", path: project.folderPath, exists: status.folderPath });
+  }
+
+  if (paths.length === 0) return null;
+
+  return (
+    <div class="dataset-status-banner">
+      <div class="dataset-status-header">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+        </svg>
+        <span>Dataset Paths</span>
+      </div>
+      <div class="dataset-status-items">
+        {paths.map((p) => (
+          <div class="dataset-status-item" key={p.label}>
+            <span class={`dataset-status-dot ${p.exists === true ? "found" : p.exists === false ? "missing" : "unknown"}`} />
+            <span class="dataset-status-label">{p.label}</span>
+            <span class="dataset-status-path">{p.path}</span>
+            <span class={`dataset-status-tag ${p.exists === true ? "found" : p.exists === false ? "missing" : "unknown"}`}>
+              {p.exists === true ? "Found" : p.exists === false ? "Not Found" : "—"}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SyncScreen() {
   const syncing = dashboardSyncing.value;
   return (
@@ -136,12 +181,15 @@ export function DashboardView() {
       {!connected ? null : !synced ? (
         <SyncScreen />
       ) : (
-        <div class="summary-grid">
-          <SummaryCard label="Total Runs" value={s.totalRuns} icon={icons.total} />
-          <SummaryCard label="Running" value={s.running} icon={icons.running} />
-          <SummaryCard label="Best Accuracy" value={s.bestAcc != null ? (s.bestAcc * 100).toFixed(1) + "%" : "—"} icon={icons.accuracy} />
-          <SummaryCard label="Avg Val Loss" value={s.avgLoss != null ? s.avgLoss.toFixed(4) : "—"} icon={icons.loss} />
-        </div>
+        <>
+          <DatasetStatusBanner />
+          <div class="summary-grid">
+            <SummaryCard label="Total Runs" value={s.totalRuns} icon={icons.total} />
+            <SummaryCard label="Running" value={s.running} icon={icons.running} />
+            <SummaryCard label="Best Accuracy" value={s.bestAcc != null ? (s.bestAcc * 100).toFixed(1) + "%" : "—"} icon={icons.accuracy} />
+            <SummaryCard label="Avg Val Loss" value={s.avgLoss != null ? s.avgLoss.toFixed(4) : "—"} icon={icons.loss} />
+          </div>
+        </>
       )}
       <SshErrorModal />
     </div>

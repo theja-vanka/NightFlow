@@ -139,7 +139,7 @@ function StepName() {
       .replace(/^-+|-+$/g, '');
   };
 
-  const DEFAULT_BASE = "/opt/nightforge/";
+  const DEFAULT_BASE = "~/nightforge/projects/";
 
   const derivedPath = d.name
     ? `${DEFAULT_BASE}${sanitizeName(d.name)}`

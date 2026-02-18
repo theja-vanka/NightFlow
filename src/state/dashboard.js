@@ -43,6 +43,10 @@ export const shouldAutoConnect = signal(false);
 export const dashboardSynced = signal(false);
 export const dashboardSyncing = signal(false);
 
+// Dataset path existence checks (populated during sync)
+// { folderPath: bool|null, trainPath: bool|null, valPath: bool|null, testPath: bool|null }
+export const datasetPathStatus = signal({ folderPath: null, trainPath: null, valPath: null, testPath: null });
+
 // SSH connection error state
 export const sshConnectionError = signal(null); // { message: string } or null
 
@@ -165,9 +169,62 @@ export function setSshConnected(connected) {
 
 export async function syncDashboard() {
   dashboardSyncing.value = true;
+  const minDelay = new Promise((r) => setTimeout(r, 800));
   try {
-    await loadRuns();
+    // Ensure project folder exists before syncing (best-effort, don't block sync)
+    const project = currentProject.value;
+    if (project?.projectPath) {
+      const rawSsh = project.sshCommand;
+      const isSSH = rawSsh && rawSsh.trim() && rawSsh.trim().toLowerCase() !== "localhost";
+
+      try {
+        if (isSSH) {
+          // Run mkdir on remote via a separate non-interactive SSH process
+          // (avoids writing to the interactive PTY which can trigger disconnect detection)
+          await invoke("ssh_mkdir", { sshCommand: rawSsh.trim(), path: project.projectPath });
+        } else {
+          const result = await invoke("ensure_project_dir", { path: project.projectPath });
+          console.log("[syncDashboard] ensure_project_dir:", result);
+        }
+      } catch (dirErr) {
+        console.warn("[syncDashboard] Could not ensure project directory:", dirErr);
+      }
+
+      // Check if dataset paths exist
+      const status = { folderPath: null, trainPath: null, valPath: null, testPath: null };
+      const pathsToCheck = [];
+
+      if (project.folderPath) pathsToCheck.push({ key: "folderPath", path: project.folderPath });
+      if (project.trainPath) pathsToCheck.push({ key: "trainPath", path: project.trainPath });
+      if (project.valPath) pathsToCheck.push({ key: "valPath", path: project.valPath });
+      if (project.testPath) pathsToCheck.push({ key: "testPath", path: project.testPath });
+
+      if (pathsToCheck.length > 0) {
+        const checks = pathsToCheck.map(async ({ key, path }) => {
+          try {
+            let exists;
+            if (isSSH) {
+              exists = await invoke("ssh_check_path", { sshCommand: rawSsh.trim(), path });
+            } else {
+              exists = await invoke("check_path_exists", { path });
+            }
+            status[key] = exists;
+          } catch (err) {
+            console.warn(`[syncDashboard] Could not check ${key}:`, err);
+            status[key] = null;
+          }
+        });
+        await Promise.all(checks);
+      }
+
+      datasetPathStatus.value = status;
+      console.log("[syncDashboard] dataset path status:", status);
+    }
+
+    await Promise.all([loadRuns(), minDelay]);
     dashboardSynced.value = true;
+  } catch (err) {
+    console.error("[syncDashboard] error:", err);
   } finally {
     dashboardSyncing.value = false;
   }

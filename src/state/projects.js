@@ -29,8 +29,17 @@ export async function loadProjects() {
       }
 
       // Only add defaults for fields that don't exist
+      // Migrate old paths to ~/nightforge/projects/
+      let projectPath = p.projectPath;
+      if (projectPath && projectPath.startsWith("/opt/nightforge/")) {
+        projectPath = projectPath.replace("/opt/nightforge/", "~/nightforge/projects/");
+      } else if (projectPath && projectPath.startsWith("~/NightForge/projects")) {
+        projectPath = projectPath.replace("~/NightForge/projects", "~/nightforge/projects");
+      }
+
       return {
         ...p, // Keep all existing fields
+        projectPath: projectPath || "~/nightforge/projects",
         // Add missing fields with defaults (these won't override existing values due to || operator)
         ...((!p.connectionType) && { connectionType: "localhost" }),
         ...((!p.sshCommand) && { sshCommand: "localhost" }),
@@ -38,7 +47,6 @@ export async function loadProjects() {
         ...((!p.modelCategory) && { modelCategory: "Edge" }),
         ...((!p.detectionArch) && { detectionArch: "fcos" }),
         ...((!p.segHeadType) && { segHeadType: "deeplabv3plus" }),
-        ...((!p.projectPath) && { projectPath: "~/NightForge/projects" }),
         ...((!p.datasetFormat) && { datasetFormat: defaultFormat }),
         ...((!p.folderPath) && { folderPath: "" }),
         ...((!p.trainPath) && { trainPath: "" }),
@@ -223,7 +231,7 @@ export const wizardCanProceed = computed(() => {
   return false;
 });
 
-const PROJECT_BASE_PATH = "/opt/nightforge/";
+const PROJECT_BASE_PATH = "~/nightforge/projects/";
 
 export async function openWizard() {
   wizardCwd.value = PROJECT_BASE_PATH;

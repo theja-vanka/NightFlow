@@ -28,10 +28,25 @@ fn close_splash(app: tauri::AppHandle) {
 }
 
 fn expand_tilde(path: &str) -> String {
-    if path.starts_with('~')
-        && let Ok(home) = std::env::var("HOME") {
-            return path.replacen('~', &home, 1);
-        }
+    if !path.starts_with('~') {
+        return path.to_string();
+    }
+
+    // Try HOME first (Unix / macOS), then USERPROFILE (Windows)
+    let home = std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .ok();
+
+    if let Some(home_dir) = home {
+        return path.replacen('~', &home_dir, 1);
+    }
+
+    // Fallback: use dirs crate-style resolution via std::path
+    #[cfg(target_os = "windows")]
+    if let (Ok(drive), Ok(homepath)) = (std::env::var("HOMEDRIVE"), std::env::var("HOMEPATH")) {
+        return path.replacen('~', &format!("{}{}", drive, homepath), 1);
+    }
+
     path.to_string()
 }
 
@@ -211,10 +226,106 @@ async fn test_ssh(ssh_command: String) -> Result<String, String> {
 }
 
 #[command]
+async fn ssh_mkdir(ssh_command: String, path: String) -> Result<String, String> {
+    let parts: Vec<String> = ssh_command
+        .split_whitespace()
+        .map(String::from)
+        .collect();
+    if parts.is_empty() {
+        return Err("Empty SSH command".to_string());
+    }
+
+    let mut cmd = tokio::process::Command::new(&parts[0]);
+    cmd.args(["-o", "BatchMode=yes", "-o", "ConnectTimeout=5"]);
+    for arg in &parts[1..] {
+        cmd.arg(arg);
+    }
+    // Run mkdir -p on the remote machine
+    // Use $HOME instead of ~ so it works inside quotes (single-quoted ~ is literal)
+    let remote_path = if path.starts_with("~/") {
+        format!("$HOME/{}", &path[2..])
+    } else if path == "~" {
+        "$HOME".to_string()
+    } else {
+        path.clone()
+    };
+    cmd.arg(format!("mkdir -p \"{}\"", remote_path.replace('"', "\\\"")));
+    cmd.kill_on_drop(true);
+
+    println!("[ssh_mkdir] running: mkdir -p \"{}\" via SSH", remote_path);
+
+    match tokio::time::timeout(std::time::Duration::from_secs(10), cmd.output()).await {
+        Ok(Ok(output)) => {
+            if output.status.success() {
+                println!("[ssh_mkdir] directory ensured on remote");
+                Ok("Directory ensured on remote".to_string())
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+                let msg = if stderr.is_empty() {
+                    "Failed to create remote directory".to_string()
+                } else {
+                    stderr
+                };
+                println!("[ssh_mkdir] failed: {}", msg);
+                Err(msg)
+            }
+        }
+        Ok(Err(e)) => Err(e.to_string()),
+        Err(_) => Err("SSH mkdir timed out".to_string()),
+    }
+}
+
+#[command]
 fn get_cwd() -> String {
     std::env::current_dir()
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_default()
+}
+
+#[command]
+fn check_path_exists(path: String) -> Result<bool, String> {
+    use std::path::PathBuf;
+
+    let expanded = expand_tilde(&path);
+    if expanded.is_empty() {
+        return Ok(false);
+    }
+
+    let path_obj = PathBuf::from(&expanded);
+    Ok(path_obj.exists())
+}
+
+#[command]
+async fn ssh_check_path(ssh_command: String, path: String) -> Result<bool, String> {
+    let parts: Vec<String> = ssh_command
+        .split_whitespace()
+        .map(String::from)
+        .collect();
+    if parts.is_empty() {
+        return Err("Empty SSH command".to_string());
+    }
+
+    let remote_path = if path.starts_with("~/") {
+        format!("$HOME/{}", &path[2..])
+    } else if path == "~" {
+        "$HOME".to_string()
+    } else {
+        path.clone()
+    };
+
+    let mut cmd = tokio::process::Command::new(&parts[0]);
+    cmd.args(["-o", "BatchMode=yes", "-o", "ConnectTimeout=5"]);
+    for arg in &parts[1..] {
+        cmd.arg(arg);
+    }
+    cmd.arg(format!("test -e \"{}\"", remote_path.replace('"', "\\\"")));
+    cmd.kill_on_drop(true);
+
+    match tokio::time::timeout(std::time::Duration::from_secs(10), cmd.output()).await {
+        Ok(Ok(output)) => Ok(output.status.success()),
+        Ok(Err(e)) => Err(e.to_string()),
+        Err(_) => Err("SSH check path timed out".to_string()),
+    }
 }
 
 #[command]
@@ -255,6 +366,102 @@ fn get_terminal_info(state: State<'_, PtyState>) -> std::collections::HashMap<St
 struct PathValidationResult {
     valid: bool,
     error: Option<String>,
+}
+
+#[command]
+fn ensure_project_dir(path: String) -> Result<String, String> {
+    use std::fs;
+    use std::path::PathBuf;
+
+    let expanded = expand_tilde(&path);
+    println!("[ensure_project_dir] input='{}' expanded='{}'", path, expanded);
+
+    if expanded.is_empty() {
+        return Err("Project path is empty".to_string());
+    }
+
+    let path_obj = PathBuf::from(&expanded);
+
+    if path_obj.exists() {
+        if path_obj.is_dir() {
+            println!("[ensure_project_dir] already exists: '{}'", path_obj.display());
+            return Ok("Directory already exists".to_string());
+        } else {
+            return Err("Path exists but is not a directory".to_string());
+        }
+    }
+
+    // First try without elevation
+    println!("[ensure_project_dir] creating: '{}'", path_obj.display());
+    match fs::create_dir_all(&path_obj) {
+        Ok(()) => {
+            println!("[ensure_project_dir] created successfully");
+            return Ok("Directory created".to_string());
+        }
+        Err(e) => {
+            println!("[ensure_project_dir] normal create failed: {}, trying elevated", e);
+        }
+    }
+
+    // If normal creation failed (e.g. /opt/ on macOS/Linux), try with elevated permissions
+    #[cfg(target_os = "macos")]
+    {
+        let script = format!(
+            "do shell script \"mkdir -p '{}'\" with administrator privileges",
+            expanded.replace('\'', "'\\''")
+        );
+        let output = std::process::Command::new("osascript")
+            .arg("-e")
+            .arg(&script)
+            .output()
+            .map_err(|e| format!("Failed to request admin privileges: {}", e))?;
+
+        if output.status.success() {
+            println!("[ensure_project_dir] created with admin privileges");
+            return Ok("Directory created (elevated)".to_string());
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            return Err(format!("Failed to create directory with admin privileges: {}", stderr));
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let output = std::process::Command::new("pkexec")
+            .arg("mkdir")
+            .arg("-p")
+            .arg(&expanded)
+            .output()
+            .map_err(|e| format!("Failed to request admin privileges: {}", e))?;
+
+        if output.status.success() {
+            println!("[ensure_project_dir] created with pkexec");
+            return Ok("Directory created (elevated)".to_string());
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            return Err(format!("Failed to create directory with admin privileges: {}", stderr));
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // On Windows, use powershell with -Verb RunAs for elevation
+        let output = std::process::Command::new("powershell")
+            .args(["-Command", &format!("New-Item -ItemType Directory -Force -Path '{}'", expanded.replace('\'', "''"))])
+            .output()
+            .map_err(|e| format!("Failed to create directory: {}", e))?;
+
+        if output.status.success() {
+            println!("[ensure_project_dir] created with powershell");
+            return Ok("Directory created".to_string());
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            return Err(format!("Failed to create directory: {}", stderr));
+        }
+    }
+
+    #[allow(unreachable_code)]
+    Err("Unsupported platform for elevated directory creation".to_string())
 }
 
 #[command]
@@ -349,7 +556,11 @@ fn main() {
             is_terminal_alive,
             get_terminal_info,
             test_ssh,
+            ssh_mkdir,
             get_cwd,
+            check_path_exists,
+            ssh_check_path,
+            ensure_project_dir,
             validate_folder_path,
             validate_file_path,
         ])

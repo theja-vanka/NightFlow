@@ -1463,6 +1463,107 @@ textarea {
   cursor: not-allowed;
 }
 
+/* ========================================
+   Dataset Status Banner
+   ======================================== */
+
+.dataset-status-banner {
+  margin: 16px 24px 0;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 18px;
+}
+
+.dataset-status-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+}
+
+.dataset-status-header svg {
+  opacity: 0.6;
+}
+
+.dataset-status-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dataset-status-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.8rem;
+  padding: 6px 10px;
+  background: var(--bg);
+  border-radius: 6px;
+}
+
+.dataset-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dataset-status-dot.found {
+  background: #4ade80;
+}
+
+.dataset-status-dot.missing {
+  background: #f87171;
+}
+
+.dataset-status-dot.unknown {
+  background: var(--text-muted);
+  opacity: 0.4;
+}
+
+.dataset-status-label {
+  font-weight: 500;
+  color: var(--text-primary);
+  min-width: 100px;
+}
+
+.dataset-status-path {
+  flex: 1;
+  color: var(--text-muted);
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  font-size: 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dataset-status-tag {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.dataset-status-tag.found {
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.1);
+}
+
+.dataset-status-tag.missing {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.dataset-status-tag.unknown {
+  color: var(--text-muted);
+  background: transparent;
+}
+
 .charts-view {
   width: 100%;
   padding: 24px;
