@@ -1,5 +1,12 @@
 import { defineConfig } from "vite";
 import { resolve } from "path";
+
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const process = globalThis.process || { env: {} };
+// ...existing code...
 import preact from "@preact/preset-vite";
 
 export default defineConfig({

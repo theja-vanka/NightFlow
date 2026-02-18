@@ -129,7 +129,7 @@ async function _initSession(container, projectId, sshCommand, isProject, project
   term.loadAddon(fit);
   term.loadAddon(new WebLinksAddon());
   term.open(container);
-  try { term.loadAddon(new WebglAddon()); } catch (_) {}
+  try { term.loadAddon(new WebglAddon()); } catch (_) { /* ignore WebGL errors */ }
   fit.fit();
 
   const s = {

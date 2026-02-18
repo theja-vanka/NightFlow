@@ -880,22 +880,6 @@ async function validateFolderPath(path) {
   }
 }
 
-async function validateFilePath(path, extension, errorSignal) {
-  if (!path || path.trim() === "") {
-    errorSignal.value = "";
-    return;
-  }
-
-  try {
-    const result = await invoke("validate_file_path", {
-      path: path.trim(),
-      expectedExtension: extension
-    });
-    errorSignal.value = result.valid ? "" : result.error;
-  } catch (_err) {
-    errorSignal.value = "Failed to validate path";
-  }
-}
 
 function StepDataset() {
   const d = wizardData.value;

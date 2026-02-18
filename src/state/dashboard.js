@@ -153,7 +153,7 @@ export async function toggleSshConnection() {
     const isSSH = rawSsh && rawSsh.trim() && rawSsh.trim().toLowerCase() !== "localhost";
 
     // Kill any existing session for this project first
-    try { await invoke("kill_terminal", { sessionId: projectId }); } catch (_) {}
+    try { await invoke("kill_terminal", { sessionId: projectId }); } catch (_) { /* ignore errors */ }
 
     if (isSSH) {
       setSshConnecting(true, projectId);
