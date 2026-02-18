@@ -211,13 +211,9 @@ export const wizardCanProceed = computed(() => {
   if (step === 3) return d.modelCategory !== "";
   if (step === 4) {
     if (!d.datasetFormat) return false;
-    // For CSV and JSONL, require train and test paths (val is optional) and check validation
+    // For CSV and JSONL, require train and test paths (val is optional)
     if (d.datasetFormat === "CSV" || d.datasetFormat === "JSONL") {
-      const hasRequiredPaths = d.trainPath.trim().length > 0 && d.testPath.trim().length > 0;
-      const noErrors = trainPathError.value === "" && testPathError.value === "";
-      // Val is optional, only check if it's filled
-      const valValid = d.valPath.trim() === "" || valPathError.value === "";
-      return hasRequiredPaths && noErrors && valValid;
+      return d.trainPath.trim().length > 0 && d.testPath.trim().length > 0;
     }
     // For all other formats (Folder, COCO JSON, COCO, PNG Masks, Cityscapes, VOC, etc.)
     // require folder path and check validation

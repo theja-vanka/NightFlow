@@ -1,5 +1,9 @@
 import { SummaryCard } from "../components/SummaryCard.jsx";
-import { stats, sshInfo, toggleSshConnection, sshConnecting, sshConnectionError, clearSshConnectionError } from "../state/dashboard.js";
+import {
+  stats, sshInfo, toggleSshConnection, sshConnecting, sshConnected,
+  sshConnectionError, clearSshConnectionError,
+  dashboardSynced, dashboardSyncing, syncDashboard,
+} from "../state/dashboard.js";
 
 function SshStatusBanner() {
   const info = sshInfo.value;
@@ -90,18 +94,55 @@ function SshErrorModal() {
   );
 }
 
+function SyncScreen() {
+  const syncing = dashboardSyncing.value;
+  return (
+    <div class="dashboard-sync-screen">
+      <div class="dashboard-sync-card">
+        <div class="dashboard-sync-icon">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 4v6h-6"/>
+            <path d="M1 20v-6h6"/>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>
+        </div>
+        <h2 class="dashboard-sync-title">Sync Project Data</h2>
+        <p class="dashboard-sync-desc">
+          Fetch the latest runs, metrics, and experiment history from the connected machine.
+        </p>
+        <button class="dashboard-sync-btn" onClick={syncDashboard} disabled={syncing}>
+          {syncing ? (
+            <>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="ssh-btn-spinner">
+                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+              </svg>
+              Syncing…
+            </>
+          ) : "Sync"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function DashboardView() {
   const s = stats.value;
+  const connected = sshConnected.value;
+  const synced = dashboardSynced.value;
 
   return (
     <div class="dashboard-view">
       <SshStatusBanner />
-      <div class="summary-grid">
-        <SummaryCard label="Total Runs" value={s.totalRuns} icon={icons.total} />
-        <SummaryCard label="Running" value={s.running} icon={icons.running} />
-        <SummaryCard label="Best Accuracy" value={s.bestAcc != null ? (s.bestAcc * 100).toFixed(1) + "%" : "—"} icon={icons.accuracy} />
-        <SummaryCard label="Avg Val Loss" value={s.avgLoss != null ? s.avgLoss.toFixed(4) : "—"} icon={icons.loss} />
-      </div>
+      {!connected ? null : !synced ? (
+        <SyncScreen />
+      ) : (
+        <div class="summary-grid">
+          <SummaryCard label="Total Runs" value={s.totalRuns} icon={icons.total} />
+          <SummaryCard label="Running" value={s.running} icon={icons.running} />
+          <SummaryCard label="Best Accuracy" value={s.bestAcc != null ? (s.bestAcc * 100).toFixed(1) + "%" : "—"} icon={icons.accuracy} />
+          <SummaryCard label="Avg Val Loss" value={s.avgLoss != null ? s.avgLoss.toFixed(4) : "—"} icon={icons.loss} />
+        </div>
+      )}
       <SshErrorModal />
     </div>
   );

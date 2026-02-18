@@ -4,7 +4,6 @@ import {
   wizardOpen,
   wizardStep,
   wizardData,
-  wizardCwd,
   wizardCanProceed,
   closeWizard,
   wizardNext,
@@ -141,27 +140,24 @@ function StepName() {
       .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
   };
 
-  const base = wizardCwd.value || "/opt/nightforge/";
+  const DEFAULT_BASE = "/opt/nightforge/";
 
   const handleNameInput = (e) => {
     const name = e.target.value;
     wizardSetField("name", name);
 
-    // Auto-update project path folder based on name
-    if (name.trim()) {
+    // Auto-update project path only if the user hasn't customized it
+    const currentPath = d.projectPath;
+    const isDefault = currentPath === DEFAULT_BASE || currentPath === "" ||
+      currentPath === `${DEFAULT_BASE}${sanitizeName(d.name)}`;
+    if (isDefault) {
       const sanitized = sanitizeName(name);
-      wizardSetField("projectPath", `${base}${sanitized}`);
-    } else {
-      wizardSetField("projectPath", base);
+      wizardSetField("projectPath", sanitized ? `${DEFAULT_BASE}${sanitized}` : DEFAULT_BASE);
     }
   };
 
-  const folderName = d.projectPath.startsWith(base)
-    ? d.projectPath.slice(base.length)
-    : d.projectPath;
-
-  const handleFolderInput = (e) => {
-    wizardSetField("projectPath", `${base}${e.target.value}`);
+  const handlePathInput = (e) => {
+    wizardSetField("projectPath", e.target.value);
   };
 
   return (
@@ -185,19 +181,16 @@ function StepName() {
         <p class="wizard-sub-label">
           Project Path <span class="wizard-optional-indicator">(optional)</span>
         </p>
-        <div class="wizard-path-input-wrap">
-          <span class="wizard-path-prefix">{base}</span>
-          <input
-            class="wizard-path-folder-input wizard-input-mono"
-            type="text"
-            placeholder="imagenet-classifier"
-            value={folderName}
-            onInput={handleFolderInput}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && wizardCanProceed.value) wizardNext();
-            }}
-          />
-        </div>
+        <input
+          class="wizard-input wizard-input-mono"
+          type="text"
+          placeholder={`${DEFAULT_BASE}my-project`}
+          value={d.projectPath}
+          onInput={handlePathInput}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && wizardCanProceed.value) wizardNext();
+          }}
+        />
       </div>
     </div>
   );
@@ -912,33 +905,15 @@ function StepDataset() {
   };
 
   const handleTrainPathInput = (e) => {
-    const value = e.target.value;
-    wizardSetField("trainPath", value);
-
-    clearTimeout(validationTimeout);
-    validationTimeout = setTimeout(() => {
-      validateFilePath(value, fileExtension, trainPathError);
-    }, 500);
+    wizardSetField("trainPath", e.target.value);
   };
 
   const handleValPathInput = (e) => {
-    const value = e.target.value;
-    wizardSetField("valPath", value);
-
-    clearTimeout(validationTimeout);
-    validationTimeout = setTimeout(() => {
-      validateFilePath(value, fileExtension, valPathError);
-    }, 500);
+    wizardSetField("valPath", e.target.value);
   };
 
   const handleTestPathInput = (e) => {
-    const value = e.target.value;
-    wizardSetField("testPath", value);
-
-    clearTimeout(validationTimeout);
-    validationTimeout = setTimeout(() => {
-      validateFilePath(value, fileExtension, testPathError);
-    }, 500);
+    wizardSetField("testPath", e.target.value);
   };
 
   return (
@@ -1003,9 +978,6 @@ function StepDataset() {
               value={d.trainPath}
               onInput={handleTrainPathInput}
             />
-            {trainPathError.value && (
-              <div class="wizard-validation-error">{trainPathError.value}</div>
-            )}
           </div>
           <div class="wizard-file-path-group">
             <label class="wizard-file-path-label">
@@ -1018,9 +990,6 @@ function StepDataset() {
               value={d.valPath}
               onInput={handleValPathInput}
             />
-            {valPathError.value && (
-              <div class="wizard-validation-error">{valPathError.value}</div>
-            )}
           </div>
           <div class="wizard-file-path-group">
             <label class="wizard-file-path-label">
@@ -1033,12 +1002,9 @@ function StepDataset() {
               value={d.testPath}
               onInput={handleTestPathInput}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && wizardCanProceed.value && !trainPathError.value && !testPathError.value) wizardNext();
+                if (e.key === "Enter" && wizardCanProceed.value) wizardNext();
               }}
             />
-            {testPathError.value && (
-              <div class="wizard-validation-error">{testPathError.value}</div>
-            )}
           </div>
         </div>
       )}

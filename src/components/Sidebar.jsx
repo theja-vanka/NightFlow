@@ -1,7 +1,7 @@
 import { useState } from "preact/hooks";
 import { currentPage, navigate } from "../state/router.js";
 import { projectList, currentProjectId, selectProject, openWizard, openDeleteDialog } from "../state/projects.js";
-import { sshConnected } from "../state/dashboard.js";
+import { sshConnected, dashboardSynced } from "../state/dashboard.js";
 
 const navItems = [
   {
@@ -46,14 +46,17 @@ const chevronIcon = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none"
 export function Sidebar() {
   const [projectsOpen, setProjectsOpen] = useState(true);
 
-  // Filter navigation items - only show terminal when connected
+  const synced = dashboardSynced.value;
+  const connected = sshConnected.value;
+
+  // Only show nav items that are unlocked:
+  // - dashboard and settings are always visible
+  // - terminal requires connection
+  // - everything else requires sync
   const visibleNavItems = navItems.filter((item) => {
-    if (item.id === "terminal") {
-      // Only show terminal when actually connected
-      // Hide when disconnected, connecting, or failed
-      return sshConnected.value;
-    }
-    return true;
+    if (item.id === "dashboard" || item.id === "settings") return true;
+    if (item.id === "terminal") return connected && synced;
+    return synced;
   });
 
   return (

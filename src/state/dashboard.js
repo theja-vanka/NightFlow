@@ -1,7 +1,7 @@
 import { signal, computed } from "@preact/signals";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { projectRuns } from "./experiments.js";
+import { projectRuns, loadRuns } from "./experiments.js";
 import { currentProject } from "./projects.js";
 import { navigate, currentPage } from "./router.js";
 // Incremented to force useTerminal to tear down and reinitialize the PTY session
@@ -40,6 +40,8 @@ export const sshConnected = signal(false);
 export const sshConnecting = signal(false);
 export const sshConnectedAt = signal(null);
 export const shouldAutoConnect = signal(false);
+export const dashboardSynced = signal(false);
+export const dashboardSyncing = signal(false);
 
 // SSH connection error state
 export const sshConnectionError = signal(null); // { message: string } or null
@@ -153,10 +155,21 @@ export function setSshConnected(connected) {
     sshConnectedAt.value = new Date().toISOString();
   } else {
     sshConnectedAt.value = null;
+    dashboardSynced.value = false;
     // If user is on terminal view when disconnected, redirect to dashboard
     if (currentPage.value === "terminal") {
       navigate("dashboard");
     }
+  }
+}
+
+export async function syncDashboard() {
+  dashboardSyncing.value = true;
+  try {
+    await loadRuns();
+    dashboardSynced.value = true;
+  } finally {
+    dashboardSyncing.value = false;
   }
 }
 
