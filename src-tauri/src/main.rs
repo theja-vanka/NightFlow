@@ -28,11 +28,10 @@ fn close_splash(app: tauri::AppHandle) {
 }
 
 fn expand_tilde(path: &str) -> String {
-    if path.starts_with('~') {
-        if let Ok(home) = std::env::var("HOME") {
+    if path.starts_with('~')
+        && let Ok(home) = std::env::var("HOME") {
             return path.replacen('~', &home, 1);
         }
-    }
     path.to_string()
 }
 
@@ -63,7 +62,7 @@ fn spawn_terminal(
 
     let cmd = if let Some(ref ssh_cmd) = ssh_command {
         // Parse the SSH command string and spawn it in the PTY
-        let parts: Vec<&str> = ssh_cmd.trim().split_whitespace().collect();
+        let parts: Vec<&str> = ssh_cmd.split_whitespace().collect();
         if parts.is_empty() {
             return Err("Empty SSH command".to_string());
         }
@@ -179,7 +178,6 @@ fn is_terminal_alive(state: State<'_, PtyState>) -> bool {
 #[command]
 async fn test_ssh(ssh_command: String) -> Result<String, String> {
     let parts: Vec<String> = ssh_command
-        .trim()
         .split_whitespace()
         .map(String::from)
         .collect();
@@ -243,7 +241,7 @@ fn get_terminal_info(state: State<'_, PtyState>) -> std::collections::HashMap<St
         info.insert("isSSH".into(), "true".into());
         info.insert("sshCommand".into(), ssh_cmd.clone());
         // Extract target (user@host) from the command
-        let parts: Vec<&str> = ssh_cmd.trim().split_whitespace().collect();
+        let parts: Vec<&str> = ssh_cmd.split_whitespace().collect();
         if let Some(target) = parts.iter().find(|p| p.contains('@')) {
             info.insert("sshTarget".into(), target.to_string());
         } else if let Some(last) = parts.last() {

@@ -30,8 +30,6 @@ export function ChartsView() {
   completed.forEach((r) => {
     if (!byDataset[r.dataset]) byDataset[r.dataset] = r;
   });
-  const datasetRuns = Object.values(byDataset).slice(0, 4);
-
   // Top runs by best accuracy
   const topAcc = [...completed].sort((a, b) => (b.bestAcc ?? 0) - (a.bestAcc ?? 0)).slice(0, 3);
   const topLoss = [...completed].sort((a, b) => (a.valLoss ?? 9) - (b.valLoss ?? 9)).slice(0, 3);

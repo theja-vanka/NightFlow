@@ -1,7 +1,7 @@
 import { useState } from "preact/hooks";
 import { currentPage, navigate } from "../state/router.js";
 import { projectList, currentProjectId, selectProject, openWizard, openDeleteDialog } from "../state/projects.js";
-import { sshConnected, shouldAutoConnect, sshConnecting } from "../state/dashboard.js";
+import { sshConnected } from "../state/dashboard.js";
 
 const navItems = [
   {

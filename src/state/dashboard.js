@@ -62,7 +62,7 @@ async function setupGlobalSshMonitoring() {
     // SSH connection success indicators
     if (lowerOutput.includes("welcome") ||
         lowerOutput.includes("last login") ||
-        lowerOutput.match(/[\$#]\s*$/)) {
+        lowerOutput.match(/[$#]\s*$/)) {
       // Clear timeout on success
       if (sshConnectionTimeout) {
         clearTimeout(sshConnectionTimeout);
@@ -192,7 +192,7 @@ export async function toggleSshConnection() {
     const isSSH = rawSsh && rawSsh.trim() && rawSsh.trim().toLowerCase() !== "localhost";
 
     // Kill any existing PTY first
-    try { await invoke("kill_terminal"); } catch (_) {}
+    try { await invoke("kill_terminal"); } catch (_) { /* ignore */ }
 
     if (isSSH) {
       sshConnecting.value = true;

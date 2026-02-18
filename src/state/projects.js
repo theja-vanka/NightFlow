@@ -1,5 +1,4 @@
 import { signal, computed } from "@preact/signals";
-import { invoke } from "@tauri-apps/api/core";
 import {
   getAllProjects,
   saveProject,

@@ -162,7 +162,7 @@ async function _init(container, sshCommand, isProject, projectPath) {
   term.loadAddon(fit);
   term.loadAddon(new WebLinksAddon());
   term.open(container);
-  try { term.loadAddon(new WebglAddon()); } catch (_) {}
+  try { term.loadAddon(new WebglAddon()); } catch (_) { /* WebGL not supported, falling back */ }
   fit.fit();
 
   const p = {

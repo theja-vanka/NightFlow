@@ -872,7 +872,7 @@ async function validateFolderPath(path) {
   try {
     const result = await invoke("validate_folder_path", { path: path.trim() });
     folderPathError.value = result.valid ? "" : result.error;
-  } catch (err) {
+  } catch (_err) {
     folderPathError.value = "Failed to validate path";
   }
 }
@@ -889,7 +889,7 @@ async function validateFilePath(path, extension, errorSignal) {
       expectedExtension: extension
     });
     errorSignal.value = result.valid ? "" : result.error;
-  } catch (err) {
+  } catch (_err) {
     errorSignal.value = "Failed to validate path";
   }
 }
