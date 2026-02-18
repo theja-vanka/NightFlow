@@ -109,6 +109,7 @@ function StepSSH() {
               onClick={handleTestSSH}
               disabled={!isValidSshCommand(d.sshCommand) || testStatus === "testing"}
             >
+              {testStatus === "testing" && <span class="wizard-ssh-spinner" />}
               {testStatus === "testing" ? "Testing…" : "Test SSH"}
             </button>
             {testMessage && (

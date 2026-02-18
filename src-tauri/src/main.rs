@@ -177,27 +177,38 @@ fn is_terminal_alive(state: State<'_, PtyState>) -> bool {
 }
 
 #[command]
-fn test_ssh(ssh_command: String) -> Result<String, String> {
-    let parts: Vec<&str> = ssh_command.trim().split_whitespace().collect();
+async fn test_ssh(ssh_command: String) -> Result<String, String> {
+    let parts: Vec<String> = ssh_command
+        .trim()
+        .split_whitespace()
+        .map(String::from)
+        .collect();
     if parts.is_empty() {
         return Err("Empty SSH command".to_string());
     }
-    let mut cmd = std::process::Command::new(parts[0]);
+    let mut cmd = tokio::process::Command::new(&parts[0]);
     cmd.args(["-o", "BatchMode=yes", "-o", "ConnectTimeout=5"]);
     for arg in &parts[1..] {
         cmd.arg(arg);
     }
     cmd.arg("exit");
-    let output = cmd.output().map_err(|e| e.to_string())?;
-    if output.status.success() {
-        Ok("Connected successfully".to_string())
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        Err(if stderr.is_empty() {
-            "Connection failed".to_string()
-        } else {
-            stderr
-        })
+    cmd.kill_on_drop(true);
+
+    match tokio::time::timeout(std::time::Duration::from_secs(10), cmd.output()).await {
+        Ok(Ok(output)) => {
+            if output.status.success() {
+                Ok("Connected successfully".to_string())
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+                Err(if stderr.is_empty() {
+                    "Connection failed".to_string()
+                } else {
+                    stderr
+                })
+            }
+        }
+        Ok(Err(e)) => Err(e.to_string()),
+        Err(_) => Err("Connection timed out".to_string()),
     }
 }
 
