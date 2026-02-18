@@ -43,6 +43,9 @@ function isDirty(draft, source) {
   return false;
 }
 
+const PATH_BASE = "/opt/nightforge/";
+const sanitizeForPath = (n) => n.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+
 const sunIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
 const moonIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
 const trashIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
@@ -130,12 +133,14 @@ export function SettingsView() {
     ? MODEL_CATEGORIES[draft.modelCategory]?.desc
     : null;
 
+  const derivedProjectPath = draft.name ? `${PATH_BASE}${sanitizeForPath(draft.name)}` : PATH_BASE;
+
   return (
     <div class="settings-view">
       {locked && (
         <div class="settings-locked-banner">
           <span dangerouslySetInnerHTML={{ __html: lockIcon }} />
-          Settings are locked while connected to SSH. Disconnect to make changes.
+          Settings are locked while connected. Disconnect to make changes.
         </div>
       )}
 
@@ -177,12 +182,11 @@ export function SettingsView() {
           <div class="settings-card-row">
             <label class="settings-field">
               <span class="settings-label">Project Path</span>
-              <span class="settings-hint">Local directory for project files</span>
               <input
                 class="settings-input settings-input-mono"
                 type="text"
                 value={draft.projectPath || ""}
-                placeholder="~/NightForge/projects"
+                placeholder={derivedProjectPath}
                 disabled={locked}
                 onInput={(e) => set("projectPath", e.target.value)}
               />

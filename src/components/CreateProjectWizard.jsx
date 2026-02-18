@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useState } from "preact/hooks";
+import { useState, useRef } from "preact/hooks";
 import {
   wizardOpen,
   wizardStep,
@@ -131,33 +131,43 @@ function StepSSH() {
 function StepName() {
   const d = wizardData.value;
 
-  // Sanitize project name for use in file path
   const sanitizeName = (name) => {
     return name
       .trim()
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric chars with hyphens
-      .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
   };
 
   const DEFAULT_BASE = "/opt/nightforge/";
 
+  const derivedPath = d.name
+    ? `${DEFAULT_BASE}${sanitizeName(d.name)}`
+    : DEFAULT_BASE;
+
+  // Auto if path is empty, equals base, or equals the current derived path
+  const pathIsAuto = useRef(
+    !d.projectPath || d.projectPath === DEFAULT_BASE || d.projectPath === derivedPath
+  );
+
   const handleNameInput = (e) => {
     const name = e.target.value;
     wizardSetField("name", name);
-
-    // Auto-update project path only if the user hasn't customized it
-    const currentPath = d.projectPath;
-    const isDefault = currentPath === DEFAULT_BASE || currentPath === "" ||
-      currentPath === `${DEFAULT_BASE}${sanitizeName(d.name)}`;
-    if (isDefault) {
+    if (pathIsAuto.current) {
       const sanitized = sanitizeName(name);
       wizardSetField("projectPath", sanitized ? `${DEFAULT_BASE}${sanitized}` : DEFAULT_BASE);
     }
   };
 
   const handlePathInput = (e) => {
-    wizardSetField("projectPath", e.target.value);
+    const val = e.target.value;
+    if (val) {
+      wizardSetField("projectPath", val);
+      pathIsAuto.current = false;
+    } else {
+      wizardSetField("projectPath", derivedPath);
+      pathIsAuto.current = true;
+    }
   };
 
   return (
@@ -184,8 +194,8 @@ function StepName() {
         <input
           class="wizard-input wizard-input-mono"
           type="text"
-          placeholder={`${DEFAULT_BASE}my-project`}
-          value={d.projectPath}
+          value={pathIsAuto.current ? "" : d.projectPath}
+          placeholder={derivedPath}
           onInput={handlePathInput}
           onKeyDown={(e) => {
             if (e.key === "Enter" && wizardCanProceed.value) wizardNext();
