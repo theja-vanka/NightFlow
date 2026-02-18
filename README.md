@@ -1,102 +1,177 @@
-<p align="center">
-  <img src="assets/night_forge.png" width="128" alt="NightForge logo" />
-</p>
+<div align="center">
 
-<h1 align="center">NightForge</h1>
+<img src="assets/night_forge.png" width="140" alt="NightForge logo" />
 
-<p align="center">
-  A native desktop application for managing, running, and analyzing deep-learning experiments.
-</p>
+**A native desktop application for managing, running, and analyzing deep-learning experiments.**
 
-<p align="center">
-  <a href="#features">Features</a> •
-  <a href="#download">Download</a> •
-  <a href="#development">Development</a> •
-  <a href="#tech-stack">Tech Stack</a> •
-  <a href="#license">License</a>
-</p>
+[![CI](https://img.shields.io/github/actions/workflow/status/your-org/NightForge/ci.yml?branch=dev&label=CI&style=flat-square)](../../actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/your-org/NightForge?style=flat-square&color=blue)](../../releases/latest)
+[![License](https://img.shields.io/badge/license-Apache%202.0-green?style=flat-square)](LICENSE)
 
----
+[Features](#-features) · [Download](#-download) · [Development](#-development) · [Tech Stack](#-tech-stack) · [License](#-license)
 
-## Features
+</div>
 
-- **Project Management** — Create and organize ML projects with dataset, model, and training configurations.
-- **Experiment Tracking** — View runs, metrics, and training history in a structured table.
-- **Charts & Visualization** — Interactive charts for loss curves, accuracy, and other metrics.
-- **Model Interpretation** — Built-in tools for model interpretability analysis.
-- **Netron Integration** — Visualize neural network architectures directly in the app.
-- **Integrated Terminal** — Full PTY terminal with SSH support for remote training servers.
-- **Dashboard** — At-a-glance summary cards showing project health and run status.
-- **Cross-Platform** — Runs natively on macOS, Windows, and Linux.
+<br />
 
-## Download
+## ✨ Features
 
-Grab the latest release for your platform from the [Releases](../../releases) page:
+<table>
+<tr>
+<td width="50%">
 
-| Platform | Format |
-| --- | --- |
-| macOS | `.dmg` |
-| Windows | `.exe` (installer) |
-| Linux | `.AppImage`, `.deb` |
+### Organize & Track
 
-## Development
+- **Project Management** — Create and organize ML projects with dataset, model, and training configurations
+- **Experiment Tracking** — View runs, metrics, and training history in a structured table
+- **Dashboard** — At-a-glance summary cards showing project health and run status
+
+</td>
+<td width="50%">
+
+### Visualize & Analyze
+
+- **Charts** — Interactive loss curves, accuracy plots, and custom metrics
+- **Model Interpretation** — Built-in tools for interpretability analysis
+- **Netron Integration** — Visualize neural network architectures directly in-app
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+### Connect & Run
+
+- **Integrated Terminal** — Full PTY terminal with SSH support for remote training servers
+- **SSH Management** — One-click connection to remote machines
+
+</td>
+<td width="50%">
+
+### Cross-Platform
+
+- 🍎 **macOS** — Native `.app` bundle (Intel & Apple Silicon)
+- 🪟 **Windows** — NSIS installer
+- 🐧 **Linux** — AppImage & `.deb` packages
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+### Privacy & Trust
+
+- **100% Offline** — Works entirely without an internet connection
+- **No Telemetry** — Zero tracking, zero analytics, zero phone-home
+- **Your Data Stays Yours** — All data is stored locally on your machine using IndexedDB — nothing leaves your device
+- **No Account Required** — No sign-up, no login, no cloud dependency
+
+</td>
+<td width="50%">
+
+### Built Right
+
+- **Open Source** — Apache 2.0 licensed, fully auditable code
+- **Lightweight** — Small binary size thanks to Tauri (no Electron bloat)
+- **Fast** — Native Rust backend with Preact frontend for snappy performance
+- **No Ads, No Upsells** — Clean, distraction-free experience
+
+</td>
+</tr>
+</table>
+
+<br />
+
+## 📦 Download
+
+Grab the latest build from the **[Releases](../../releases/latest)** page.
+
+| Platform | Architecture | Format |
+| :---: | :---: | :---: |
+| macOS | ARM64 / x64 | `.dmg` |
+| Windows | x64 | `.exe` |
+| Linux | x64 | `.AppImage` · `.deb` |
+
+<br />
+
+## 🛠 Development
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) 22+
-- [Bun](https://bun.sh/) (used by Tauri build commands)
-- [Rust](https://rustup.rs/) stable
-- Platform-specific dependencies for Tauri — see the [Tauri v2 prerequisites](https://v2.tauri.app/start/prerequisites/)
+| Tool | Version |
+| :--- | :--- |
+| [Node.js](https://nodejs.org/) | 22+ |
+| [Bun](https://bun.sh/) | latest |
+| [Rust](https://rustup.rs/) | stable |
 
-### Setup
+> **Note:** You also need platform-specific dependencies for Tauri — see the [Tauri v2 prerequisites](https://v2.tauri.app/start/prerequisites/).
+
+### Quick Start
 
 ```bash
-# Clone the repository
-git clone https://github.com/<your-org>/NightForge.git
-cd NightForge
+# Clone
+git clone https://github.com/<your-org>/NightForge.git && cd NightForge
 
-# Install frontend dependencies
+# Install dependencies
 npm install --legacy-peer-deps
 
-# Run in development mode
+# Launch in dev mode
 npx tauri dev
 ```
 
-### Scripts
+### Available Scripts
 
-| Command | Description |
-| --- | --- |
-| `npm run dev` | Start Vite dev server |
-| `npm run build` | Build frontend for production |
-| `npm run lint` | Lint frontend code with ESLint |
-| `npx tauri dev` | Launch the app in development mode |
-| `npx tauri build` | Build distributable app bundles |
+```
+npm run dev          →  Start Vite dev server
+npm run build        →  Build frontend for production
+npm run lint         →  Lint frontend with ESLint
+npx tauri dev        →  Launch app in development mode
+npx tauri build      →  Build distributable bundles
+```
 
 ### Project Structure
 
 ```
-src/                  # Frontend (Preact + Signals)
-├── components/       # Reusable UI components
-├── views/            # Page-level views
-├── state/            # Application state (Preact Signals)
-├── db/               # IndexedDB persistence layer
-└── hooks/            # Custom hooks (terminal, etc.)
-
-src-tauri/            # Rust backend (Tauri v2)
-└── src/main.rs       # PTY management, SSH, file validation
+NightForge/
+│
+├─ src/                       # Frontend (Preact + Signals)
+│  ├─ components/             #   Reusable UI components
+│  ├─ views/                  #   Page-level views
+│  ├─ state/                  #   Reactive state (Preact Signals)
+│  ├─ db/                     #   IndexedDB persistence layer
+│  └─ hooks/                  #   Custom hooks (terminal, etc.)
+│
+├─ src-tauri/                 # Rust backend (Tauri v2)
+│  └─ src/main.rs             #   PTY management, SSH, file validation
+│
+├─ .github/workflows/
+│  ├─ ci.yml                  #   Build check on push to dev
+│  └─ release.yml             #   Build & publish on version tags
+│
+└─ package.json
 ```
 
-## Tech Stack
+<br />
+
+## 🧩 Tech Stack
 
 | Layer | Technology |
-| --- | --- |
-| UI Framework | [Preact](https://preactjs.com/) + [Preact Signals](https://preactjs.com/guide/v10/signals/) |
-| Build Tool | [Vite](https://vitejs.dev/) |
-| Desktop Runtime | [Tauri v2](https://v2.tauri.app/) |
-| Terminal | [xterm.js](https://xtermjs.org/) with WebGL rendering |
-| Storage | IndexedDB via [idb](https://github.com/nicolo-ribaudo/idb) |
-| Backend | Rust with [portable-pty](https://crates.io/crates/portable-pty) |
+| :--- | :--- |
+| **UI** | [Preact](https://preactjs.com/) · [Preact Signals](https://preactjs.com/guide/v10/signals/) |
+| **Bundler** | [Vite](https://vitejs.dev/) |
+| **Desktop** | [Tauri v2](https://v2.tauri.app/) |
+| **Terminal** | [xterm.js](https://xtermjs.org/) with WebGL rendering |
+| **Storage** | IndexedDB via [idb](https://github.com/nicolo-ribaudo/idb) |
+| **Backend** | Rust · [portable-pty](https://crates.io/crates/portable-pty) · [Tokio](https://tokio.rs/) |
 
-## License
+<br />
 
-[Apache License 2.0](LICENSE)
+## 📄 License
+
+Released under the [Apache License 2.0](LICENSE).
+
+---
+
+<div align="center">
+<sub>Built with 🔥 by the NightForge team</sub>
+</div>
