@@ -242,8 +242,8 @@ async fn ssh_mkdir(ssh_command: String, path: String) -> Result<String, String> 
     }
     // Run mkdir -p on the remote machine
     // Use $HOME instead of ~ so it works inside quotes (single-quoted ~ is literal)
-    let remote_path = if path.starts_with("~/") {
-        format!("$HOME/{}", &path[2..])
+    let remote_path = if let Some(stripped) = path.strip_prefix("~/") {
+        format!("$HOME/{}", stripped)
     } else if path == "~" {
         "$HOME".to_string()
     } else {
@@ -305,8 +305,8 @@ async fn ssh_check_path(ssh_command: String, path: String) -> Result<bool, Strin
         return Err("Empty SSH command".to_string());
     }
 
-    let remote_path = if path.starts_with("~/") {
-        format!("$HOME/{}", &path[2..])
+    let remote_path = if let Some(stripped) = path.strip_prefix("~/") {
+        format!("$HOME/{}", stripped)
     } else if path == "~" {
         "$HOME".to_string()
     } else {
