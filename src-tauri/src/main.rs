@@ -198,11 +198,10 @@ fn pty_write(
     state: State<'_, PtyState>,
 ) -> Result<(), String> {
     let mut sessions = state.sessions.lock().unwrap();
-    if let Some(session) = sessions.get_mut(&session_id) {
-        if let Some(ref mut writer) = session.writer {
-            writer.write_all(data.as_bytes()).map_err(|e| e.to_string())?;
-            writer.flush().map_err(|e| e.to_string())?;
-        }
+    if let Some(session) = sessions.get_mut(&session_id)
+        && let Some(ref mut writer) = session.writer {
+        writer.write_all(data.as_bytes()).map_err(|e| e.to_string())?;
+        writer.flush().map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -215,17 +214,16 @@ fn pty_resize(
     state: State<'_, PtyState>,
 ) -> Result<(), String> {
     let sessions = state.sessions.lock().unwrap();
-    if let Some(session) = sessions.get(&session_id) {
-        if let Some(ref master) = session.master {
-            master
-                .resize(PtySize {
-                    rows,
-                    cols,
-                    pixel_width: 0,
-                    pixel_height: 0,
-                })
-                .map_err(|e| e.to_string())?;
-        }
+    if let Some(session) = sessions.get(&session_id)
+        && let Some(ref master) = session.master {
+        master
+            .resize(PtySize {
+                rows,
+                cols,
+                pixel_width: 0,
+                pixel_height: 0,
+            })
+            .map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -273,16 +271,15 @@ fn get_terminal_info(
     info.insert("pid".into(), std::process::id().to_string());
 
     let sessions = state.sessions.lock().unwrap();
-    if let Some(session) = sessions.get(&session_id) {
-        if let Some(ref ssh_cmd) = session.ssh_command {
-            info.insert("isSSH".into(), "true".into());
-            info.insert("sshCommand".into(), ssh_cmd.clone());
-            let parts: Vec<&str> = ssh_cmd.split_whitespace().collect();
-            if let Some(target) = parts.iter().find(|p| p.contains('@')) {
-                info.insert("sshTarget".into(), target.to_string());
-            } else if let Some(last) = parts.last() {
-                info.insert("sshTarget".into(), last.to_string());
-            }
+    if let Some(session) = sessions.get(&session_id)
+        && let Some(ref ssh_cmd) = session.ssh_command {
+        info.insert("isSSH".into(), "true".into());
+        info.insert("sshCommand".into(), ssh_cmd.clone());
+        let parts: Vec<&str> = ssh_cmd.split_whitespace().collect();
+        if let Some(target) = parts.iter().find(|p| p.contains('@')) {
+            info.insert("sshTarget".into(), target.to_string());
+        } else if let Some(last) = parts.last() {
+            info.insert("sshTarget".into(), last.to_string());
         }
     }
     info
@@ -434,9 +431,8 @@ fn ensure_project_dir(path: String) -> Result<String, String> {
             return Err("Path exists but is not a directory".to_string());
         }
     }
-    match fs::create_dir_all(&path_obj) {
-        Ok(()) => return Ok("Directory created".to_string()),
-        Err(_) => {}
+    if let Ok(()) = fs::create_dir_all(&path_obj) {
+        return Ok("Directory created".to_string());
     }
 
     #[cfg(target_os = "macos")]
