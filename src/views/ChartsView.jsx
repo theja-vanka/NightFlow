@@ -56,7 +56,7 @@ export function ChartsView() {
         {topAcc.length > 0 && (
           <ChartPanel title="Top Accuracy Runs">
             <LineChart
-              series={topAcc.map((r) => ({ label: r.id, data: r.accCurve }))}
+              series={topAcc.map((r) => ({ label: r.name || r.id, data: r.accCurve }))}
               yLabel="Acc"
             />
           </ChartPanel>
@@ -64,7 +64,7 @@ export function ChartsView() {
         {topLoss.length > 0 && (
           <ChartPanel title="Lowest Loss Runs">
             <LineChart
-              series={topLoss.map((r) => ({ label: r.id, data: r.lossCurve }))}
+              series={topLoss.map((r) => ({ label: r.name || r.id, data: r.lossCurve }))}
               yLabel="Loss"
             />
           </ChartPanel>

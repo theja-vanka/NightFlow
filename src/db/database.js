@@ -1,4 +1,4 @@
-import { openDB } from 'idb';
+import { openDB } from "idb";
 
 const DB_NAME = 'nightforge-db';
 const DB_VERSION = 1;
@@ -131,6 +131,23 @@ export async function exportData() {
   const projects = await db.getAll('projects');
   const runs = await db.getAll('runs');
   return { projects, runs };
+}
+
+// ========================================
+// Sync Metadata Operations
+// ========================================
+
+export async function saveSyncMetadata(projectId, metadata) {
+  const db = await initDB();
+  const project = await db.get('projects', projectId);
+  if (!project) return;
+  await db.put('projects', { ...project, syncMetadata: metadata });
+}
+
+export async function getSyncMetadata(projectId) {
+  const db = await initDB();
+  const project = await db.get('projects', projectId);
+  return project?.syncMetadata || null;
 }
 
 export async function importData(data) {

@@ -5,6 +5,7 @@ import {
   updateProject as dbUpdateProject,
   deleteProject as dbDeleteProject,
 } from "../db/database.js";
+import { restoreSyncState } from "./dashboard.js";
 
 export const projectList = signal([]);
 export const currentProjectId = signal(null);
@@ -73,6 +74,7 @@ export async function loadProjects() {
     projectList.value = updatedProjects;
     if (updatedProjects.length > 0 && !currentProjectId.value) {
       currentProjectId.value = updatedProjects[0].id;
+      restoreSyncState(updatedProjects[0].id);
     }
   } catch (error) {
     console.error("Failed to load projects:", error);
@@ -367,6 +369,7 @@ export async function updateProject(id, fields) {
 
 export function selectProject(id) {
   currentProjectId.value = id;
+  restoreSyncState(id);
 }
 
 // ── Delete project state ──

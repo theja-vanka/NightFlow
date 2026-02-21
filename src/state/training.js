@@ -2,7 +2,7 @@ import { signal, computed } from "@preact/signals";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { currentProjectId, currentProject, projectList } from "./projects.js";
-import { addRun, updateRun, allRuns } from "./experiments.js";
+import { addRun, updateRun, allRuns, generateRunName } from "./experiments.js";
 
 // ── Per-project training state ───────────────────────────────────────────────
 
@@ -71,6 +71,7 @@ export async function startTraining(command, cwd) {
   // Create a run record in experiments
   await addRun({
     id: runId,
+    name: generateRunName(),
     projectId,
     status: "running",
     model: project?.modelCategory ?? "unknown",

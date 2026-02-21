@@ -61,7 +61,7 @@ export function RunsTable() {
           <tbody>
             {filteredRuns.value.map((run) => (
               <tr key={run.id}>
-                <td class="mono">{run.id}</td>
+                <td class="mono">{run.name || run.id}</td>
                 <td><StatusBadge status={run.status} /></td>
                 <td>{run.model}</td>
                 <td>{run.dataset}</td>

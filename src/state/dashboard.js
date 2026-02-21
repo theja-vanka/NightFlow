@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { projectRuns, loadRuns, importTensorboardRuns } from "./experiments.js";
 import { currentProject, currentProjectId } from "./projects.js";
 import { navigate, currentPage } from "./router.js";
+import { saveSyncMetadata, getSyncMetadata } from "../db/database.js";
 
 // ── Per-project SSH state ─────────────────────────────────────────────────────
 // Each project maintains its own independent connection state.
@@ -286,6 +287,21 @@ export async function syncDashboard() {
     
     // Mark as synced and hide completion screen
     _setState(projectId, { synced: true, syncShowingCompletion: false, syncProgress: 0 });
+
+    // Persist sync metadata to IndexedDB
+    const state = _getState(projectId);
+    try {
+      await saveSyncMetadata(projectId, {
+        synced: true,
+        lastSyncedAt: new Date().toISOString(),
+        uvInfo: state.uvInfo,
+        envInfo: state.envInfo,
+        datasetPathStatus: datasetPathStatus.value,
+        syncLogs: state.syncLogs,
+      });
+    } catch (e) {
+      console.warn("[syncDashboard] Failed to persist sync metadata:", e);
+    }
   } catch (err) {
     if (err.message === "AbortError") {
       addSyncLog(projectId, "Sync cancelled", "info");
@@ -467,5 +483,25 @@ async function doSync(projectId, abortController) {
       addSyncLog(projectId, `Sync error: ${err.message}`, "error");
     }
     throw err;
+  }
+}
+
+// ── Restore persisted sync state ────────────────────────────────────────────
+
+export async function restoreSyncState(projectId) {
+  try {
+    const metadata = await getSyncMetadata(projectId);
+    if (!metadata) return;
+    _setState(projectId, {
+      synced: metadata.synced ?? false,
+      uvInfo: metadata.uvInfo ?? null,
+      envInfo: metadata.envInfo ?? null,
+      syncLogs: metadata.syncLogs ?? [],
+    });
+    if (metadata.datasetPathStatus) {
+      datasetPathStatus.value = metadata.datasetPathStatus;
+    }
+  } catch (e) {
+    console.warn("[restoreSyncState] Failed to restore sync metadata:", e);
   }
 }

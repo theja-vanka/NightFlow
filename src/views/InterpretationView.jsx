@@ -99,7 +99,7 @@ export function InterpretationView() {
           <option value="">Select a completed run…</option>
           {runs.map((r) => (
             <option key={r.id} value={r.id}>
-              {r.id} — {r.model}
+              {r.name || r.id} — {r.model}
             </option>
           ))}
         </select>
