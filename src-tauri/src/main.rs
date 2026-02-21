@@ -421,10 +421,9 @@ fn find_uv() -> Option<String> {
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .status()
+            && output.success()
         {
-            if output.success() {
-                return Some(path.clone());
-            }
+            return Some(path.clone());
         }
     }
     None
@@ -610,23 +609,23 @@ async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, String
         .args(["-c", "import autotimm; print(autotimm.__version__)"])
         .output()
         .await;
-    if let Ok(ref out) = sys_check {
-        if out.status.success() {
-            let at_ver = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            let py_ver = tokio::process::Command::new("python3")
-                .args(["--version"])
-                .output()
-                .await
-                .ok()
-                .filter(|o| o.status.success())
-                .map(|o| String::from_utf8_lossy(&o.stdout).trim().trim_start_matches("Python ").to_string());
-            return Ok(EnvSetupResult {
-                status: "system".to_string(),
-                message: "Using system Python environment".to_string(),
-                python_version: py_ver,
-                autotimm_version: Some(at_ver),
-            });
-        }
+    if let Ok(ref out) = sys_check
+        && out.status.success()
+    {
+        let at_ver = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        let py_ver = tokio::process::Command::new("python3")
+            .args(["--version"])
+            .output()
+            .await
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().trim_start_matches("Python ").to_string());
+        return Ok(EnvSetupResult {
+            status: "system".to_string(),
+            message: "Using system Python environment".to_string(),
+            python_version: py_ver,
+            autotimm_version: Some(at_ver),
+        });
     }
 
     // 3. No existing env — create a .venv with uv using Python 3.12
@@ -1044,12 +1043,12 @@ async fn stop_training(
     // Also try to kill by PID from meta file (for reconnected sessions)
     if let Some(ref dir) = project_path {
         let expanded = expand_tilde(dir);
-        if let Some(meta) = read_training_meta(&expanded) {
-            if is_pid_alive(meta.pid) {
-                #[cfg(unix)]
-                unsafe {
-                    libc::kill(meta.pid as i32, libc::SIGTERM);
-                }
+        if let Some(meta) = read_training_meta(&expanded)
+            && is_pid_alive(meta.pid)
+        {
+            #[cfg(unix)]
+            unsafe {
+                libc::kill(meta.pid as i32, libc::SIGTERM);
             }
         }
         remove_training_meta(&expanded);
@@ -1153,19 +1152,19 @@ async fn watch_training_log(
         // Check if process is still alive
         if !is_pid_alive(pid) {
             // Read any final lines
-            if let Ok(mut f) = std::fs::File::open(&path) {
-                if f.seek(SeekFrom::Start(offset)).is_ok() {
-                    let reader = std::io::BufReader::new(&mut f);
-                    for line in reader.lines().flatten() {
-                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&line) {
-                            let _ = app.emit(
-                                "training-event",
-                                TrainingEvent {
-                                    session_id: session_id.clone(),
-                                    data: json,
-                                },
-                            );
-                        }
+            if let Ok(mut f) = std::fs::File::open(&path)
+                && f.seek(SeekFrom::Start(offset)).is_ok()
+            {
+                let reader = std::io::BufReader::new(&mut f);
+                for line in reader.lines().map_while(Result::ok) {
+                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&line) {
+                        let _ = app.emit(
+                            "training-event",
+                            TrainingEvent {
+                                session_id: session_id.clone(),
+                                data: json,
+                            },
+                        );
                     }
                 }
             }
@@ -1179,19 +1178,19 @@ async fn watch_training_log(
         // Read new lines from current offset
         let current_size = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(offset);
         if current_size > offset {
-            if let Ok(mut f) = std::fs::File::open(&path) {
-                if f.seek(SeekFrom::Start(offset)).is_ok() {
-                    let reader = std::io::BufReader::new(&mut f);
-                    for line in reader.lines().flatten() {
-                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&line) {
-                            let _ = app.emit(
-                                "training-event",
-                                TrainingEvent {
-                                    session_id: session_id.clone(),
-                                    data: json,
-                                },
-                            );
-                        }
+            if let Ok(mut f) = std::fs::File::open(&path)
+                && f.seek(SeekFrom::Start(offset)).is_ok()
+            {
+                let reader = std::io::BufReader::new(&mut f);
+                for line in reader.lines().map_while(Result::ok) {
+                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&line) {
+                        let _ = app.emit(
+                            "training-event",
+                            TrainingEvent {
+                                session_id: session_id.clone(),
+                                data: json,
+                            },
+                        );
                     }
                 }
             }
@@ -1388,7 +1387,7 @@ struct TbRun {
 
 fn masked_crc32c(data: &[u8]) -> u32 {
     let crc = crc32c::crc32c(data);
-    ((crc >> 15) | (crc << 17)).wrapping_add(0xa282_ead8)
+    crc.rotate_right(15).wrapping_add(0xa282_ead8)
 }
 
 fn read_varint(data: &[u8], pos: &mut usize) -> Option<u64> {
@@ -1414,7 +1413,9 @@ fn read_varint(data: &[u8], pos: &mut usize) -> Option<u64> {
 /// Minimal protobuf parser for TensorBoard Event records.
 /// Extracts wall_time (field 1, fixed64/double), step (field 2, varint),
 /// and Summary.Value entries (tag + simple_value).
-fn parse_event(data: &[u8]) -> Option<(f64, i64, Vec<(String, f32)>)> {
+type EventData = (f64, i64, Vec<(String, f32)>);
+
+fn parse_event(data: &[u8]) -> Option<EventData> {
     let mut pos = 0;
     let mut wall_time: f64 = 0.0;
     let mut step: i64 = 0;
@@ -1548,10 +1549,10 @@ fn parse_event(data: &[u8]) -> Option<(f64, i64, Vec<(String, f32)>)> {
                         _ => break,
                     }
                 }
-                if !tag.is_empty() {
-                    if let Some(sv) = simple_value {
-                        values.push((tag, sv));
-                    }
+                if !tag.is_empty()
+                    && let Some(sv) = simple_value
+                {
+                    values.push((tag, sv));
                 }
             } else {
                 // skip unknown field
