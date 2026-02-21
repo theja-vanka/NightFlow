@@ -330,7 +330,39 @@ function buildTrainingCommand(project) {
     args.push(`--data.init_args.data_dir=${project.folderPath}`);
   }
 
-  args.push("--trainer.max_epochs=10");
+  // Training hyperparameters
+  args.push(`--trainer.max_epochs=${project.maxEpochs || 10}`);
+  if (project.learningRate !== "" && project.learningRate !== undefined)
+    args.push(`--model.init_args.lr=${project.learningRate}`);
+  if (project.batchSize !== "" && project.batchSize !== undefined)
+    args.push(`--data.init_args.batch_size=${project.batchSize}`);
+  if (project.optimizer)
+    args.push(`--model.init_args.optimizer=${project.optimizer}`);
+  if (project.scheduler && project.scheduler !== "none")
+    args.push(`--model.init_args.scheduler=${project.scheduler}`);
+  if (project.weightDecay !== "" && project.weightDecay !== undefined)
+    args.push(`--model.init_args.weight_decay=${project.weightDecay}`);
+  if (project.precision)
+    args.push(`--trainer.precision=${project.precision}`);
+  if (project.gradientClipVal !== "" && project.gradientClipVal !== undefined)
+    args.push(`--trainer.gradient_clip_val=${project.gradientClipVal}`);
+  if (project.imageSize !== "" && project.imageSize !== undefined)
+    args.push(`--data.init_args.image_size=${project.imageSize}`);
+  if (project.augmentationPreset)
+    args.push(`--data.init_args.augmentation_preset=${project.augmentationPreset}`);
+  if (project.freezeBackbone)
+    args.push("--model.init_args.freeze_backbone=true");
+  if (project.seed !== "" && project.seed !== undefined)
+    args.push(`--trainer.seed=${project.seed}`);
+
+  // Early stopping callback
+  if (project.earlyStopping) {
+    const monitor = project.earlyStoppingMonitor || "val/loss";
+    const patience = project.earlyStoppingPatience || 10;
+    const mode = monitor.includes("loss") ? "min" : "max";
+    args.push(`--trainer.callbacks+={"class_path":"pytorch_lightning.callbacks.EarlyStopping","init_args":{"monitor":"${monitor}","patience":${patience},"mode":"${mode}"}}`);
+  }
+
   return args.join(" ");
 }
 

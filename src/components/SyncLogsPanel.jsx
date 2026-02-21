@@ -1,4 +1,3 @@
-import { h } from "preact";
 import { useEffect, useRef } from "preact/hooks";
 import { syncLogs, dashboardSyncing } from "../state/dashboard.js";
 import "../style.css";

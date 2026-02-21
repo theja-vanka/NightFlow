@@ -17,6 +17,10 @@ const EDITABLE_KEYS = [
   "name", "connectionType", "sshCommand", "projectPath", "modelCategory",
   "detectionArch", "segHeadType", "datasetFormat", "folderPath",
   "trainPath", "valPath", "testPath", "powerUserMode",
+  "maxEpochs", "learningRate", "batchSize", "optimizer", "scheduler",
+  "weightDecay", "precision", "gradientClipVal", "imageSize",
+  "augmentationPreset", "freezeBackbone", "seed",
+  "earlyStopping", "earlyStoppingPatience", "earlyStoppingMonitor",
 ];
 
 // Read-only fields that need to be included in draft for rendering
@@ -88,8 +92,16 @@ export function SettingsView() {
 
   if (!proj) return <div class="settings-view"><p class="settings-empty">No project selected.</p></div>;
 
+  const [activeTab, setActiveTab] = useState("general");
   const locked = sshConnected.value;
   const dirty = isDirty(draft, proj);
+
+  // Reset to general tab if power user mode is turned off
+  useEffect(() => {
+    if (!draft.powerUserMode && activeTab === "advanced") {
+      setActiveTab("general");
+    }
+  }, [draft.powerUserMode]);
 
   function set(key, value) {
     setDraft((d) => ({ ...d, [key]: value }));
@@ -143,6 +155,28 @@ export function SettingsView() {
           Settings are locked while connected. Disconnect to make changes.
         </div>
       )}
+
+      {/* Tab navigation — only show tabs when power user mode is on */}
+      {draft.powerUserMode && (
+        <div class="settings-tabs">
+          <button
+            class={`settings-tab ${activeTab === "general" ? "settings-tab--active" : ""}`}
+            onClick={() => setActiveTab("general")}
+          >
+            General
+          </button>
+          <button
+            class={`settings-tab ${activeTab === "advanced" ? "settings-tab--active" : ""}`}
+            onClick={() => setActiveTab("advanced")}
+          >
+            Advanced Training
+          </button>
+        </div>
+      )}
+
+      {/* ─── General Tab ─── */}
+      {activeTab === "general" && (
+      <>
 
       {/* General */}
       <section class="settings-section">
@@ -470,6 +504,65 @@ export function SettingsView() {
         </div>
       </section>
 
+      {/* Early Stopping */}
+      <section class="settings-section">
+        <div class="settings-section-header">
+          <h2 class="settings-heading">Early Stopping</h2>
+          <p class="settings-heading-desc">Stop training when a metric stops improving</p>
+        </div>
+        <div class="settings-card">
+          <div class="settings-card-row settings-row-between">
+            <div>
+              <div class="settings-label">Enable Early Stopping</div>
+              <div class="settings-desc">Halt training after patience epochs with no improvement</div>
+            </div>
+            <button
+              class="settings-theme-btn"
+              disabled={locked}
+              onClick={() => set("earlyStopping", !draft.earlyStopping)}
+            >
+              {draft.earlyStopping ? "On" : "Off"}
+            </button>
+          </div>
+          {draft.earlyStopping && (
+            <>
+              <div class="settings-card-divider" />
+              <div class="settings-card-row settings-row-grid">
+                <label class="settings-field">
+                  <span class="settings-label">Monitor Metric</span>
+                  <span class="settings-hint">Metric to watch for improvement</span>
+                  <div class="settings-select-wrap">
+                    <select
+                      class="settings-select"
+                      value={draft.earlyStoppingMonitor}
+                      disabled={locked}
+                      onChange={(e) => set("earlyStoppingMonitor", e.target.value)}
+                    >
+                      <option value="val/loss">Validation Loss</option>
+                      <option value="val/accuracy">Validation Accuracy</option>
+                    </select>
+                    <span class="settings-select-chevron" />
+                  </div>
+                </label>
+                <label class="settings-field">
+                  <span class="settings-label">Patience</span>
+                  <span class="settings-hint">Epochs to wait before stopping (default 10)</span>
+                  <input
+                    class="settings-input"
+                    type="number"
+                    min="1"
+                    value={draft.earlyStoppingPatience}
+                    placeholder="10"
+                    disabled={locked}
+                    onInput={(e) => set("earlyStoppingPatience", e.target.value === "" ? "" : Number(e.target.value))}
+                  />
+                </label>
+              </div>
+            </>
+          )}
+        </div>
+      </section>
+
       {/* Danger Zone */}
       <section class="settings-section">
         <div class="settings-danger">
@@ -494,6 +587,234 @@ export function SettingsView() {
           </div>
         </div>
       </section>
+
+      </>
+      )}
+
+      {/* ─── Advanced Training Tab ─── */}
+      {activeTab === "advanced" && draft.powerUserMode && (
+        <>
+          <section class="settings-section">
+            <div class="settings-section-header">
+              <h2 class="settings-heading">Training Basics</h2>
+              <p class="settings-heading-desc">Core hyperparameters for the training loop</p>
+            </div>
+            <div class="settings-card">
+              <div class="settings-card-row settings-row-grid">
+                <label class="settings-field">
+                  <span class="settings-label">Max Epochs</span>
+                  <span class="settings-hint">Number of training epochs</span>
+                  <input
+                    class="settings-input"
+                    type="number"
+                    min="1"
+                    value={draft.maxEpochs}
+                    disabled={locked}
+                    onInput={(e) => set("maxEpochs", e.target.value === "" ? "" : Number(e.target.value))}
+                  />
+                </label>
+                <label class="settings-field">
+                  <span class="settings-label">Learning Rate</span>
+                  <span class="settings-hint">Leave empty for AutoTimm default</span>
+                  <input
+                    class="settings-input"
+                    type="number"
+                    step="any"
+                    value={draft.learningRate}
+                    placeholder="auto"
+                    disabled={locked}
+                    onInput={(e) => set("learningRate", e.target.value === "" ? "" : Number(e.target.value))}
+                  />
+                </label>
+              </div>
+              <div class="settings-card-divider" />
+              <div class="settings-card-row settings-row-grid">
+                <label class="settings-field">
+                  <span class="settings-label">Batch Size</span>
+                  <span class="settings-hint">Samples per training step</span>
+                  <input
+                    class="settings-input"
+                    type="number"
+                    min="1"
+                    value={draft.batchSize}
+                    placeholder="auto"
+                    disabled={locked}
+                    onInput={(e) => set("batchSize", e.target.value === "" ? "" : Number(e.target.value))}
+                  />
+                </label>
+                <label class="settings-field">
+                  <span class="settings-label">Weight Decay</span>
+                  <span class="settings-hint">L2 regularization factor</span>
+                  <input
+                    class="settings-input"
+                    type="number"
+                    step="any"
+                    value={draft.weightDecay}
+                    placeholder="auto"
+                    disabled={locked}
+                    onInput={(e) => set("weightDecay", e.target.value === "" ? "" : Number(e.target.value))}
+                  />
+                </label>
+              </div>
+              <div class="settings-card-divider" />
+              <div class="settings-card-row settings-row-grid">
+                <label class="settings-field">
+                  <span class="settings-label">Optimizer</span>
+                  <span class="settings-hint">Optimization algorithm</span>
+                  <div class="settings-select-wrap">
+                    <select
+                      class="settings-select"
+                      value={draft.optimizer}
+                      disabled={locked}
+                      onChange={(e) => set("optimizer", e.target.value)}
+                    >
+                      <option value="">Auto (default)</option>
+                      <option value="adamw">AdamW</option>
+                      <option value="adam">Adam</option>
+                      <option value="sgd">SGD</option>
+                    </select>
+                    <span class="settings-select-chevron" />
+                  </div>
+                </label>
+                <label class="settings-field">
+                  <span class="settings-label">Scheduler</span>
+                  <span class="settings-hint">Learning rate schedule</span>
+                  <div class="settings-select-wrap">
+                    <select
+                      class="settings-select"
+                      value={draft.scheduler}
+                      disabled={locked}
+                      onChange={(e) => set("scheduler", e.target.value)}
+                    >
+                      <option value="">Auto (default)</option>
+                      <option value="cosine">Cosine</option>
+                      <option value="step">Step</option>
+                      <option value="onecycle">OneCycle</option>
+                      <option value="none">None</option>
+                    </select>
+                    <span class="settings-select-chevron" />
+                  </div>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <div class="settings-section-header">
+              <h2 class="settings-heading">Precision & Data</h2>
+              <p class="settings-heading-desc">Mixed precision, image size, and augmentation</p>
+            </div>
+            <div class="settings-card">
+              <div class="settings-card-row settings-row-grid">
+                <label class="settings-field">
+                  <span class="settings-label">Precision</span>
+                  <span class="settings-hint">Floating-point precision</span>
+                  <div class="settings-select-wrap">
+                    <select
+                      class="settings-select"
+                      value={draft.precision}
+                      disabled={locked}
+                      onChange={(e) => set("precision", e.target.value)}
+                    >
+                      <option value="">Auto (default)</option>
+                      <option value="32">32-bit (float32)</option>
+                      <option value="16-mixed">16-mixed (AMP)</option>
+                      <option value="bf16-mixed">bf16-mixed</option>
+                    </select>
+                    <span class="settings-select-chevron" />
+                  </div>
+                </label>
+                <label class="settings-field">
+                  <span class="settings-label">Image Size</span>
+                  <span class="settings-hint">Input resolution (px)</span>
+                  <input
+                    class="settings-input"
+                    type="number"
+                    min="1"
+                    value={draft.imageSize}
+                    placeholder="auto"
+                    disabled={locked}
+                    onInput={(e) => set("imageSize", e.target.value === "" ? "" : Number(e.target.value))}
+                  />
+                </label>
+              </div>
+              <div class="settings-card-divider" />
+              <div class="settings-card-row settings-row-grid">
+                <label class="settings-field">
+                  <span class="settings-label">Augmentation Preset</span>
+                  <span class="settings-hint">Data augmentation strategy</span>
+                  <div class="settings-select-wrap">
+                    <select
+                      class="settings-select"
+                      value={draft.augmentationPreset}
+                      disabled={locked}
+                      onChange={(e) => set("augmentationPreset", e.target.value)}
+                    >
+                      <option value="">Auto (default)</option>
+                      <option value="default">Default</option>
+                      <option value="autoaugment">AutoAugment</option>
+                      <option value="randaugment">RandAugment</option>
+                      <option value="trivialaugment">TrivialAugment</option>
+                    </select>
+                    <span class="settings-select-chevron" />
+                  </div>
+                </label>
+                <label class="settings-field">
+                  <span class="settings-label">Gradient Clip</span>
+                  <span class="settings-hint">Max gradient norm</span>
+                  <input
+                    class="settings-input"
+                    type="number"
+                    step="any"
+                    value={draft.gradientClipVal}
+                    placeholder="auto"
+                    disabled={locked}
+                    onInput={(e) => set("gradientClipVal", e.target.value === "" ? "" : Number(e.target.value))}
+                  />
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <div class="settings-section-header">
+              <h2 class="settings-heading">Advanced</h2>
+              <p class="settings-heading-desc">Backbone freezing and reproducibility</p>
+            </div>
+            <div class="settings-card">
+              <div class="settings-card-row settings-row-between">
+                <div>
+                  <div class="settings-label">Freeze Backbone</div>
+                  <div class="settings-desc">Freeze pretrained backbone weights during training</div>
+                </div>
+                <button
+                  class="settings-theme-btn"
+                  disabled={locked}
+                  onClick={() => set("freezeBackbone", !draft.freezeBackbone)}
+                >
+                  {draft.freezeBackbone ? "On" : "Off"}
+                </button>
+              </div>
+              <div class="settings-card-divider" />
+              <div class="settings-card-row">
+                <label class="settings-field">
+                  <span class="settings-label">Seed</span>
+                  <span class="settings-hint">Random seed for reproducibility (leave empty for random)</span>
+                  <input
+                    class="settings-input"
+                    type="number"
+                    min="0"
+                    value={draft.seed}
+                    placeholder="random"
+                    disabled={locked}
+                    onInput={(e) => set("seed", e.target.value === "" ? "" : Number(e.target.value))}
+                  />
+                </label>
+              </div>
+            </div>
+          </section>
+        </>
+      )}
 
       {/* Save bar */}
       <div class={`settings-save-bar ${dirty || saved ? "visible" : ""}`}>

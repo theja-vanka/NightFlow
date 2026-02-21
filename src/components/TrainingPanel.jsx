@@ -5,7 +5,6 @@ import {
   trainingEpoch,
   trainingMaxEpochs,
   trainingStep,
-  trainingTotalSteps,
   trainingLoss,
   trainingProgress,
   trainingError,
@@ -57,7 +56,6 @@ export function TrainingPanel() {
   const epoch = trainingEpoch.value;
   const maxEpochs = trainingMaxEpochs.value;
   const step = trainingStep.value;
-  const totalSteps = trainingTotalSteps.value;
   const loss = trainingLoss.value;
   const progress = trainingProgress.value;
   const fastDev = trainingFastDevRun.value;

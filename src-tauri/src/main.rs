@@ -641,7 +641,7 @@ async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, String
     )
     .await;
 
-    let mut uv_args = vec!["venv".to_string(), ".venv".to_string(), "--python".to_string(), "3.12".to_string()];
+    let uv_args = vec!["venv".to_string(), ".venv".to_string(), "--python".to_string(), "3.12".to_string()];
 
     // Clean up any leftover partial .venv from previous failed attempts
     if venv_path.exists() {
@@ -804,7 +804,7 @@ struct TrainingState {
 struct TrainingProcess {
     child: Option<tokio::process::Child>,
     alive: Arc<AtomicBool>,
-    log_file: String,
+    _log_file: String,
 }
 
 /// Metadata persisted to disk so we can reconnect after an app crash.
@@ -974,7 +974,7 @@ async fn start_training(
             TrainingProcess {
                 child: Some(child),
                 alive: Arc::clone(&alive),
-                log_file: log_file_str.clone(),
+                _log_file: log_file_str.clone(),
             },
         );
     }
