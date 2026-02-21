@@ -216,7 +216,6 @@ textarea {
 }
 
 .summary-card {
-  background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 20px 18px;
@@ -240,7 +239,6 @@ textarea {
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  background: var(--bg-secondary);
   border: 1px solid var(--border-color);
 }
 
@@ -1435,7 +1433,6 @@ textarea {
   padding: 40px 20px;
   width: 100%;
   box-sizing: border-box;
-  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
 }
 
 .dashboard-sync-card {
@@ -1446,42 +1443,28 @@ textarea {
   text-align: center;
   max-width: 420px;
   padding: 48px 32px;
-  background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-  transition: box-shadow 0.3s ease, transform 0.3s ease;
+  transition: border-color 0.2s ease;
 }
 
 .dashboard-sync-card:hover {
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.16);
+  border-color: var(--accent);
 }
 
 .dashboard-sync-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 80px;
-  height: 80px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, rgba(250, 250, 250, 0.1) 0%, rgba(250, 250, 250, 0.05) 100%);
-  color: var(--accent);
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  color: var(--text-primary);
   margin-bottom: 8px;
-  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.1);
 }
 
-[data-theme="dark"] .dashboard-sync-icon {
-  background: linear-gradient(135deg, rgba(250, 250, 250, 0.08) 0%, rgba(250, 250, 250, 0.04) 100%);
-}
-
-[data-theme="light"] .dashboard-sync-icon {
-  background: linear-gradient(135deg, rgba(10, 10, 10, 0.08) 0%, rgba(10, 10, 10, 0.04) 100%);
-}
-
-.dashboard-sync-icon svg {
-  width: 40px;
-  height: 40px;
-  stroke-width: 1.5;
+.dashboard-sync-icon--spinning svg {
+  animation: resync-spin 0.8s linear infinite;
 }
 
 .dashboard-sync-title {
@@ -1506,15 +1489,14 @@ textarea {
   justify-content: center;
   gap: 10px;
   padding: 12px 36px;
-  background: var(--btn-bg);
-  color: var(--btn-text);
-  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   letter-spacing: 0.3px;
   min-width: 100px;
   min-height: 44px;
@@ -1529,9 +1511,8 @@ textarea {
 }
 
 .dashboard-sync-btn:hover:not(:disabled) {
-  background: var(--btn-hover);
+  border-color: var(--accent);
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 }
 
 .dashboard-sync-btn:active:not(:disabled) {
@@ -1578,12 +1559,12 @@ textarea {
 :root,
 [data-theme="dark"] {
   --sync-progress-bg: rgba(255, 255, 255, 0.1);
-  --sync-progress-fill: #60a5fa;
+  --sync-progress-fill: var(--accent);
 }
 
 [data-theme="light"] {
   --sync-progress-bg: rgba(0, 0, 0, 0.1);
-  --sync-progress-fill: #3b82f6;
+  --sync-progress-fill: var(--accent);
 }
 
 .sync-logs-navbar {

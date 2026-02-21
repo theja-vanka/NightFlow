@@ -16,7 +16,7 @@ import { DeleteProjectDialog } from "../components/DeleteProjectDialog.jsx";
 const EDITABLE_KEYS = [
   "name", "connectionType", "sshCommand", "projectPath", "modelCategory",
   "detectionArch", "segHeadType", "datasetFormat", "folderPath",
-  "trainPath", "valPath", "testPath",
+  "trainPath", "valPath", "testPath", "powerUserMode",
 ];
 
 // Read-only fields that need to be included in draft for rendering
@@ -452,6 +452,19 @@ export function SettingsView() {
                 dangerouslySetInnerHTML={{ __html: theme.value === "dark" ? sunIcon : moonIcon }}
               />
               {theme.value === "dark" ? "Dark" : "Light"}
+            </button>
+          </div>
+          <div class="settings-card-divider" />
+          <div class="settings-card-row settings-row-between">
+            <div>
+              <div class="settings-label">Power User Mode</div>
+              <div class="settings-desc">Enable advanced features and controls</div>
+            </div>
+            <button
+              class="settings-theme-btn"
+              onClick={() => set("powerUserMode", !draft.powerUserMode)}
+            >
+              {draft.powerUserMode ? "On" : "Off"}
             </button>
           </div>
         </div>

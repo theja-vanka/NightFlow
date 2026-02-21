@@ -70,11 +70,11 @@ function SshErrorModal() {
   if (!error) return null;
 
   return (
-    <div class="modal-overlay" onClick={clearSshConnectionError}>
+    <div class="modal-overlay" onClick={() => clearSshConnectionError()}>
       <div class="modal-dialog ssh-error-modal" onClick={(e) => e.stopPropagation()}>
         <div class="modal-header">
           <h3 class="modal-title">SSH Connection Failed</h3>
-          <button class="modal-close-btn" onClick={clearSshConnectionError}>
+          <button class="modal-close-btn" onClick={() => clearSshConnectionError()}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"/>
               <line x1="6" y1="6" x2="18" y2="18"/>
@@ -92,7 +92,7 @@ function SshErrorModal() {
           <p class="ssh-error-message">{error.message}</p>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-primary" onClick={clearSshConnectionError}>Close</button>
+          <button class="btn btn-primary" onClick={() => clearSshConnectionError()}>Close</button>
         </div>
       </div>
     </div>
@@ -214,6 +214,14 @@ function ProgressCircle({ percentage }) {
           cy="50"
           r="45"
           fill="none"
+          stroke="var(--sync-progress-bg)"
+          stroke-width="3"
+        />
+        <circle
+          cx="50"
+          cy="50"
+          r="45"
+          fill="none"
           stroke="var(--sync-progress-fill)"
           stroke-width="3"
           stroke-dasharray={circumference}
@@ -235,8 +243,8 @@ function SyncScreen() {
   return (
     <div class="dashboard-sync-screen">
       <div class="dashboard-sync-card">
-        <div class="dashboard-sync-icon">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <div class={`dashboard-sync-icon${syncing ? " dashboard-sync-icon--spinning" : ""}`}>
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M23 4v6h-6"/>
             <path d="M1 20v-6h6"/>
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
@@ -380,7 +388,7 @@ export function DashboardView() {
   const showingCompletion = syncShowingCompletion.value;
 
   return (
-    <div class={`dashboard-view ${syncing || showingCompletion ? "dashboard-view--syncing" : ""}`}>
+    <div class={`dashboard-view ${(syncing || showingCompletion) && currentProject.value?.powerUserMode ? "dashboard-view--syncing" : ""}`}>
       <SshStatusBanner />
       {!connected ? null : syncing || showingCompletion || !synced ? (
         <SyncScreen />
@@ -399,7 +407,7 @@ export function DashboardView() {
           <ResyncButton />
         </>
       )}
-      {syncing && <div class="sync-logs-navbar"><SyncLogsPanel /></div>}
+      {syncing && currentProject.value?.powerUserMode && <div class="sync-logs-navbar"><SyncLogsPanel /></div>}
       <SshErrorModal />
     </div>
   );

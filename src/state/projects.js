@@ -52,6 +52,7 @@ export async function loadProjects() {
         ...((!p.trainPath) && { trainPath: "" }),
         ...((!p.valPath) && { valPath: "" }),
         ...((!p.testPath) && { testPath: "" }),
+        ...(p.powerUserMode === undefined && { powerUserMode: false }),
       };
     });
     projectList.value = updatedProjects;
@@ -179,6 +180,7 @@ const defaultData = {
   trainPath: "",
   valPath: "",
   testPath: "",
+  powerUserMode: false,
 };
 
 export const STEP_COUNT = 6;
@@ -300,6 +302,7 @@ export function wizardCreate() {
     trainPath: d.trainPath.trim(),
     valPath: d.valPath.trim(),
     testPath: d.testPath.trim(),
+    powerUserMode: false,
   };
   addProject(project);
   closeWizard();
