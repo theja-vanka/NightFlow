@@ -12,7 +12,7 @@ export function ChartsView() {
       <div class="charts-view">
         <div class="charts-empty">
           <p class="charts-empty-text">No completed runs yet</p>
-          <p class="charts-empty-hint">Charts will appear here once training runs are completed</p>
+          <p class="charts-empty-hint">Charts will appear here once training runs complete or TensorBoard logs are found during sync.</p>
         </div>
       </div>
     );

@@ -1,6 +1,6 @@
 import { signal, computed } from "@preact/signals";
 import { invoke } from "@tauri-apps/api/core";
-import { projectRuns, loadRuns } from "./experiments.js";
+import { projectRuns, loadRuns, importTensorboardRuns } from "./experiments.js";
 import { currentProject, currentProjectId } from "./projects.js";
 import { navigate, currentPage } from "./router.js";
 
@@ -15,6 +15,8 @@ const _defaultState = () => ({
   synced: false,
   syncing: false,
   error: null,
+  uvInfo: null,
+  envInfo: null,
 });
 
 const _projectState = signal({}); // { [projectId]: ProjectState }
@@ -40,6 +42,8 @@ export const shouldAutoConnect = computed(() => _getState(currentProjectId.value
 export const dashboardSynced = computed(() => _getState(currentProjectId.value).synced);
 export const dashboardSyncing = computed(() => _getState(currentProjectId.value).syncing);
 export const sshConnectionError = computed(() => _getState(currentProjectId.value).error);
+export const uvInfo = computed(() => _getState(currentProjectId.value).uvInfo);
+export const envInfo = computed(() => _getState(currentProjectId.value).envInfo);
 
 // ── Incremented to force useTerminal to tear down and reinitialize a session ──
 
@@ -197,7 +201,6 @@ export async function toggleSshConnection() {
 export async function syncDashboard() {
   const projectId = currentProjectId.value;
   _setState(projectId, { syncing: true });
-  const minDelay = new Promise((r) => setTimeout(r, 800));
   try {
     const project = currentProject.value;
     if (project?.projectPath) {
@@ -212,6 +215,51 @@ export async function syncDashboard() {
         }
       } catch (dirErr) {
         console.warn("[syncDashboard] Could not ensure project directory:", dirErr);
+      }
+
+      // Ensure uv is installed (check + auto-install if missing)
+      try {
+        const uvResult = isSSH
+          ? await invoke("ssh_ensure_uv", { sshCommand: rawSsh.trim() })
+          : await invoke("ensure_uv");
+        _setState(projectId, {
+          uvInfo: {
+            installed: uvResult.installed,
+            version: uvResult.version || null,
+            message: uvResult.message,
+          },
+        });
+        if (!uvResult.installed) {
+          console.warn("[syncDashboard] uv not available:", uvResult.message);
+        } else {
+          console.log("[syncDashboard] uv:", uvResult.version || "available");
+        }
+      } catch (uvErr) {
+        console.warn("[syncDashboard] uv check failed:", uvErr);
+        _setState(projectId, { uvInfo: { installed: false, version: null, message: `${uvErr}` } });
+      }
+
+      // Set up Python venv with autotimm if it doesn't exist yet
+      try {
+        const envResult = isSSH
+          ? await invoke("ssh_setup_python_env", { sshCommand: rawSsh.trim(), projectPath: project.projectPath })
+          : await invoke("setup_python_env", { projectPath: project.projectPath });
+        if (envResult.status === "error") {
+          console.warn("[syncDashboard] Python env setup warning:", envResult.message);
+          _setState(projectId, { envInfo: { status: "error", message: envResult.message } });
+        } else {
+          console.log("[syncDashboard] Python env:", envResult.status, envResult.message);
+          _setState(projectId, {
+            envInfo: {
+              status: envResult.status,
+              pythonVersion: envResult.python_version || null,
+              autotimmVersion: envResult.autotimm_version || null,
+            },
+          });
+        }
+      } catch (envErr) {
+        console.warn("[syncDashboard] Python env setup failed:", envErr);
+        _setState(projectId, { envInfo: { status: "error", message: `${envErr}` } });
       }
 
       const status = { folderPath: null, trainPath: null, valPath: null, testPath: null };
@@ -235,9 +283,29 @@ export async function syncDashboard() {
         );
       }
       datasetPathStatus.value = status;
+
+      // Scan TensorBoard logs and import as run records
+      try {
+        let tbRuns = [];
+        if (isSSH) {
+          tbRuns = await invoke("ssh_scan_tensorboard_logs", {
+            sshCommand: rawSsh.trim(),
+            projectPath: project.projectPath,
+          });
+        } else {
+          tbRuns = await invoke("scan_tensorboard_logs", {
+            projectPath: project.projectPath,
+          });
+        }
+        if (tbRuns && tbRuns.length > 0) {
+          await importTensorboardRuns(tbRuns, projectId, project);
+        }
+      } catch (tbErr) {
+        console.warn("[syncDashboard] TensorBoard scan failed:", tbErr);
+      }
     }
 
-    await Promise.all([loadRuns(), minDelay]);
+    await loadRuns();
     _setState(projectId, { synced: true });
   } catch (err) {
     console.error("[syncDashboard] error:", err);

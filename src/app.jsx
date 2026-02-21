@@ -16,6 +16,7 @@ import { TerminalView } from "./views/TerminalView.jsx";
 // Ensure state modules initialize
 import "./state/theme.js";
 import "./state/projects.js";
+import { initTrainingListeners, cleanupTrainingListeners } from "./state/training.js";
 import { CreateProjectWizard } from "./components/CreateProjectWizard.jsx";
 import { DeleteProjectDialog } from "./components/DeleteProjectDialog.jsx";
 import { EmptyProjectsScreen } from "./components/EmptyProjectsScreen.jsx";
@@ -47,11 +48,17 @@ export function App() {
     loadProjects();
     loadRuns();
 
+    // Start listening for training events
+    initTrainingListeners();
+
     // Close splash screen after delay
     const timer = setTimeout(() => {
       invoke("close_splash");
     }, 2000);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      cleanupTrainingListeners();
+    };
   }, []);
 
   const hasProjects = projectList.value.length > 0;
