@@ -1,9 +1,10 @@
 import { SummaryCard } from "../components/SummaryCard.jsx";
 import { TrainingPanel } from "../components/TrainingPanel.jsx";
+import SyncLogsPanel from "../components/SyncLogsPanel.jsx";
 import {
   stats, sshInfo, toggleSshConnection, sshConnecting, sshConnected,
   sshConnectionError, clearSshConnectionError,
-  dashboardSynced, dashboardSyncing, syncDashboard,
+  dashboardSynced, dashboardSyncing, syncDashboard, syncProgress, syncShowingCompletion,
   datasetPathStatus, uvInfo, envInfo,
 } from "../state/dashboard.js";
 import { currentProject, MODEL_CATEGORIES } from "../state/projects.js";
@@ -201,8 +202,36 @@ function EnvStatusBanner() {
   );
 }
 
+function ProgressCircle({ percentage }) {
+  const circumference = 2 * Math.PI * 45; // radius = 45
+  const dashOffset = circumference - (percentage / 100) * circumference;
+  
+  return (
+    <div class="progress-circle-container">
+      <svg width="80" height="80" viewBox="0 0 100 100" class="progress-circle-svg">
+        <circle
+          cx="50"
+          cy="50"
+          r="45"
+          fill="none"
+          stroke="var(--sync-progress-fill)"
+          stroke-width="3"
+          stroke-dasharray={circumference}
+          stroke-dashoffset={dashOffset}
+          stroke-linecap="round"
+          class="progress-circle-svg-fill"
+        />
+      </svg>
+      <span class="progress-circle-text">{Math.round(percentage)}%</span>
+    </div>
+  );
+}
+
 function SyncScreen() {
   const syncing = dashboardSyncing.value;
+  const progress = syncProgress.value;
+  const showingCompletion = syncShowingCompletion.value;
+  
   return (
     <div class="dashboard-sync-screen">
       <div class="dashboard-sync-card">
@@ -217,14 +246,9 @@ function SyncScreen() {
         <p class="dashboard-sync-desc">
           Fetch the latest runs, metrics, and experiment history from the connected machine.
         </p>
-        <button class="dashboard-sync-btn" onClick={syncDashboard} disabled={syncing}>
-          {syncing ? (
-            <>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="ssh-btn-spinner">
-                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-              </svg>
-              Syncing…
-            </>
+        <button class="dashboard-sync-btn" onClick={syncDashboard} disabled={syncing || showingCompletion}>
+          {syncing || showingCompletion ? (
+            <ProgressCircle percentage={progress} />
           ) : "Sync"}
         </button>
       </div>
@@ -352,11 +376,13 @@ export function DashboardView() {
   const s = stats.value;
   const connected = sshConnected.value;
   const synced = dashboardSynced.value;
+  const syncing = dashboardSyncing.value;
+  const showingCompletion = syncShowingCompletion.value;
 
   return (
-    <div class="dashboard-view">
+    <div class={`dashboard-view ${syncing || showingCompletion ? "dashboard-view--syncing" : ""}`}>
       <SshStatusBanner />
-      {!connected ? null : !synced ? (
+      {!connected ? null : syncing || showingCompletion || !synced ? (
         <SyncScreen />
       ) : (
         <>
@@ -373,6 +399,7 @@ export function DashboardView() {
           <ResyncButton />
         </>
       )}
+      {syncing && <div class="sync-logs-navbar"><SyncLogsPanel /></div>}
       <SshErrorModal />
     </div>
   );

@@ -629,23 +629,19 @@ async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, String
         }
     }
 
-    // 3. No existing env — create a .venv with uv
+    // 3. No existing env — create a .venv with uv using Python 3.12
     let uv_bin = find_uv().unwrap_or_else(|| "uv".to_string());
 
-    // Resolve the real python3 path to avoid symlink-loop errors in uv
-    let resolved_python = tokio::process::Command::new("python3")
-        .args(["-c", "import sys; print(sys.executable)"])
-        .output()
-        .await
-        .ok()
-        .filter(|o| o.status.success())
-        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string());
+    // Ensure Python 3.12 is installed via uv (with timeout to prevent hanging)
+    let _ = tokio::time::timeout(
+        std::time::Duration::from_secs(120),
+        tokio::process::Command::new(&uv_bin)
+            .args(["python", "install", "3.12"])
+            .output(),
+    )
+    .await;
 
-    let mut uv_args = vec!["venv".to_string(), ".venv".to_string()];
-    if let Some(ref py) = resolved_python {
-        uv_args.push("--python".to_string());
-        uv_args.push(py.clone());
-    }
+    let mut uv_args = vec!["venv".to_string(), ".venv".to_string(), "--python".to_string(), "3.12".to_string()];
 
     // Clean up any leftover partial .venv from previous failed attempts
     if venv_path.exists() {
@@ -742,12 +738,8 @@ elif SYS_AV=$(python3 -c "import autotimm; print(autotimm.__version__)" 2>/dev/n
   jout system "Using system Python environment" "$SYS_PV" "$SYS_AV"
 else
   rm -rf .venv 2>/dev/null
-  REAL_PY=$(python3 -c "import sys; print(sys.executable)" 2>/dev/null)
-  if [ -n "$REAL_PY" ]; then
-    VENV_ERR=$(uv venv .venv --python "$REAL_PY" 2>&1)
-  else
-    VENV_ERR=$(uv venv .venv 2>&1)
-  fi
+  uv python install 3.12 >/dev/null 2>&1
+  VENV_ERR=$(uv venv .venv --python 3.12 2>&1)
   if [ $? -ne 0 ]; then
     rm -rf .venv 2>/dev/null
     jout error "Failed to create venv: $VENV_ERR" "" ""
