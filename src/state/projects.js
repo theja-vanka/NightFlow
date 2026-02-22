@@ -222,8 +222,7 @@ export const wizardStep = signal(0);
 export const wizardData = signal({ ...defaultData });
 export const wizardCwd = signal("");
 
-// Path validation error signals
-export const folderPathError = signal("");
+// Path validation error signals (folder validation removed)
 export const trainPathError = signal("");
 export const valPathError = signal("");
 export const testPathError = signal("");
@@ -258,8 +257,8 @@ export const wizardCanProceed = computed(() => {
       return d.trainPath.trim().length > 0 && d.testPath.trim().length > 0;
     }
     // For all other formats (Folder, COCO JSON, COCO, PNG Masks, Cityscapes, VOC, etc.)
-    // require folder path and check validation
-    return d.folderPath.trim().length > 0 && folderPathError.value === "";
+    // require folder path (no external validation enforced here)
+    return d.folderPath.trim().length > 0;
   }
   if (step === 5) return true;
   return false;
@@ -273,7 +272,6 @@ export async function openWizard() {
   wizardStep.value = 0;
   wizardOpen.value = true;
   // Reset validation errors
-  folderPathError.value = "";
   trainPathError.value = "";
   valPathError.value = "";
   testPathError.value = "";
@@ -282,7 +280,6 @@ export async function openWizard() {
 export function closeWizard() {
   wizardOpen.value = false;
   // Reset validation errors
-  folderPathError.value = "";
   trainPathError.value = "";
   valPathError.value = "";
   testPathError.value = "";

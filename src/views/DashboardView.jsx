@@ -5,7 +5,7 @@ import {
   stats, sshInfo, toggleSshConnection, sshConnecting, sshConnected,
   sshConnectionError, clearSshConnectionError,
   dashboardSynced, dashboardSyncing, syncDashboard, syncProgress, syncShowingCompletion,
-  datasetPathStatus, uvInfo, envInfo,
+  datasetPathStatus, condaInfo, uvInfo, envInfo,
 } from "../state/dashboard.js";
 import { currentProject, MODEL_CATEGORIES } from "../state/projects.js";
 import { startTraining, trainingActive } from "../state/training.js";
@@ -143,13 +143,18 @@ function DatasetStatusBanner() {
 }
 
 function EnvStatusBanner() {
+  const conda = condaInfo.value;
   const uv = uvInfo.value;
   const info = envInfo.value;
-  if (!uv && !info) return null;
+  if (!conda && !uv && !info) return null;
 
   const isError = info?.status === "error";
   const dotClass = isError ? "missing" : "found";
   const tagClass = isError ? "missing" : "found";
+
+  // Show conda if available, otherwise show uv
+  const pkgManager = conda?.installed ? conda : uv;
+  const pkgManagerLabel = conda?.installed ? "conda" : "uv";
 
   return (
     <div class="dataset-status-banner">
@@ -160,13 +165,13 @@ function EnvStatusBanner() {
         <span>Python Environment</span>
       </div>
       <div class="dataset-status-items">
-        {uv && (
+        {pkgManager && (
           <div class="dataset-status-item">
-            <span class={`dataset-status-dot ${uv.installed ? "found" : "missing"}`} />
-            <span class="dataset-status-label">uv</span>
-            <span class="dataset-status-path">{uv.installed ? (uv.version || "installed") : uv.message}</span>
-            <span class={`dataset-status-tag ${uv.installed ? "found" : "missing"}`}>
-              {uv.installed ? "Ready" : "Missing"}
+            <span class={`dataset-status-dot ${pkgManager.installed ? "found" : "missing"}`} />
+            <span class="dataset-status-label">{pkgManagerLabel}</span>
+            <span class="dataset-status-path">{pkgManager.installed ? (pkgManager.version || "installed") : pkgManager.message}</span>
+            <span class={`dataset-status-tag ${pkgManager.installed ? "found" : "missing"}`}>
+              {pkgManager.installed ? "Ready" : "Missing"}
             </span>
           </div>
         )}

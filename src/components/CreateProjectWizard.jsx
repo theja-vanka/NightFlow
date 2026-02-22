@@ -17,7 +17,6 @@ import {
   DETECTION_ARCHS,
   SEG_HEAD_TYPES,
   DATASET_FORMATS,
-  folderPathError,
   trainPathError,
   valPathError,
   testPathError,
@@ -863,22 +862,7 @@ function StructurePreview({ taskType, format }) {
 
 // ── Step 4: Dataset Format ──
 
-// Debounce timer
-let validationTimeout = null;
 
-async function validateFolderPath(path) {
-  if (!path || path.trim() === "") {
-    folderPathError.value = "";
-    return;
-  }
-
-  try {
-    const result = await invoke("validate_folder_path", { path: path.trim() });
-    folderPathError.value = result.valid ? "" : result.error;
-  } catch (_err) {
-    folderPathError.value = "Failed to validate path";
-  }
-}
 
 
 function StepDataset() {
@@ -891,11 +875,6 @@ function StepDataset() {
   const handleFolderPathInput = (e) => {
     const value = e.target.value;
     wizardSetField("folderPath", value);
-
-    clearTimeout(validationTimeout);
-    validationTimeout = setTimeout(() => {
-      validateFolderPath(value);
-    }, 500);
   };
 
   const handleTrainPathInput = (e) => {
@@ -920,10 +899,9 @@ function StepDataset() {
             <button
               key={f.id}
               class={`wizard-category${d.datasetFormat === f.id ? " selected" : ""}`}
-              onClick={() => {
+                onClick={() => {
                 wizardSetField("datasetFormat", f.id);
                 // Clear validation errors when changing format
-                folderPathError.value = "";
                 trainPathError.value = "";
                 valPathError.value = "";
                 testPathError.value = "";
@@ -950,12 +928,10 @@ function StepDataset() {
             value={d.folderPath}
             onInput={handleFolderPathInput}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && wizardCanProceed.value && !folderPathError.value) wizardNext();
+              if (e.key === "Enter" && wizardCanProceed.value) wizardNext();
             }}
           />
-          {folderPathError.value && (
-            <div class="wizard-validation-error">{folderPathError.value}</div>
-          )}
+        
         </div>
       )}
       {isCsvOrJsonl && (

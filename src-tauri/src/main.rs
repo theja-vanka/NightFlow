@@ -406,6 +406,79 @@ struct EnvSetupResult {
     autotimm_version: Option<String>,
 }
 
+/// Find the `conda` binary, checking CONDA_EXE env var, PATH, common install
+/// locations, and finally asking a login shell (handles GUI-launched apps that
+/// don't inherit shell env vars).
+fn find_conda() -> Option<String> {
+    // CONDA_EXE is always set by conda's shell init — most reliable source
+    if let Ok(conda_exe) = std::env::var("CONDA_EXE") {
+        if !conda_exe.is_empty() {
+            if let Ok(output) = std::process::Command::new(&conda_exe)
+                .arg("--version")
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status()
+                && output.success()
+            {
+                return Some(conda_exe);
+            }
+        }
+    }
+
+    let home = std::env::var("HOME").unwrap_or_default();
+    let candidates = [
+        "conda".to_string(),
+        format!("{}/miniconda3/condabin/conda", home),
+        format!("{}/miniconda3/bin/conda", home),
+        format!("{}/anaconda3/condabin/conda", home),
+        format!("{}/anaconda3/bin/conda", home),
+        format!("{}/miniforge3/condabin/conda", home),
+        format!("{}/miniforge3/bin/conda", home),
+        format!("{}/mambaforge/condabin/conda", home),
+        format!("{}/mambaforge/bin/conda", home),
+        "/opt/homebrew/bin/conda".to_string(),
+        "/opt/homebrew/Caskroom/miniconda/base/bin/conda".to_string(),
+        "/opt/homebrew/Caskroom/miniconda/base/condabin/conda".to_string(),
+        "/usr/local/bin/conda".to_string(),
+    ];
+
+    for path in &candidates {
+        if let Ok(output) = std::process::Command::new(path)
+            .arg("--version")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            && output.success()
+        {
+            return Some(path.clone());
+        }
+    }
+
+    // Last resort: ask a login shell for CONDA_EXE (handles Dock-launched apps
+    // where the Tauri process doesn't inherit shell env vars from .zshrc)
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+    if let Ok(output) = std::process::Command::new(&shell)
+        .args(["-l", "-c", "echo $CONDA_EXE"])
+        .output()
+        && output.status.success()
+    {
+        let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if !path.is_empty() {
+            if let Ok(check) = std::process::Command::new(&path)
+                .arg("--version")
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status()
+                && check.success()
+            {
+                return Some(path);
+            }
+        }
+    }
+
+    None
+}
+
 /// Find the `uv` binary, checking PATH and common install locations.
 fn find_uv() -> Option<String> {
     let candidates = ["uv".to_string()];
@@ -545,6 +618,138 @@ fi"#;
     }
 }
 
+#[derive(serde::Serialize, serde::Deserialize)]
+struct CondaStatus {
+    installed: bool,
+    version: Option<String>,
+    message: String,
+}
+
+/// Resolve conda path asynchronously — tries find_conda() first, then falls
+/// back to asking a login shell (handles GUI-launched apps).
+async fn resolve_conda_path() -> Option<String> {
+    if let Some(path) = find_conda() {
+        return Some(path);
+    }
+
+    // GUI apps don't inherit shell env vars. Ask a login shell for CONDA_EXE.
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+    if let Ok(output) = tokio::process::Command::new(&shell)
+        .args(["-l", "-i", "-c", "echo $CONDA_EXE"])
+        .output()
+        .await
+        && output.status.success()
+    {
+        let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if !path.is_empty() && std::path::Path::new(&path).exists() {
+            return Some(path);
+        }
+    }
+
+    None
+}
+
+/// Tauri command: check if conda exists locally.
+#[command]
+async fn check_conda() -> Result<CondaStatus, String> {
+    let conda_bin = match resolve_conda_path().await {
+        Some(path) => path,
+        None => {
+            return Ok(CondaStatus {
+                installed: false,
+                version: None,
+                message: "conda not found".to_string(),
+            });
+        }
+    };
+
+    let version = tokio::process::Command::new(&conda_bin)
+        .arg("--version")
+        .output()
+        .await
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string());
+
+    Ok(CondaStatus {
+        installed: true,
+        version,
+        message: "conda is available".to_string(),
+    })
+}
+
+/// Tauri command: check if conda exists on remote.
+#[command]
+async fn ssh_check_conda(ssh_command: String) -> Result<CondaStatus, String> {
+    let parts: Vec<String> = ssh_command
+        .split_whitespace()
+        .map(String::from)
+        .collect();
+    if parts.is_empty() {
+        return Err("Empty SSH command".to_string());
+    }
+
+    // SSH non-interactive commands don't source .bashrc, so the conda shell
+    // function isn't available.  We need to find the actual conda binary by
+    // checking CONDA_EXE, common install paths, and sourcing the shell profile.
+    let script = r#"find_conda() {
+  # 1. Check CONDA_EXE if already set
+  if [ -n "$CONDA_EXE" ] && [ -x "$CONDA_EXE" ]; then echo "$CONDA_EXE"; return 0; fi
+  # 2. Source shell profile to pick up conda init
+  for rc in "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile" "$HOME/.zshrc"; do
+    if [ -f "$rc" ]; then . "$rc" >/dev/null 2>&1; fi
+  done
+  if [ -n "$CONDA_EXE" ] && [ -x "$CONDA_EXE" ]; then echo "$CONDA_EXE"; return 0; fi
+  # 3. Check common install paths
+  for p in \
+    "$HOME/miniconda3/bin/conda" "$HOME/miniconda3/condabin/conda" \
+    "$HOME/anaconda3/bin/conda" "$HOME/anaconda3/condabin/conda" \
+    "$HOME/miniforge3/bin/conda" "$HOME/miniforge3/condabin/conda" \
+    "$HOME/mambaforge/bin/conda" "$HOME/mambaforge/condabin/conda" \
+    "/opt/conda/bin/conda" "/usr/local/bin/conda"; do
+    if [ -x "$p" ]; then echo "$p"; return 0; fi
+  done
+  return 1
+}
+CONDA_BIN=$(find_conda)
+if [ -n "$CONDA_BIN" ]; then
+  VER=$("$CONDA_BIN" --version 2>/dev/null)
+  echo "{\"installed\":true,\"version\":\"$VER\",\"message\":\"conda is available\"}"
+else
+  echo "{\"installed\":false,\"version\":null,\"message\":\"conda not found\"}"
+fi"#;
+
+    let mut cmd = tokio::process::Command::new(&parts[0]);
+    cmd.args(["-o", "BatchMode=yes", "-o", "ConnectTimeout=10"]);
+    for arg in &parts[1..] {
+        cmd.arg(arg);
+    }
+    cmd.arg(script);
+    cmd.kill_on_drop(true);
+
+    match tokio::time::timeout(std::time::Duration::from_secs(15), cmd.output()).await {
+        Ok(Ok(output)) => {
+            let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if stdout.is_empty() || !output.status.success() {
+                return Ok(CondaStatus {
+                    installed: false,
+                    version: None,
+                    message: "SSH conda check failed".to_string(),
+                });
+            }
+            serde_json::from_str::<CondaStatus>(&stdout).map_err(|e| {
+                format!("Failed to parse conda status: {} (raw: {})", e, stdout)
+            })
+        }
+        Ok(Err(e)) => Err(e.to_string()),
+        Err(_) => Ok(CondaStatus {
+            installed: false,
+            version: None,
+            message: "SSH conda check timed out".to_string(),
+        }),
+    }
+}
+
 /// Query Python and autotimm versions from an existing venv.
 async fn get_venv_versions(venv_path: &std::path::Path) -> (Option<String>, Option<String>) {
     let python = venv_path.join("bin").join("python");
@@ -628,7 +833,64 @@ async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, String
         });
     }
 
-    // 3. No existing env — create a .venv with uv using Python 3.12
+    // 3. No existing env — prefer conda if available, fall back to uv
+    // Clean up any leftover partial .venv from previous failed attempts
+    if venv_path.exists() {
+        let _ = std::fs::remove_dir_all(&venv_path);
+    }
+
+    if let Some(conda_bin) = resolve_conda_path().await {
+        // Use conda to create the environment
+        // -y auto-confirms, --no-banner suppresses channel notices,
+        // stdin null prevents hanging on unexpected prompts
+        let create_output = tokio::process::Command::new(&conda_bin)
+            .args(["create", "-p", ".venv", "python=3.12", "-y", "--no-banner"])
+            .stdin(std::process::Stdio::null())
+            .current_dir(&expanded)
+            .output()
+            .await
+            .map_err(|e| format!("Failed to run conda create: {}", e))?;
+
+        if !create_output.status.success() {
+            let stderr = String::from_utf8_lossy(&create_output.stderr).to_string();
+            let _ = std::fs::remove_dir_all(&venv_path);
+            return Ok(EnvSetupResult {
+                status: "error".to_string(),
+                message: format!("Failed to create conda env: {}", stderr),
+                python_version: None,
+                autotimm_version: None,
+            });
+        }
+
+        // Install autotimm using conda run + pip
+        let install_output = tokio::process::Command::new(&conda_bin)
+            .args(["run", "--no-banner", "-p", ".venv", "pip", "install", "autotimm[tensorboard]"])
+            .stdin(std::process::Stdio::null())
+            .current_dir(&expanded)
+            .output()
+            .await
+            .map_err(|e| format!("Failed to run pip install via conda: {}", e))?;
+
+        if !install_output.status.success() {
+            let stderr = String::from_utf8_lossy(&install_output.stderr).to_string();
+            return Ok(EnvSetupResult {
+                status: "error".to_string(),
+                message: format!("Failed to install dependencies (conda): {}", stderr),
+                python_version: None,
+                autotimm_version: None,
+            });
+        }
+
+        let (python_version, autotimm_version) = get_venv_versions(&venv_path).await;
+        return Ok(EnvSetupResult {
+            status: "created".to_string(),
+            message: "Environment created with conda and dependencies installed".to_string(),
+            python_version,
+            autotimm_version,
+        });
+    }
+
+    // Fall back to uv
     let uv_bin = find_uv().unwrap_or_else(|| "uv".to_string());
 
     // Ensure Python 3.12 is installed via uv (with timeout to prevent hanging)
@@ -641,11 +903,6 @@ async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, String
     .await;
 
     let uv_args = vec!["venv".to_string(), ".venv".to_string(), "--python".to_string(), "3.12".to_string()];
-
-    // Clean up any leftover partial .venv from previous failed attempts
-    if venv_path.exists() {
-        let _ = std::fs::remove_dir_all(&venv_path);
-    }
 
     let venv_output = tokio::process::Command::new(&uv_bin)
         .args(&uv_args)
@@ -686,7 +943,7 @@ async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, String
     let (python_version, autotimm_version) = get_venv_versions(&venv_path).await;
     Ok(EnvSetupResult {
         status: "created".to_string(),
-        message: "Virtual environment created and dependencies installed".to_string(),
+        message: "Virtual environment created with uv and dependencies installed".to_string(),
         python_version,
         autotimm_version,
     })
@@ -716,6 +973,24 @@ async fn ssh_setup_python_env(
     let script = format!(
         r#"export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 cd "{path}" || exit 1
+# Resolve the real conda binary (conda is a shell function, not on PATH in non-interactive SSH)
+_find_conda() {{
+  if [ -n "$CONDA_EXE" ] && [ -x "$CONDA_EXE" ]; then echo "$CONDA_EXE"; return 0; fi
+  for rc in "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile" "$HOME/.zshrc"; do
+    if [ -f "$rc" ]; then . "$rc" >/dev/null 2>&1; fi
+  done
+  if [ -n "$CONDA_EXE" ] && [ -x "$CONDA_EXE" ]; then echo "$CONDA_EXE"; return 0; fi
+  for p in \
+    "$HOME/miniconda3/bin/conda" "$HOME/miniconda3/condabin/conda" \
+    "$HOME/anaconda3/bin/conda" "$HOME/anaconda3/condabin/conda" \
+    "$HOME/miniforge3/bin/conda" "$HOME/miniforge3/condabin/conda" \
+    "$HOME/mambaforge/bin/conda" "$HOME/mambaforge/condabin/conda" \
+    "/opt/conda/bin/conda" "/usr/local/bin/conda"; do
+    if [ -x "$p" ]; then echo "$p"; return 0; fi
+  done
+  return 1
+}}
+CONDA_BIN=$(_find_conda)
 ej() {{ printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g' | tr '\n' ' '; }}
 jout() {{
   local s="$1" m="$2" pv="$3" av="$4"
@@ -728,7 +1003,11 @@ if [ -d .venv ]; then
   PV=$(.venv/bin/python --version 2>/dev/null | sed 's/Python //')
   AV=$(.venv/bin/python -c "import autotimm; print(autotimm.__version__)" 2>/dev/null)
   if [ -z "$AV" ]; then
-    uv pip install 'autotimm[tensorboard]' --python .venv/bin/python >/dev/null 2>&1
+    if [ -n "$CONDA_BIN" ]; then
+      "$CONDA_BIN" run --no-banner -p .venv pip install 'autotimm[tensorboard]' </dev/null >/dev/null 2>&1
+    else
+      uv pip install 'autotimm[tensorboard]' --python .venv/bin/python >/dev/null 2>&1
+    fi
     AV=$(.venv/bin/python -c "import autotimm; print(autotimm.__version__)" 2>/dev/null)
   fi
   jout exists "Using project .venv" "$PV" "$AV"
@@ -737,21 +1016,38 @@ elif SYS_AV=$(python3 -c "import autotimm; print(autotimm.__version__)" 2>/dev/n
   jout system "Using system Python environment" "$SYS_PV" "$SYS_AV"
 else
   rm -rf .venv 2>/dev/null
-  uv python install 3.12 >/dev/null 2>&1
-  VENV_ERR=$(uv venv .venv --python 3.12 2>&1)
-  if [ $? -ne 0 ]; then
-    rm -rf .venv 2>/dev/null
-    jout error "Failed to create venv: $VENV_ERR" "" ""
-    exit 0
+  if [ -n "$CONDA_BIN" ]; then
+    CONDA_ERR=$("$CONDA_BIN" create -p .venv python=3.12 -y --no-banner </dev/null 2>&1)
+    if [ $? -ne 0 ]; then
+      rm -rf .venv 2>/dev/null
+      jout error "Failed to create conda env: $CONDA_ERR" "" ""
+      exit 0
+    fi
+    PIP_ERR=$("$CONDA_BIN" run --no-banner -p .venv pip install 'autotimm[tensorboard]' </dev/null 2>&1)
+    if [ $? -ne 0 ]; then
+      jout error "Failed to install dependencies (conda): $PIP_ERR" "" ""
+      exit 0
+    fi
+    PV=$(.venv/bin/python --version 2>/dev/null | sed 's/Python //')
+    AV=$(.venv/bin/python -c "import autotimm; print(autotimm.__version__)" 2>/dev/null)
+    jout created "Environment created with conda and dependencies installed" "$PV" "$AV"
+  else
+    uv python install 3.12 >/dev/null 2>&1
+    VENV_ERR=$(uv venv .venv --python 3.12 2>&1)
+    if [ $? -ne 0 ]; then
+      rm -rf .venv 2>/dev/null
+      jout error "Failed to create venv: $VENV_ERR" "" ""
+      exit 0
+    fi
+    PIP_ERR=$(uv pip install 'autotimm[tensorboard]' --python .venv/bin/python 2>&1)
+    if [ $? -ne 0 ]; then
+      jout error "Failed to install dependencies: $PIP_ERR" "" ""
+      exit 0
+    fi
+    PV=$(.venv/bin/python --version 2>/dev/null | sed 's/Python //')
+    AV=$(.venv/bin/python -c "import autotimm; print(autotimm.__version__)" 2>/dev/null)
+    jout created "Virtual environment created with uv and dependencies installed" "$PV" "$AV"
   fi
-  PIP_ERR=$(uv pip install 'autotimm[tensorboard]' --python .venv/bin/python 2>&1)
-  if [ $? -ne 0 ]; then
-    jout error "Failed to install dependencies: $PIP_ERR" "" ""
-    exit 0
-  fi
-  PV=$(.venv/bin/python --version 2>/dev/null | sed 's/Python //')
-  AV=$(.venv/bin/python -c "import autotimm; print(autotimm.__version__)" 2>/dev/null)
-  jout created "Virtual environment created and dependencies installed" "$PV" "$AV"
 fi"#,
         path = remote_path.replace('"', "\\\"")
     );
@@ -1783,6 +2079,8 @@ fn main() {
             ssh_check_path,
             ensure_uv,
             ssh_ensure_uv,
+            check_conda,
+            ssh_check_conda,
             setup_python_env,
             ssh_setup_python_env,
             ensure_project_dir,

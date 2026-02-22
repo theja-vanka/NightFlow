@@ -18,6 +18,7 @@ const _defaultState = () => ({
   syncProgress: 0,
   syncShowingCompletion: false,
   error: null,
+  condaInfo: null,
   uvInfo: null,
   envInfo: null,
   syncLogs: [],
@@ -48,6 +49,7 @@ export const dashboardSyncing = computed(() => _getState(currentProjectId.value)
 export const syncProgress = computed(() => _getState(currentProjectId.value).syncProgress);
 export const syncShowingCompletion = computed(() => _getState(currentProjectId.value).syncShowingCompletion);
 export const sshConnectionError = computed(() => _getState(currentProjectId.value).error);
+export const condaInfo = computed(() => _getState(currentProjectId.value).condaInfo);
 export const uvInfo = computed(() => _getState(currentProjectId.value).uvInfo);
 export const envInfo = computed(() => _getState(currentProjectId.value).envInfo);
 export const syncLogs = computed(() => _getState(currentProjectId.value).syncLogs);
@@ -85,9 +87,9 @@ function addSyncLog(projectId, message, type = "info") {
     progress = 5;
   } else if (lowerMessage.includes("creating project directory") || lowerMessage.includes("directory ready")) {
     progress = Math.max(progress, 20);
-  } else if (lowerMessage.includes("checking uv")) {
+  } else if (lowerMessage.includes("checking conda") || lowerMessage.includes("checking uv")) {
     progress = Math.max(progress, 30);
-  } else if (lowerMessage.includes("uv ready")) {
+  } else if (lowerMessage.includes("conda ready") || lowerMessage.includes("uv ready")) {
     progress = Math.max(progress, 35);
   } else if (lowerMessage.includes("setting up python") || lowerMessage.includes("python 3.12")) {
     progress = Math.max(progress, 40);
@@ -143,8 +145,8 @@ export function setSshConnected(connected, projectId = currentProjectId.value) {
   _setState(projectId, {
     connected,
     connectedAt: connected ? new Date().toISOString() : null,
-    // Clear synced when disconnecting
-    ...(!connected && { synced: false }),
+    // Always reset synced so the sync screen appears on new connections
+    synced: false,
   });
   // Navigate away from terminal if the active project disconnects
   if (!connected && projectId === currentProjectId.value && currentPage.value === "terminal") {
@@ -294,6 +296,7 @@ export async function syncDashboard() {
       await saveSyncMetadata(projectId, {
         synced: true,
         lastSyncedAt: new Date().toISOString(),
+        condaInfo: state.condaInfo,
         uvInfo: state.uvInfo,
         envInfo: state.envInfo,
         datasetPathStatus: datasetPathStatus.value,
@@ -351,29 +354,58 @@ async function doSync(projectId, abortController) {
         addSyncLog(projectId, `Warning: ${dirErr.message}`, "warning");
       }
 
-      // Ensure uv is installed (check + auto-install if missing)
+      // Check conda first, fall back to uv if conda not available
       if (abortController.signal.aborted) throw new Error("AbortError");
+      let useConda = false;
       try {
-        addSyncLog(projectId, "Checking uv installation...", "info");
-        const uvResult = isSSH
-          ? await invoke("ssh_ensure_uv", { sshCommand: rawSsh.trim() })
-          : await invoke("ensure_uv");
+        addSyncLog(projectId, "Checking conda installation...", "info");
+        const condaResult = isSSH
+          ? await invoke("ssh_check_conda", { sshCommand: rawSsh.trim() })
+          : await invoke("check_conda");
         _setState(projectId, {
-          uvInfo: {
-            installed: uvResult.installed,
-            version: uvResult.version || null,
-            message: uvResult.message,
+          condaInfo: {
+            installed: condaResult.installed,
+            version: condaResult.version || null,
+            message: condaResult.message,
           },
         });
-        if (uvResult.installed) {
-          addSyncLog(projectId, `uv ready (${uvResult.version || "installed"})`, "success");
+        if (condaResult.installed) {
+          useConda = true;
+          addSyncLog(projectId, `conda ready (${condaResult.version || "installed"})`, "success");
         } else {
-          addSyncLog(projectId, `uv not available: ${uvResult.message}`, "warning");
+          addSyncLog(projectId, "conda not found, falling back to uv", "info");
         }
-      } catch (uvErr) {
-        console.warn("[syncDashboard] uv check failed:", uvErr);
-        addSyncLog(projectId, `uv check error: ${uvErr}`, "warning");
-        _setState(projectId, { uvInfo: { installed: false, version: null, message: `${uvErr}` } });
+      } catch (condaErr) {
+        console.warn("[syncDashboard] conda check failed:", condaErr);
+        addSyncLog(projectId, "conda not available, falling back to uv", "info");
+        _setState(projectId, { condaInfo: { installed: false, version: null, message: `${condaErr}` } });
+      }
+
+      // If conda not available, ensure uv is installed
+      if (!useConda) {
+        if (abortController.signal.aborted) throw new Error("AbortError");
+        try {
+          addSyncLog(projectId, "Checking uv installation...", "info");
+          const uvResult = isSSH
+            ? await invoke("ssh_ensure_uv", { sshCommand: rawSsh.trim() })
+            : await invoke("ensure_uv");
+          _setState(projectId, {
+            uvInfo: {
+              installed: uvResult.installed,
+              version: uvResult.version || null,
+              message: uvResult.message,
+            },
+          });
+          if (uvResult.installed) {
+            addSyncLog(projectId, `uv ready (${uvResult.version || "installed"})`, "success");
+          } else {
+            addSyncLog(projectId, `uv not available: ${uvResult.message}`, "warning");
+          }
+        } catch (uvErr) {
+          console.warn("[syncDashboard] uv check failed:", uvErr);
+          addSyncLog(projectId, `uv check error: ${uvErr}`, "warning");
+          _setState(projectId, { uvInfo: { installed: false, version: null, message: `${uvErr}` } });
+        }
       }
 
       // Set up Python venv with autotimm if it doesn't exist yet (can take a while)
@@ -494,6 +526,7 @@ export async function restoreSyncState(projectId) {
     if (!metadata) return;
     _setState(projectId, {
       synced: metadata.synced ?? false,
+      condaInfo: metadata.condaInfo ?? null,
       uvInfo: metadata.uvInfo ?? null,
       envInfo: metadata.envInfo ?? null,
       syncLogs: metadata.syncLogs ?? [],
