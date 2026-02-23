@@ -496,6 +496,7 @@ export function SettingsView() {
             </div>
             <button
               class="settings-theme-btn"
+              disabled={locked}
               onClick={() => set("powerUserMode", !draft.powerUserMode)}
             >
               {draft.powerUserMode ? "On" : "Off"}

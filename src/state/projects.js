@@ -98,19 +98,19 @@ export const TASK_TYPES = [
 export const MODEL_CATEGORIES = {
   "Edge": {
     desc: "Lightweight models for mobile & embedded deployment",
-    models: ["efficientnet_b0", "mobilenetv3_small_100", "efficientnet_lite0", "resnet18"],
+    models: ["mobilenetv2_100", "mobilenetv2_140", "mobilenetv2_050", "mobilenetv3_small_100"],
   },
   "Balanced": {
     desc: "Good accuracy-speed tradeoff for general use",
-    models: ["resnet50", "efficientnet_b2", "convnext_tiny", "swin_tiny_patch4_window7_224"],
+    models: ["efficientnet_b2", "efficientnet_b3", "efficientnet_b0", "efficientnet_lite0"],
   },
   "Cloud": {
     desc: "High-accuracy models for server-side inference",
-    models: ["resnet101", "efficientnet_b4", "convnext_base", "swin_base_patch4_window7_224"],
+    models: ["swin_base_patch4_window7_224", "swin_large_patch4_window7_224", "deit3_base_patch16_224", "beit_base_patch16_224"],
   },
   "Research": {
     desc: "State-of-the-art transformer architectures",
-    models: ["vit_base_patch16_224", "vit_small_patch16_224", "deit_base_patch16_224", "beit_base_patch16_224"],
+    models: ["eva02_large_patch14_448.mim_m38m_ft_in22k_in1k", "eva02_base_patch14_448.mim_in22k_ft_in22k_in1k", "convnextv2_huge.fcmae_ft_in22k_in1k_512", "maxvit_xlarge_tf_512.in21k_ft_in1k"],
   },
 };
 

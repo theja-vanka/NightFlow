@@ -51,11 +51,12 @@ export function Sidebar() {
 
   // Only show nav items that are unlocked:
   // - dashboard and settings are always visible
-  // - terminal requires connection
-  // - everything else requires sync
+  // - all other items require an active connection (SSH or localhost)
+  // - terminal additionally requires sync
   const visibleNavItems = navItems.filter((item) => {
     if (item.id === "dashboard" || item.id === "settings") return true;
-    if (item.id === "terminal") return connected && synced;
+    if (!connected) return false;
+    if (item.id === "terminal") return synced;
     return synced;
   });
 

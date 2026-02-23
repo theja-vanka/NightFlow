@@ -841,10 +841,9 @@ async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, String
 
     if let Some(conda_bin) = resolve_conda_path().await {
         // Use conda to create the environment
-        // -y auto-confirms, --no-banner suppresses channel notices,
-        // stdin null prevents hanging on unexpected prompts
+        // -y auto-confirms, stdin null prevents hanging on unexpected prompts
         let create_output = tokio::process::Command::new(&conda_bin)
-            .args(["create", "-p", ".venv", "python=3.12", "-y", "--no-banner"])
+            .args(["create", "-p", ".venv", "python=3.12", "-y"])
             .stdin(std::process::Stdio::null())
             .current_dir(&expanded)
             .output()
@@ -864,7 +863,7 @@ async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, String
 
         // Install autotimm using conda run + pip
         let install_output = tokio::process::Command::new(&conda_bin)
-            .args(["run", "--no-banner", "-p", ".venv", "pip", "install", "autotimm[tensorboard]"])
+            .args(["run", "-p", ".venv", "pip", "install", "autotimm[tensorboard]"])
             .stdin(std::process::Stdio::null())
             .current_dir(&expanded)
             .output()
@@ -1004,7 +1003,7 @@ if [ -d .venv ]; then
   AV=$(.venv/bin/python -c "import autotimm; print(autotimm.__version__)" 2>/dev/null)
   if [ -z "$AV" ]; then
     if [ -n "$CONDA_BIN" ]; then
-      "$CONDA_BIN" run --no-banner -p .venv pip install 'autotimm[tensorboard]' </dev/null >/dev/null 2>&1
+      "$CONDA_BIN" run -p .venv pip install 'autotimm[tensorboard]' </dev/null >/dev/null 2>&1
     else
       uv pip install 'autotimm[tensorboard]' --python .venv/bin/python >/dev/null 2>&1
     fi
@@ -1017,13 +1016,13 @@ elif SYS_AV=$(python3 -c "import autotimm; print(autotimm.__version__)" 2>/dev/n
 else
   rm -rf .venv 2>/dev/null
   if [ -n "$CONDA_BIN" ]; then
-    CONDA_ERR=$("$CONDA_BIN" create -p .venv python=3.12 -y --no-banner </dev/null 2>&1)
+    CONDA_ERR=$("$CONDA_BIN" create -p .venv python=3.12 -y </dev/null 2>&1)
     if [ $? -ne 0 ]; then
       rm -rf .venv 2>/dev/null
       jout error "Failed to create conda env: $CONDA_ERR" "" ""
       exit 0
     fi
-    PIP_ERR=$("$CONDA_BIN" run --no-banner -p .venv pip install 'autotimm[tensorboard]' </dev/null 2>&1)
+    PIP_ERR=$("$CONDA_BIN" run -p .venv pip install 'autotimm[tensorboard]' </dev/null 2>&1)
     if [ $? -ne 0 ]; then
       jout error "Failed to install dependencies (conda): $PIP_ERR" "" ""
       exit 0
