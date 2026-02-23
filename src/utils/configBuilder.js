@@ -1,5 +1,8 @@
 import { MODEL_CATEGORIES } from "../state/projects.js";
 
+/** Strip trailing slash from a path so concatenation doesn't double up. */
+const trimSlash = (p) => (p && p.endsWith("/") ? p.slice(0, -1) : p);
+
 const TASK_CLASS_PATHS = {
   "Classification": { model: "autotimm.ImageClassifier", data: "autotimm.ImageDataModule" },
   "Multi-Label Classification": { model: "autotimm.ImageClassifier", data: "autotimm.ImageDataModule" },
@@ -102,11 +105,11 @@ export function buildConfigYaml(project) {
 
   const fmt = project.datasetFormat;
   if (fmt === "CSV" || fmt === "JSONL") {
-    if (project.trainPath) lines.push(`    train_path: ${project.trainPath}`);
-    if (project.valPath) lines.push(`    val_path: ${project.valPath}`);
-    if (project.testPath) lines.push(`    test_path: ${project.testPath}`);
+    if (project.trainPath) lines.push(`    train_path: ${trimSlash(project.trainPath)}`);
+    if (project.valPath) lines.push(`    val_path: ${trimSlash(project.valPath)}`);
+    if (project.testPath) lines.push(`    test_path: ${trimSlash(project.testPath)}`);
   } else if (project.folderPath) {
-    lines.push(`    data_dir: ${project.folderPath}`);
+    lines.push(`    data_dir: ${trimSlash(project.folderPath)}`);
   }
 
   if (project.batchSize !== "" && project.batchSize !== undefined) {
@@ -139,6 +142,12 @@ export function buildConfigYaml(project) {
   if (project.seed !== "" && project.seed !== undefined) {
     lines.push(`  seed: ${project.seed}`);
   }
+
+  // Default logger: TensorBoard
+  lines.push("  logger:");
+  lines.push("    - backend: tensorboard");
+  lines.push("      params:");
+  lines.push("        save_dir: logs");
 
   // Early stopping callback
   if (project.earlyStopping) {

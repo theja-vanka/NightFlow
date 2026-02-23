@@ -530,7 +530,8 @@ export async function syncConfig(project = currentProject.value, projectId = cur
   if (!project || !project.projectPath) return;
 
   const yaml = buildConfigYaml(project);
-  const configPath = `${project.projectPath}/config.yaml`;
+  const pp = project.projectPath.endsWith("/") ? project.projectPath.slice(0, -1) : project.projectPath;
+  const configPath = `${pp}/config.yaml`;
 
   const rawSsh = project.sshCommand;
   const isSSH = rawSsh && rawSsh.trim() && rawSsh.trim().toLowerCase() !== "localhost";

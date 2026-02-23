@@ -291,10 +291,11 @@ function buildTrainingCommand(project) {
   const env = envInfo.value;
   const useVenv = env && (env.status === "exists" || env.status === "created");
   const isConda = useVenv && env.envType === "conda";
+  const pp = project.projectPath.endsWith("/") ? project.projectPath.slice(0, -1) : project.projectPath;
   const prefix = isConda
-    ? `conda run --live-stream -p ${project.projectPath}/.venv python -m autotimm fit`
-    : `${useVenv ? `${project.projectPath}/.venv/bin/python` : "python3"} -m autotimm fit`;
-  return `${prefix} --config ${project.projectPath}/config.yaml`;
+    ? `conda run --live-stream -p ${pp}/.venv python -m autotimm fit`
+    : `${useVenv ? `${pp}/.venv/bin/python` : "python3"} -m autotimm fit`;
+  return `${prefix} --config ${pp}/config.yaml`;
 }
 
 function StartTrainingButton() {
