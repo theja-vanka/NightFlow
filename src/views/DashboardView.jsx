@@ -304,13 +304,24 @@ function buildTrainingCommand(project) {
   // Use .venv python if env was created/exists, otherwise system python
   const env = envInfo.value;
   const useVenv = env && (env.status === "exists" || env.status === "created");
-  const pythonBin = useVenv ? `${project.projectPath}/.venv/bin/python` : "python3";
+  const isConda = useVenv && env.envType === "conda";
+
+  // conda env: use "conda run" to activate the env properly
+  // uv / plain venv: invoke the venv python directly
+  const prefix = isConda
+    ? `conda run --live-stream -p ${project.projectPath}/.venv python -m autotimm fit`
+    : `${useVenv ? `${project.projectPath}/.venv/bin/python` : "python3"} -m autotimm fit`;
   const args = [
-    `${pythonBin} -m autotimm fit`,
+    prefix,
     `--model.class_path=${paths.model}`,
     `--model.init_args.backbone=${backbone}`,
     `--data.class_path=${paths.data}`,
   ];
+
+  // Number of classes
+  if (project.numClasses !== "" && project.numClasses !== undefined) {
+    args.push(`--model.init_args.num_classes=${project.numClasses}`);
+  }
 
   // Multi-label flag
   if (task === "Multi-Label Classification") {
@@ -365,7 +376,10 @@ function buildTrainingCommand(project) {
     const monitor = project.earlyStoppingMonitor || "val/loss";
     const patience = project.earlyStoppingPatience || 10;
     const mode = monitor.includes("loss") ? "min" : "max";
-    args.push(`--trainer.callbacks+={"class_path":"pytorch_lightning.callbacks.EarlyStopping","init_args":{"monitor":"${monitor}","patience":${patience},"mode":"${mode}"}}`);
+    args.push("--trainer.callbacks+=pytorch_lightning.callbacks.EarlyStopping");
+    args.push(`--trainer.callbacks.init_args.monitor=${monitor}`);
+    args.push(`--trainer.callbacks.init_args.patience=${patience}`);
+    args.push(`--trainer.callbacks.init_args.mode=${mode}`);
   }
 
   return args.join(" ");
@@ -384,34 +398,36 @@ function StartTrainingButton() {
 
   return (
     <div class="start-training-section">
-      <div class="start-training-label">Launch Experiment</div>
-      <div class="start-training-cmd-preview">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="start-training-cmd-icon">
-          <polyline points="4 17 10 11 4 5"/>
-          <line x1="12" y1="19" x2="20" y2="19"/>
+      <div class="start-training-illustration">
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+          <rect x="8" y="48" width="48" height="4" rx="2" fill="var(--border-color)" />
+          <path d="M32 8L22 44h20L32 8z" fill="var(--btn-bg)" opacity="0.15" />
+          <path d="M32 8L22 44h20L32 8z" stroke="var(--btn-bg)" stroke-width="2" stroke-linejoin="round" fill="none" />
+          <path d="M28 44l-4 8" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" />
+          <path d="M36 44l4 8" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" />
+          <path d="M32 44v8" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" />
+          <circle cx="32" cy="28" r="4" fill="var(--btn-bg)" opacity="0.5" />
         </svg>
-        <span>{command}</span>
       </div>
+      <div class="start-training-label">Launch Experiment</div>
+      {project.powerUserMode && (
+        <div class="start-training-cmd-preview">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="start-training-cmd-icon">
+            <polyline points="4 17 10 11 4 5"/>
+            <line x1="12" y1="19" x2="20" y2="19"/>
+          </svg>
+          <span>{command}</span>
+        </div>
+      )}
       <button
         class="start-training-btn"
         onClick={handleClick}
         disabled={active}
       >
-        {active ? (
-          <>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="ssh-btn-spinner">
-              <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-            </svg>
-            Training in Progress…
-          </>
-        ) : (
-          <>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polygon points="5 3 19 12 5 21 5 3"/>
-            </svg>
-            Start Training
-          </>
-        )}
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+        Start Training
       </button>
     </div>
   );
@@ -431,16 +447,16 @@ export function DashboardView() {
         <SyncScreen />
       ) : (
         <>
-          <TrainingPanel />
           <DatasetStatusBanner />
           <EnvStatusBanner />
+          <TrainingPanel />
           <div class="summary-grid">
             <SummaryCard label="Total Runs" value={s.totalRuns} icon={icons.total} />
             <SummaryCard label="Running" value={s.running} icon={icons.running} />
             <SummaryCard label="Best Accuracy" value={s.bestAcc != null ? (s.bestAcc * 100).toFixed(1) + "%" : "—"} icon={icons.accuracy} />
             <SummaryCard label="Avg Val Loss" value={s.avgLoss != null ? s.avgLoss.toFixed(4) : "—"} icon={icons.loss} />
           </div>
-          <StartTrainingButton />
+          {!trainingActive.value && <StartTrainingButton />}
           <ResyncButton />
         </>
       )}

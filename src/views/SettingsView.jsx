@@ -16,7 +16,7 @@ import { DeleteProjectDialog } from "../components/DeleteProjectDialog.jsx";
 const EDITABLE_KEYS = [
   "name", "connectionType", "sshCommand", "projectPath", "modelCategory",
   "detectionArch", "segHeadType", "datasetFormat", "folderPath",
-  "trainPath", "valPath", "testPath", "powerUserMode",
+  "trainPath", "valPath", "testPath", "numClasses", "powerUserMode",
   "maxEpochs", "learningRate", "batchSize", "optimizer", "scheduler",
   "weightDecay", "precision", "gradientClipVal", "imageSize",
   "augmentationPreset", "freezeBackbone", "seed",
@@ -465,6 +465,23 @@ export function SettingsView() {
               </div>
             </>
           )}
+
+          <div class="settings-card-divider" />
+          <div class="settings-card-row">
+            <label class="settings-field">
+              <span class="settings-label">Number of Classes</span>
+              <span class="settings-hint">Target classes in your dataset</span>
+              <input
+                class="settings-input"
+                type="number"
+                min="2"
+                value={draft.numClasses}
+                placeholder="e.g. 10"
+                disabled={locked}
+                onInput={(e) => set("numClasses", e.target.value === "" ? "" : Number(e.target.value))}
+              />
+            </label>
+          </div>
         </div>
       </section>
 
@@ -505,64 +522,7 @@ export function SettingsView() {
         </div>
       </section>
 
-      {/* Early Stopping */}
-      <section class="settings-section">
-        <div class="settings-section-header">
-          <h2 class="settings-heading">Early Stopping</h2>
-          <p class="settings-heading-desc">Stop training when a metric stops improving</p>
-        </div>
-        <div class="settings-card">
-          <div class="settings-card-row settings-row-between">
-            <div>
-              <div class="settings-label">Enable Early Stopping</div>
-              <div class="settings-desc">Halt training after patience epochs with no improvement</div>
-            </div>
-            <button
-              class="settings-theme-btn"
-              disabled={locked}
-              onClick={() => set("earlyStopping", !draft.earlyStopping)}
-            >
-              {draft.earlyStopping ? "On" : "Off"}
-            </button>
-          </div>
-          {draft.earlyStopping && (
-            <>
-              <div class="settings-card-divider" />
-              <div class="settings-card-row settings-row-grid">
-                <label class="settings-field">
-                  <span class="settings-label">Monitor Metric</span>
-                  <span class="settings-hint">Metric to watch for improvement</span>
-                  <div class="settings-select-wrap">
-                    <select
-                      class="settings-select"
-                      value={draft.earlyStoppingMonitor}
-                      disabled={locked}
-                      onChange={(e) => set("earlyStoppingMonitor", e.target.value)}
-                    >
-                      <option value="val/loss">Validation Loss</option>
-                      <option value="val/accuracy">Validation Accuracy</option>
-                    </select>
-                    <span class="settings-select-chevron" />
-                  </div>
-                </label>
-                <label class="settings-field">
-                  <span class="settings-label">Patience</span>
-                  <span class="settings-hint">Epochs to wait before stopping (default 10)</span>
-                  <input
-                    class="settings-input"
-                    type="number"
-                    min="1"
-                    value={draft.earlyStoppingPatience}
-                    placeholder="10"
-                    disabled={locked}
-                    onInput={(e) => set("earlyStoppingPatience", e.target.value === "" ? "" : Number(e.target.value))}
-                  />
-                </label>
-              </div>
-            </>
-          )}
-        </div>
-      </section>
+
 
       {/* Danger Zone */}
       <section class="settings-section">
@@ -627,9 +587,6 @@ export function SettingsView() {
                     onInput={(e) => set("learningRate", e.target.value === "" ? "" : Number(e.target.value))}
                   />
                 </label>
-              </div>
-              <div class="settings-card-divider" />
-              <div class="settings-card-row settings-row-grid">
                 <label class="settings-field">
                   <span class="settings-label">Batch Size</span>
                   <span class="settings-hint">Samples per training step</span>
@@ -643,6 +600,9 @@ export function SettingsView() {
                     onInput={(e) => set("batchSize", e.target.value === "" ? "" : Number(e.target.value))}
                   />
                 </label>
+              </div>
+              <div class="settings-card-divider" />
+              <div class="settings-card-row settings-row-grid">
                 <label class="settings-field">
                   <span class="settings-label">Weight Decay</span>
                   <span class="settings-hint">L2 regularization factor</span>
@@ -697,6 +657,56 @@ export function SettingsView() {
                   </div>
                 </label>
               </div>
+              <div class="settings-card-divider" />
+              <div class="settings-card-row settings-row-between">
+                <div>
+                  <div class="settings-label">Early Stopping</div>
+                  <div class="settings-desc">Halt training after patience epochs with no improvement</div>
+                </div>
+                <button
+                  class="settings-theme-btn"
+                  disabled={locked}
+                  onClick={() => set("earlyStopping", !draft.earlyStopping)}
+                >
+                  {draft.earlyStopping ? "On" : "Off"}
+                </button>
+              </div>
+              {draft.earlyStopping && (
+                <>
+                  <div class="settings-card-divider" />
+                  <div class="settings-card-row settings-row-grid">
+                    <label class="settings-field">
+                      <span class="settings-label">Monitor Metric</span>
+                      <span class="settings-hint">Metric to watch for improvement</span>
+                      <div class="settings-select-wrap">
+                        <select
+                          class="settings-select"
+                          value={draft.earlyStoppingMonitor}
+                          disabled={locked}
+                          onChange={(e) => set("earlyStoppingMonitor", e.target.value)}
+                        >
+                          <option value="val/loss">Validation Loss</option>
+                          <option value="val/accuracy">Validation Accuracy</option>
+                        </select>
+                        <span class="settings-select-chevron" />
+                      </div>
+                    </label>
+                    <label class="settings-field">
+                      <span class="settings-label">Patience</span>
+                      <span class="settings-hint">Epochs to wait before stopping (default 10)</span>
+                      <input
+                        class="settings-input"
+                        type="number"
+                        min="1"
+                        value={draft.earlyStoppingPatience}
+                        placeholder="10"
+                        disabled={locked}
+                        onInput={(e) => set("earlyStoppingPatience", e.target.value === "" ? "" : Number(e.target.value))}
+                      />
+                    </label>
+                  </div>
+                </>
+              )}
             </div>
           </section>
 
@@ -814,6 +824,7 @@ export function SettingsView() {
               </div>
             </div>
           </section>
+
         </>
       )}
 

@@ -197,6 +197,7 @@ const defaultData = {
   trainPath: "",
   valPath: "",
   testPath: "",
+  numClasses: "",
   powerUserMode: false,
   maxEpochs: 10,
   learningRate: "",
@@ -210,7 +211,7 @@ const defaultData = {
   augmentationPreset: "",
   freezeBackbone: false,
   seed: "",
-  earlyStopping: false,
+  earlyStopping: true,
   earlyStoppingPatience: "",
   earlyStoppingMonitor: "val/loss",
 };
@@ -252,13 +253,15 @@ export const wizardCanProceed = computed(() => {
   if (step === 3) return d.modelCategory !== "";
   if (step === 4) {
     if (!d.datasetFormat) return false;
+    // Require numClasses for all formats
+    const hasClasses = d.numClasses !== "" && d.numClasses >= 2;
     // For CSV and JSONL, require train and test paths (val is optional)
     if (d.datasetFormat === "CSV" || d.datasetFormat === "JSONL") {
-      return d.trainPath.trim().length > 0 && d.testPath.trim().length > 0;
+      return hasClasses && d.trainPath.trim().length > 0 && d.testPath.trim().length > 0;
     }
     // For all other formats (Folder, COCO JSON, COCO, PNG Masks, Cityscapes, VOC, etc.)
     // require folder path (no external validation enforced here)
-    return d.folderPath.trim().length > 0;
+    return hasClasses && d.folderPath.trim().length > 0;
   }
   if (step === 5) return true;
   return false;
@@ -344,7 +347,7 @@ export function wizardCreate() {
     augmentationPreset: "",
     freezeBackbone: false,
     seed: "",
-    earlyStopping: false,
+    earlyStopping: true,
     earlyStoppingPatience: "",
     earlyStoppingMonitor: "val/loss",
   };

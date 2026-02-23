@@ -934,6 +934,22 @@ function StepDataset() {
         
         </div>
       )}
+      <div class="wizard-folder-path-section">
+        <p class="wizard-sub-label">
+          Number of Classes <span class="wizard-required-indicator">*</span>
+        </p>
+        <input
+          class="wizard-input"
+          type="number"
+          min="2"
+          placeholder="e.g. 10"
+          value={d.numClasses}
+          onInput={(e) => wizardSetField("numClasses", e.target.value === "" ? "" : Number(e.target.value))}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && wizardCanProceed.value) wizardNext();
+          }}
+        />
+      </div>
       {isCsvOrJsonl && (
         <div class="wizard-file-paths-section">
           <p class="wizard-sub-label">Dataset File Paths</p>
@@ -997,6 +1013,7 @@ function StepConfirm() {
     d.taskType === "Semantic Segmentation" ? ["Seg Head", d.segHeadType === "deeplabv3plus" ? "DeepLabV3+" : "FCN"] : null,
     ["Model Category", d.modelCategory],
     ["Dataset Format", d.datasetFormat],
+    d.numClasses ? ["Number of Classes", d.numClasses] : null,
     d.datasetFormat === "Folder" && d.folderPath ? ["Folder Path", d.folderPath] : null,
     isCsvOrJsonl && d.trainPath ? ["Train Path", d.trainPath] : null,
     isCsvOrJsonl && d.valPath ? ["Val Path", d.valPath] : null,

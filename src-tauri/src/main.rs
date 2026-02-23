@@ -404,6 +404,8 @@ struct EnvSetupResult {
     message: String,
     python_version: Option<String>,
     autotimm_version: Option<String>,
+    /// "conda", "uv", or "system" — tells the frontend how to invoke the env
+    env_type: Option<String>,
 }
 
 /// Find the `conda` binary, checking CONDA_EXE env var, PATH, common install
@@ -785,6 +787,10 @@ async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, String
 
     // 1. If a project-local .venv exists, use it — install autotimm if missing
     if venv_path.exists() {
+        // Detect whether this .venv is a conda env (has conda-meta dir)
+        let is_conda_env = venv_path.join("conda-meta").is_dir();
+        let detected_env_type = if is_conda_env { "conda" } else { "uv" };
+
         let (python_version, autotimm_version) = get_venv_versions(&venv_path).await;
         if autotimm_version.is_none() {
             let uv_bin = find_uv().unwrap_or_else(|| "uv".to_string());
@@ -799,6 +805,7 @@ async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, String
                 message: "Using project .venv".to_string(),
                 python_version,
                 autotimm_version,
+                env_type: Some(detected_env_type.to_string()),
             });
         }
         return Ok(EnvSetupResult {
@@ -806,6 +813,7 @@ async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, String
             message: "Using project .venv".to_string(),
             python_version,
             autotimm_version,
+            env_type: Some(detected_env_type.to_string()),
         });
     }
 
@@ -830,6 +838,7 @@ async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, String
             message: "Using system Python environment".to_string(),
             python_version: py_ver,
             autotimm_version: Some(at_ver),
+            env_type: Some("system".to_string()),
         });
     }
 
@@ -858,6 +867,7 @@ async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, String
                 message: format!("Failed to create conda env: {}", stderr),
                 python_version: None,
                 autotimm_version: None,
+                env_type: None,
             });
         }
 
@@ -877,6 +887,7 @@ async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, String
                 message: format!("Failed to install dependencies (conda): {}", stderr),
                 python_version: None,
                 autotimm_version: None,
+                env_type: None,
             });
         }
 
@@ -886,6 +897,7 @@ async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, String
             message: "Environment created with conda and dependencies installed".to_string(),
             python_version,
             autotimm_version,
+            env_type: Some("conda".to_string()),
         });
     }
 
@@ -918,6 +930,7 @@ async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, String
             message: format!("Failed to create venv: {}", stderr),
             python_version: None,
             autotimm_version: None,
+            env_type: None,
         });
     }
 
@@ -936,6 +949,7 @@ async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, String
             message: format!("Failed to install dependencies: {}", stderr),
             python_version: None,
             autotimm_version: None,
+            env_type: None,
         });
     }
 
@@ -945,6 +959,7 @@ async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, String
         message: "Virtual environment created with uv and dependencies installed".to_string(),
         python_version,
         autotimm_version,
+        env_type: Some("uv".to_string()),
     })
 }
 
@@ -1069,6 +1084,7 @@ fi"#,
                     message: format!("SSH env setup failed: {}", stderr),
                     python_version: None,
                     autotimm_version: None,
+                    env_type: None,
                 });
             }
             serde_json::from_str::<EnvSetupResult>(&stdout).map_err(|e| {
@@ -1081,6 +1097,7 @@ fi"#,
             message: "SSH env setup timed out (300s)".to_string(),
             python_version: None,
             autotimm_version: None,
+            env_type: None,
         }),
     }
 }
@@ -1218,7 +1235,13 @@ async fn start_training(
         final_parts.push("--trainer.logger=true".into());
     }
 
-    let executable = expand_tilde(&final_parts[0]);
+    // Resolve "conda" to the full path (GUI apps may not have it in PATH)
+    let raw_executable = expand_tilde(&final_parts[0]);
+    let executable = if raw_executable == "conda" {
+        resolve_conda_path().await.unwrap_or(raw_executable)
+    } else {
+        raw_executable
+    };
     let mut cmd = tokio::process::Command::new(&executable);
     for arg in &final_parts[1..] {
         cmd.arg(arg);

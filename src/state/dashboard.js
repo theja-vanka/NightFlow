@@ -433,6 +433,7 @@ async function doSync(projectId, abortController) {
               status: envResult.status,
               pythonVersion: envResult.python_version || null,
               autotimmVersion: envResult.autotimm_version || null,
+              envType: envResult.env_type || null,
             },
           });
         }
