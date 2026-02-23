@@ -7,7 +7,7 @@ import {
   dashboardSynced, dashboardSyncing, syncDashboard, syncProgress, syncShowingCompletion,
   datasetPathStatus, condaInfo, uvInfo, envInfo,
 } from "../state/dashboard.js";
-import { currentProject, MODEL_CATEGORIES } from "../state/projects.js";
+import { currentProject } from "../state/projects.js";
 import { startTraining, trainingActive } from "../state/training.js";
 
 function SshStatusBanner() {
@@ -287,102 +287,14 @@ function ResyncButton() {
   );
 }
 
-const TASK_CLASS_PATHS = {
-  "Classification": { model: "autotimm.ImageClassifier", data: "autotimm.ImageDataModule" },
-  "Multi-Label Classification": { model: "autotimm.ImageClassifier", data: "autotimm.ImageDataModule" },
-  "Object Detection": { model: "autotimm.ObjectDetector", data: "autotimm.DetectionDataModule" },
-  "Semantic Segmentation": { model: "autotimm.SemanticSegmentor", data: "autotimm.SegmentationDataModule" },
-  "Instance Segmentation": { model: "autotimm.InstanceSegmentor", data: "autotimm.DetectionDataModule" },
-};
-
 function buildTrainingCommand(project) {
-  const task = project.taskType || "Classification";
-  const paths = TASK_CLASS_PATHS[task] || TASK_CLASS_PATHS["Classification"];
-  const category = project.modelCategory || "Edge";
-  const backbone = (MODEL_CATEGORIES[category]?.models?.[0]) || "efficientnet_b0";
-
-  // Use .venv python if env was created/exists, otherwise system python
   const env = envInfo.value;
   const useVenv = env && (env.status === "exists" || env.status === "created");
   const isConda = useVenv && env.envType === "conda";
-
-  // conda env: use "conda run" to activate the env properly
-  // uv / plain venv: invoke the venv python directly
   const prefix = isConda
     ? `conda run --live-stream -p ${project.projectPath}/.venv python -m autotimm fit`
     : `${useVenv ? `${project.projectPath}/.venv/bin/python` : "python3"} -m autotimm fit`;
-  const args = [
-    prefix,
-    `--model.class_path=${paths.model}`,
-    `--model.init_args.backbone=${backbone}`,
-    `--data.class_path=${paths.data}`,
-  ];
-
-  // Number of classes
-  if (project.numClasses !== "" && project.numClasses !== undefined) {
-    args.push(`--model.init_args.num_classes=${project.numClasses}`);
-  }
-
-  // Multi-label flag
-  if (task === "Multi-Label Classification") {
-    args.push("--model.init_args.multilabel=true");
-  }
-
-  // Task-specific args
-  if (task === "Object Detection" && project.detectionArch) {
-    args.push(`--model.init_args.detection_arch=${project.detectionArch}`);
-  }
-  if (task === "Semantic Segmentation" && project.segHeadType) {
-    args.push(`--model.init_args.head_type=${project.segHeadType}`);
-  }
-
-  // Dataset paths
-  const fmt = project.datasetFormat;
-  if (fmt === "CSV" || fmt === "JSONL") {
-    if (project.trainPath) args.push(`--data.init_args.train_path=${project.trainPath}`);
-    if (project.valPath) args.push(`--data.init_args.val_path=${project.valPath}`);
-    if (project.testPath) args.push(`--data.init_args.test_path=${project.testPath}`);
-  } else if (project.folderPath) {
-    args.push(`--data.init_args.data_dir=${project.folderPath}`);
-  }
-
-  // Training hyperparameters
-  args.push(`--trainer.max_epochs=${project.maxEpochs || 10}`);
-  if (project.learningRate !== "" && project.learningRate !== undefined)
-    args.push(`--model.init_args.lr=${project.learningRate}`);
-  if (project.batchSize !== "" && project.batchSize !== undefined)
-    args.push(`--data.init_args.batch_size=${project.batchSize}`);
-  if (project.optimizer)
-    args.push(`--model.init_args.optimizer=${project.optimizer}`);
-  if (project.scheduler && project.scheduler !== "none")
-    args.push(`--model.init_args.scheduler=${project.scheduler}`);
-  if (project.weightDecay !== "" && project.weightDecay !== undefined)
-    args.push(`--model.init_args.weight_decay=${project.weightDecay}`);
-  if (project.precision)
-    args.push(`--trainer.precision=${project.precision}`);
-  if (project.gradientClipVal !== "" && project.gradientClipVal !== undefined)
-    args.push(`--trainer.gradient_clip_val=${project.gradientClipVal}`);
-  if (project.imageSize !== "" && project.imageSize !== undefined)
-    args.push(`--data.init_args.image_size=${project.imageSize}`);
-  if (project.augmentationPreset)
-    args.push(`--data.init_args.augmentation_preset=${project.augmentationPreset}`);
-  if (project.freezeBackbone)
-    args.push("--model.init_args.freeze_backbone=true");
-  if (project.seed !== "" && project.seed !== undefined)
-    args.push(`--trainer.seed=${project.seed}`);
-
-  // Early stopping callback
-  if (project.earlyStopping) {
-    const monitor = project.earlyStoppingMonitor || "val/loss";
-    const patience = project.earlyStoppingPatience || 10;
-    const mode = monitor.includes("loss") ? "min" : "max";
-    args.push("--trainer.callbacks+=pytorch_lightning.callbacks.EarlyStopping");
-    args.push(`--trainer.callbacks.init_args.monitor=${monitor}`);
-    args.push(`--trainer.callbacks.init_args.patience=${patience}`);
-    args.push(`--trainer.callbacks.init_args.mode=${mode}`);
-  }
-
-  return args.join(" ");
+  return `${prefix} --config ${project.projectPath}/config.yaml`;
 }
 
 function StartTrainingButton() {
@@ -449,13 +361,13 @@ export function DashboardView() {
         <>
           <DatasetStatusBanner />
           <EnvStatusBanner />
-          <TrainingPanel />
           <div class="summary-grid">
             <SummaryCard label="Total Runs" value={s.totalRuns} icon={icons.total} />
             <SummaryCard label="Running" value={s.running} icon={icons.running} />
             <SummaryCard label="Best Accuracy" value={s.bestAcc != null ? (s.bestAcc * 100).toFixed(1) + "%" : "—"} icon={icons.accuracy} />
             <SummaryCard label="Avg Val Loss" value={s.avgLoss != null ? s.avgLoss.toFixed(4) : "—"} icon={icons.loss} />
           </div>
+          <TrainingPanel />
           {!trainingActive.value && <StartTrainingButton />}
           <ResyncButton />
         </>

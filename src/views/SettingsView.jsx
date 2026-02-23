@@ -10,7 +10,7 @@ import {
   DETECTION_ARCHS,
   SEG_HEAD_TYPES,
 } from "../state/projects.js";
-import { sshConnected } from "../state/dashboard.js";
+import { sshConnected, syncConfig } from "../state/dashboard.js";
 import { DeleteProjectDialog } from "../components/DeleteProjectDialog.jsx";
 
 const EDITABLE_KEYS = [
@@ -119,15 +119,26 @@ export function SettingsView() {
     setSaved(false);
   }
 
+  function ensureTrailingSlash(p) {
+    return p && !p.endsWith("/") ? p + "/" : p;
+  }
+
   async function handleSave() {
     try {
-      await updateProject(proj.id, { ...draft });
+      const normalized = { ...draft };
+      if (normalized.projectPath) normalized.projectPath = ensureTrailingSlash(normalized.projectPath);
+      if (normalized.folderPath) normalized.folderPath = ensureTrailingSlash(normalized.folderPath);
+      await updateProject(proj.id, normalized);
+      // Regenerate config.yaml with updated settings
+      const updatedProject = { ...proj, ...draft };
+      syncConfig(updatedProject, proj.id).catch((err) =>
+        console.warn("[handleSave] syncConfig error:", err)
+      );
       setSaved(true);
       clearTimeout(savedTimer.current);
       savedTimer.current = setTimeout(() => setSaved(false), 2000);
     } catch (error) {
       console.error("Error saving project:", error);
-      // Could show an error message to user here
     }
   }
 

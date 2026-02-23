@@ -70,6 +70,59 @@ fn expand_tilde(path: &str) -> String {
     path.to_string()
 }
 
+// ── File writing ──────────────────────────────────────────────────────────────
+
+#[command]
+fn write_file(path: String, contents: String) -> Result<(), String> {
+    let expanded = expand_tilde(&path);
+    std::fs::write(&expanded, contents).map_err(|e| e.to_string())
+}
+
+#[command]
+async fn ssh_write_file(ssh_command: String, path: String, contents: String) -> Result<(), String> {
+    let parts: Vec<String> = ssh_command
+        .split_whitespace()
+        .map(String::from)
+        .collect();
+    if parts.is_empty() {
+        return Err("Empty SSH command".to_string());
+    }
+    let remote_path = if let Some(stripped) = path.strip_prefix("~/") {
+        format!("$HOME/{}", stripped)
+    } else if path == "~" {
+        "$HOME".to_string()
+    } else {
+        path.clone()
+    };
+    let mut cmd = tokio::process::Command::new(&parts[0]);
+    cmd.args(["-o", "BatchMode=yes", "-o", "ConnectTimeout=10"]);
+    for arg in &parts[1..] {
+        cmd.arg(arg);
+    }
+    cmd.arg(format!("cat > \"{}\"", remote_path.replace('"', "\\\"")));
+    cmd.stdin(std::process::Stdio::piped());
+    cmd.kill_on_drop(true);
+
+    let mut child = cmd.spawn().map_err(|e| e.to_string())?;
+    if let Some(mut stdin) = child.stdin.take() {
+        use tokio::io::AsyncWriteExt;
+        stdin.write_all(contents.as_bytes()).await.map_err(|e| e.to_string())?;
+        drop(stdin);
+    }
+
+    match tokio::time::timeout(std::time::Duration::from_secs(15), child.wait()).await {
+        Ok(Ok(status)) => {
+            if status.success() {
+                Ok(())
+            } else {
+                Err("Failed to write file on remote".to_string())
+            }
+        }
+        Ok(Err(e)) => Err(e.to_string()),
+        Err(_) => Err("SSH write_file timed out".to_string()),
+    }
+}
+
 // ── PTY commands ──────────────────────────────────────────────────────────────
 
 #[command]
@@ -2094,6 +2147,8 @@ fn main() {
             kill_terminal,
             is_terminal_alive,
             get_terminal_info,
+            write_file,
+            ssh_write_file,
             test_ssh,
             ssh_mkdir,
             get_cwd,

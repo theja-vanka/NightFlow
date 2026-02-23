@@ -4,6 +4,7 @@ import { projectRuns, loadRuns, importTensorboardRuns } from "./experiments.js";
 import { currentProject, currentProjectId } from "./projects.js";
 import { navigate, currentPage } from "./router.js";
 import { saveSyncMetadata, getSyncMetadata } from "../db/database.js";
+import { buildConfigYaml } from "../utils/configBuilder.js";
 
 // ── Per-project SSH state ─────────────────────────────────────────────────────
 // Each project maintains its own independent connection state.
@@ -354,6 +355,10 @@ async function doSync(projectId, abortController) {
         addSyncLog(projectId, `Warning: ${dirErr.message}`, "warning");
       }
 
+      // Write config.yaml to project directory
+      if (abortController.signal.aborted) throw new Error("AbortError");
+      await syncConfig(project, projectId);
+
       // Check conda first, fall back to uv if conda not available
       if (abortController.signal.aborted) throw new Error("AbortError");
       let useConda = false;
@@ -516,6 +521,34 @@ async function doSync(projectId, abortController) {
       addSyncLog(projectId, `Sync error: ${err.message}`, "error");
     }
     throw err;
+  }
+}
+
+// ── Config YAML generation ─────────────────────────────────────────────────
+
+export async function syncConfig(project = currentProject.value, projectId = currentProjectId.value) {
+  if (!project || !project.projectPath) return;
+
+  const yaml = buildConfigYaml(project);
+  const configPath = `${project.projectPath}/config.yaml`;
+
+  const rawSsh = project.sshCommand;
+  const isSSH = rawSsh && rawSsh.trim() && rawSsh.trim().toLowerCase() !== "localhost";
+
+  try {
+    if (isSSH) {
+      await invoke("ssh_write_file", {
+        sshCommand: rawSsh.trim(),
+        path: configPath,
+        contents: yaml,
+      });
+    } else {
+      await invoke("write_file", { path: configPath, contents: yaml });
+    }
+    addSyncLog(projectId, "Config YAML written", "success");
+  } catch (err) {
+    addSyncLog(projectId, `Failed to write config.yaml: ${err}`, "warning");
+    console.warn("[syncConfig] write error:", err);
   }
 }
 

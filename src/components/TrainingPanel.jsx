@@ -9,6 +9,7 @@ import {
   trainingProgress,
   trainingError,
   trainingFastDevRun,
+  trainingMetrics,
   stopTraining,
 } from "../state/training.js";
 
@@ -25,6 +26,7 @@ function ProgressBar({ value }) {
 
 function StatusLabel({ event, reconnected }) {
   const labels = {
+    preparing: "Hyperparameter optimization...",
     tuning_started: "Auto-tuning...",
     tuning_complete: "Tuning complete",
     training_started: "Starting...",
@@ -59,6 +61,7 @@ export function TrainingPanel() {
   const loss = trainingLoss.value;
   const progress = trainingProgress.value;
   const fastDev = trainingFastDevRun.value;
+  const metrics = trainingMetrics.value;
 
   const isError = event === "training_error" || event === "stopped";
   const isDone = event === "training_complete";
@@ -100,6 +103,19 @@ export function TrainingPanel() {
                 <span class="training-stat-value">{loss.toFixed(4)}</span>
               </div>
             )}
+            {Object.entries(metrics).map(([key, val]) => {
+              if (key === "train/loss" || key === "loss") return null;
+              const label = key.replace(/^(train|val|test)\//, "").replace(/_/g, " ");
+              const prefix = key.startsWith("val/") ? "Val" : key.startsWith("train/") ? "Train" : "";
+              const displayLabel = prefix ? `${prefix} ${label}` : label;
+              const displayVal = typeof val === "number" ? (val < 1 && val > -1 ? val.toFixed(4) : val.toFixed(2)) : val;
+              return (
+                <div class="training-stat" key={key}>
+                  <span class="training-stat-label">{displayLabel}</span>
+                  <span class="training-stat-value">{displayVal}</span>
+                </div>
+              );
+            })}
           </div>
         </>
       )}

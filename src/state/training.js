@@ -89,6 +89,7 @@ export async function startTraining(command, cwd) {
     ..._defaultTraining(),
     active: true,
     runId,
+    event: "preparing",
   });
 
   try {
