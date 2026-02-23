@@ -466,18 +466,16 @@ struct EnvSetupResult {
 /// don't inherit shell env vars).
 fn find_conda() -> Option<String> {
     // CONDA_EXE is always set by conda's shell init — most reliable source
-    if let Ok(conda_exe) = std::env::var("CONDA_EXE") {
-        if !conda_exe.is_empty() {
-            if let Ok(output) = std::process::Command::new(&conda_exe)
-                .arg("--version")
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
-                .status()
-                && output.success()
-            {
-                return Some(conda_exe);
-            }
-        }
+    if let Ok(conda_exe) = std::env::var("CONDA_EXE")
+        && !conda_exe.is_empty()
+        && let Ok(output) = std::process::Command::new(&conda_exe)
+            .arg("--version")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+        && output.success()
+    {
+        return Some(conda_exe);
     }
 
     let home = std::env::var("HOME").unwrap_or_default();
@@ -518,16 +516,15 @@ fn find_conda() -> Option<String> {
         && output.status.success()
     {
         let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if !path.is_empty() {
-            if let Ok(check) = std::process::Command::new(&path)
+        if !path.is_empty()
+            && let Ok(check) = std::process::Command::new(&path)
                 .arg("--version")
                 .stdout(std::process::Stdio::null())
                 .stderr(std::process::Stdio::null())
                 .status()
-                && check.success()
-            {
-                return Some(path);
-            }
+            && check.success()
+        {
+            return Some(path);
         }
     }
 
