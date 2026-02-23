@@ -69,12 +69,11 @@ export function Sidebar() {
         {visibleNavItems.map((item) => (
           <button
             key={item.id}
-            class={`sidebar-btn${
-              currentPage.value === item.id ||
+            class={`sidebar-btn${currentPage.value === item.id ||
               (item.id === "experiments" && currentPage.value === "run-detail")
-                ? " active"
-                : ""
-            }`}
+              ? " active"
+              : ""
+              }`}
             onClick={() => navigate(item.id)}
             title={item.label}
           >
