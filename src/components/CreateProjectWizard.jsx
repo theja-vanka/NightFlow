@@ -1050,8 +1050,8 @@ export function CreateProjectWizard() {
   const StepComponent = steps[step];
 
   return (
-    <div class="wizard-overlay" onClick={closeWizard}>
-      <div class="wizard-card wizard-card-wide" onClick={(e) => e.stopPropagation()}>
+    <div class="wizard-overlay">
+      <div class="wizard-card wizard-card-wide">
         <div class="wizard-header">
           <h2>New Project</h2>
           <span class="wizard-step-counter">{step + 1} / {STEP_COUNT}</span>
