@@ -1,9 +1,11 @@
 import { filteredRuns, filterText, filterStatus, sortField, sortDir, toggleSort } from "../state/experiments.js";
+import { navigate } from "../state/router.js";
 import { StatusBadge } from "./StatusBadge.jsx";
 import { Sparkline } from "./Sparkline.jsx";
 
 const columns = [
   { key: "id", label: "Run" },
+  { key: "created", label: "Started" },
   { key: "status", label: "Status" },
   { key: "model", label: "Model" },
   { key: "dataset", label: "Dataset" },
@@ -60,8 +62,13 @@ export function RunsTable() {
           </thead>
           <tbody>
             {filteredRuns.value.map((run) => (
-              <tr key={run.id}>
+              <tr
+                key={run.id}
+                class="clickable-row"
+                onClick={() => navigate("run-detail", { runId: run.id })}
+              >
                 <td class="mono">{run.name || run.id}</td>
+                <td class="mono">{run.created ? new Date(run.created).toLocaleString() : "—"}</td>
                 <td><StatusBadge status={run.status} /></td>
                 <td>{run.model}</td>
                 <td>{run.dataset}</td>

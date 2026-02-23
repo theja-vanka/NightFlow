@@ -17,7 +17,7 @@ export function Header() {
   return (
     <header class="header">
       <div class="header-title-group">
-        <h1 class="header-title">{titles[currentPage.value] || "NightForge"}</h1>
+        <h1 class="header-title">{titles[currentPage.value] || "NightFlow"}</h1>
         {currentProject.value && (
           <span class="header-project-badge">{currentProject.value.name}</span>
         )}

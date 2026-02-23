@@ -30,17 +30,17 @@ export async function loadProjects() {
       }
 
       // Only add defaults for fields that don't exist
-      // Migrate old paths to ~/nightforge/projects/
+      // Migrate old paths to ~/nightflow/projects/
       let projectPath = p.projectPath;
-      if (projectPath && projectPath.startsWith("/opt/nightforge/")) {
-        projectPath = projectPath.replace("/opt/nightforge/", "~/nightforge/projects/");
-      } else if (projectPath && projectPath.startsWith("~/NightForge/projects")) {
-        projectPath = projectPath.replace("~/NightForge/projects", "~/nightforge/projects");
+      if (projectPath && projectPath.startsWith("/opt/nightflow/")) {
+        projectPath = projectPath.replace("/opt/nightflow/", "~/nightflow/projects/");
+      } else if (projectPath && projectPath.startsWith("~/NightFlow/projects")) {
+        projectPath = projectPath.replace("~/NightFlow/projects", "~/nightflow/projects");
       }
 
       return {
         ...p, // Keep all existing fields
-        projectPath: projectPath || "~/nightforge/projects",
+        projectPath: projectPath || "~/nightflow/projects",
         // Add missing fields with defaults (these won't override existing values due to || operator)
         ...((!p.connectionType) && { connectionType: "localhost" }),
         ...((!p.sshCommand) && { sshCommand: "localhost" }),
@@ -267,7 +267,7 @@ export const wizardCanProceed = computed(() => {
   return false;
 });
 
-const PROJECT_BASE_PATH = "~/nightforge/projects/";
+const PROJECT_BASE_PATH = "~/nightflow/projects/";
 
 export async function openWizard() {
   wizardCwd.value = PROJECT_BASE_PATH;

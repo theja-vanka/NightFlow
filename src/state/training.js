@@ -68,6 +68,22 @@ export async function startTraining(command, cwd) {
   const project = currentProject.value;
   const runId = `run-${Date.now()}`;
 
+  // Collect hyperparameters from the project
+  const hyperparameters = {};
+  if (project?.learningRate != null && project.learningRate !== "") hyperparameters.lr = Number(project.learningRate);
+  if (project?.optimizer) hyperparameters.optimizer = project.optimizer;
+  if (project?.scheduler && project.scheduler !== "none") hyperparameters.scheduler = project.scheduler;
+  if (project?.weightDecay != null && project.weightDecay !== "") hyperparameters.weightDecay = Number(project.weightDecay);
+  if (project?.batchSize != null && project.batchSize !== "") hyperparameters.batchSize = Number(project.batchSize);
+  if (project?.maxEpochs != null && project.maxEpochs !== "") hyperparameters.maxEpochs = Number(project.maxEpochs);
+  if (project?.imageSize != null && project.imageSize !== "") hyperparameters.imageSize = Number(project.imageSize);
+  if (project?.precision) hyperparameters.precision = project.precision;
+  if (project?.gradientClipVal != null && project.gradientClipVal !== "") hyperparameters.gradientClipVal = Number(project.gradientClipVal);
+  if (project?.freezeBackbone) hyperparameters.freezeBackbone = true;
+  if (project?.seed != null && project.seed !== "") hyperparameters.seed = Number(project.seed);
+  if (project?.augmentationPreset) hyperparameters.augmentationPreset = project.augmentationPreset;
+  if (project?.numClasses != null && project.numClasses !== "") hyperparameters.numClasses = Number(project.numClasses);
+
   // Create a run record in experiments
   await addRun({
     id: runId,
@@ -79,7 +95,8 @@ export async function startTraining(command, cwd) {
     bestAcc: null,
     valLoss: null,
     epochs: 0,
-    lr: null,
+    lr: hyperparameters.lr ?? null,
+    hyperparameters,
     lossCurve: [],
     accCurve: [],
     created: new Date().toISOString(),
@@ -272,6 +289,16 @@ export async function recoverOrphanedSessions() {
       if (!existingRun) {
         // Run was lost from IndexedDB — recreate it
         runId = meta.run_id;
+        const hp = {};
+        if (project.learningRate != null && project.learningRate !== "") hp.lr = Number(project.learningRate);
+        if (project.optimizer) hp.optimizer = project.optimizer;
+        if (project.scheduler && project.scheduler !== "none") hp.scheduler = project.scheduler;
+        if (project.weightDecay != null && project.weightDecay !== "") hp.weightDecay = Number(project.weightDecay);
+        if (project.batchSize != null && project.batchSize !== "") hp.batchSize = Number(project.batchSize);
+        if (project.maxEpochs != null && project.maxEpochs !== "") hp.maxEpochs = Number(project.maxEpochs);
+        if (project.imageSize != null && project.imageSize !== "") hp.imageSize = Number(project.imageSize);
+        if (project.precision) hp.precision = project.precision;
+        if (project.numClasses != null && project.numClasses !== "") hp.numClasses = Number(project.numClasses);
         await addRun({
           id: runId,
           projectId,
@@ -281,7 +308,8 @@ export async function recoverOrphanedSessions() {
           bestAcc: null,
           valLoss: null,
           epochs: 0,
-          lr: null,
+          lr: hp.lr ?? null,
+          hyperparameters: hp,
           lossCurve: [],
           accCurve: [],
           created: new Date(meta.started_at * 1000).toISOString(),
@@ -307,7 +335,22 @@ export async function recoverOrphanedSessions() {
       const stateAfterReplay = _get(projectId);
 
       if (result.alive) {
-        // Process still running — start watching log file for new events
+        // Process still running — override any stale error from the log
+        // (e.g. a BrokenPipeError recorded when the app previously closed)
+        if (!stateAfterReplay.active || stateAfterReplay.event === "training_error") {
+          _set(projectId, {
+            active: true,
+            reconnected: true,
+            event: stateAfterReplay.event === "training_error"
+              ? (stateAfterReplay.epoch > 0 ? "epoch_end" : "training_started")
+              : stateAfterReplay.event,
+            error: null,
+          });
+          if (runId) {
+            await updateRun(runId, { status: "running" });
+          }
+        }
+        // Start watching log file for new events
         console.log(`[training] Reconnected to orphaned training for ${project.name} (PID ${meta.pid})`);
         invoke("watch_training_log", {
           sessionId: projectId,

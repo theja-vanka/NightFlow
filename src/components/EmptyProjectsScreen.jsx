@@ -5,9 +5,9 @@ export function EmptyProjectsScreen() {
     <div class="empty-projects-screen">
       <div class="empty-projects-content">
         <div class="empty-projects-logo">
-          <img src="/assets/image.png" alt="NightForge" width="80" />
+          <img src="/assets/image.png" alt="NightFlow" width="80" />
         </div>
-        <h1 class="empty-projects-title">Welcome to NightForge</h1>
+        <h1 class="empty-projects-title">Welcome to NightFlow</h1>
         <p class="empty-projects-desc">
           Your unified platform for computer vision model training.
           Create your first project to get started.

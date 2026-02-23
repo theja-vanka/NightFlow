@@ -1,5 +1,6 @@
 import { signal, computed } from "@preact/signals";
-import { currentProjectId } from "./projects.js";
+import { invoke } from "@tauri-apps/api/core";
+import { currentProjectId, projectList } from "./projects.js";
 import {
   getAllRuns,
   saveRun,
@@ -165,6 +166,7 @@ export async function importTensorboardRuns(tbRuns, projectId, project) {
       epochs: lossCurve.length || accCurve.length,
       created: Date.now(),
       source: "tensorboard",
+      tbVersion: run.version,
     };
 
     try {
@@ -172,6 +174,23 @@ export async function importTensorboardRuns(tbRuns, projectId, project) {
     } catch (err) {
       console.error(`Failed to import TB run ${id}:`, err);
     }
+  }
+}
+
+// Load all scalar tags for a single run on-demand via the Rust backend
+export async function loadRunScalars(run) {
+  if (!run?.tbVersion) return null;
+  const project = projectList.value.find((p) => p.id === run.projectId);
+  if (!project?.path) return null;
+  try {
+    const tbRun = await invoke("scan_tensorboard_run", {
+      projectPath: project.path,
+      version: run.tbVersion,
+    });
+    return tbRun?.scalars || null;
+  } catch (err) {
+    console.error("Failed to load run scalars:", err);
+    return null;
   }
 }
 

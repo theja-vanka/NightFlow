@@ -1,6 +1,6 @@
 import { openDB } from "idb";
 
-const DB_NAME = 'nightforge-db';
+const DB_NAME = 'nightflow-db';
 const DB_VERSION = 1;
 
 // Initialize the database

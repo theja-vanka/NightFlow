@@ -67,10 +67,10 @@ export function TrainingPanel() {
   const isDone = event === "training_complete";
 
   return (
-    <div class={`training-panel${isError ? " training-panel--error" : isDone ? " training-panel--done" : reconnected ? " training-panel--reconnected" : ""}`}>
+    <div class={`training-panel${isError ? " training-panel--error" : isDone ? " training-panel--done" : ""}`}>
       <div class="training-panel-header">
         <div class="training-panel-title-row">
-          {active && <div class={`training-panel-spinner${reconnected ? " training-panel-spinner--reconnected" : ""}`} />}
+          {active && <div class="training-panel-spinner" />}
           <span class="training-panel-title">
             {fastDev ? "Fast Dev Run" : "Training"}
           </span>

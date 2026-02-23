@@ -40,7 +40,7 @@ struct PtyExit {
 
 #[command]
 fn greet(name: &str) -> String {
-    format!("Hello, {}! Welcome to NightForge.", name)
+    format!("Hello, {}! Welcome to NightFlow.", name)
 }
 
 #[command]
@@ -1157,7 +1157,7 @@ fi"#,
 
 // ── Training subprocess ──────────────────────────────────────────────────────
 
-const TRAINING_META_FILE: &str = ".nightforge_training.json";
+const TRAINING_META_FILE: &str = ".nightflow_training.json";
 const TRAINING_LOG_FILE: &str = "training_events.jsonl";
 
 /// Managed state for training processes (keyed by project/session id).
@@ -1283,7 +1283,7 @@ async fn start_training(
         final_parts.push(format!("--trainer.json_progress_log_file={}", log_file_str));
     }
     // Enable TensorBoard logger so training writes tfevents files that
-    // NightForge can scan for dashboard charts.
+    // NightFlow can scan for dashboard charts.
     if !final_parts.iter().any(|a| a.contains("trainer.logger")) {
         final_parts.push("--trainer.logger=true".into());
     }
@@ -2005,56 +2005,98 @@ fn parse_tfevents_file(
     scalars
 }
 
-#[command]
-fn scan_tensorboard_logs(project_path: String) -> Vec<TbRun> {
-    let expanded = expand_tilde(&project_path);
-    let base = std::path::PathBuf::from(&expanded).join("lightning_logs");
-    let mut runs = Vec::new();
-
-    let entries = match std::fs::read_dir(&base) {
-        Ok(e) => e,
-        Err(_) => return runs,
-    };
-
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if !path.is_dir() {
-            continue;
-        }
-        let dir_name = match path.file_name().and_then(|n| n.to_str()) {
-            Some(n) if n.starts_with("version_") => n.to_string(),
-            _ => continue,
-        };
-
-        let mut all_scalars: HashMap<String, Vec<TbScalar>> = HashMap::new();
-        if let Ok(files) = std::fs::read_dir(&path) {
-            for file in files.flatten() {
-                let fname = file.file_name();
-                let fname_str = fname.to_string_lossy();
-                if fname_str.starts_with("events.out.tfevents.") {
-                    let file_scalars = parse_tfevents_file(&file.path());
-                    for (tag, mut vals) in file_scalars {
-                        all_scalars.entry(tag).or_default().append(&mut vals);
-                    }
+/// Scan a single version directory for tfevents files and return merged scalars.
+fn scan_version_dir(path: &std::path::Path) -> HashMap<String, Vec<TbScalar>> {
+    let mut all_scalars: HashMap<String, Vec<TbScalar>> = HashMap::new();
+    if let Ok(files) = std::fs::read_dir(path) {
+        for file in files.flatten() {
+            let fname = file.file_name();
+            let fname_str = fname.to_string_lossy();
+            if fname_str.starts_with("events.out.tfevents.") {
+                let file_scalars = parse_tfevents_file(&file.path());
+                for (tag, mut vals) in file_scalars {
+                    all_scalars.entry(tag).or_default().append(&mut vals);
                 }
             }
         }
+    }
+    for v in all_scalars.values_mut() {
+        v.sort_by_key(|s| s.step);
+    }
+    all_scalars
+}
 
-        // Re-sort after merging multiple files
-        for v in all_scalars.values_mut() {
-            v.sort_by_key(|s| s.step);
-        }
+#[command]
+fn scan_tensorboard_logs(project_path: String) -> Vec<TbRun> {
+    let expanded = expand_tilde(&project_path);
+    let root = std::path::PathBuf::from(&expanded);
+    let mut runs = Vec::new();
+    let mut seen_versions = std::collections::HashSet::new();
 
-        if !all_scalars.is_empty() {
-            runs.push(TbRun {
-                version: dir_name,
-                scalars: all_scalars,
-            });
+    // Scan both {project}/lightning_logs/ and {project}/logs/lightning_logs/
+    let scan_dirs = [
+        root.join("lightning_logs"),
+        root.join("logs").join("lightning_logs"),
+    ];
+
+    for base in &scan_dirs {
+        let entries = match std::fs::read_dir(base) {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+            let dir_name = match path.file_name().and_then(|n| n.to_str()) {
+                Some(n) if n.starts_with("version_") => n.to_string(),
+                _ => continue,
+            };
+
+            if !seen_versions.insert(dir_name.clone()) {
+                continue;
+            }
+
+            let all_scalars = scan_version_dir(&path);
+
+            if !all_scalars.is_empty() {
+                runs.push(TbRun {
+                    version: dir_name,
+                    scalars: all_scalars,
+                });
+            }
         }
     }
 
     runs.sort_by(|a, b| a.version.cmp(&b.version));
     runs
+}
+
+#[command]
+fn scan_tensorboard_run(project_path: String, version: String) -> Option<TbRun> {
+    let expanded = expand_tilde(&project_path);
+    let root = std::path::PathBuf::from(&expanded);
+
+    // Check both possible locations
+    let candidates = [
+        root.join("lightning_logs").join(&version),
+        root.join("logs").join("lightning_logs").join(&version),
+    ];
+
+    for candidate in &candidates {
+        if candidate.is_dir() {
+            let scalars = scan_version_dir(candidate);
+            if !scalars.is_empty() {
+                return Some(TbRun {
+                    version: version.clone(),
+                    scalars,
+                });
+            }
+        }
+    }
+    None
 }
 
 #[command]
@@ -2170,6 +2212,7 @@ fn main() {
             replay_training_log,
             watch_training_log,
             scan_tensorboard_logs,
+            scan_tensorboard_run,
             ssh_scan_tensorboard_logs,
         ])
         .run(tauri::generate_context!())

@@ -12,7 +12,7 @@ export async function exportToJSON() {
 
     const a = document.createElement('a');
     a.href = url;
-    a.download = `nightforge-backup-${Date.now()}.json`;
+    a.download = `nightflow-backup-${Date.now()}.json`;
     a.click();
 
     URL.revokeObjectURL(url);

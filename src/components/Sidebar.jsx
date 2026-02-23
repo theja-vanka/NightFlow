@@ -63,13 +63,18 @@ export function Sidebar() {
   return (
     <nav class="sidebar">
       <div class="sidebar-logo">
-        <img src="/assets/image.png" alt="NightForge" width="28" height="28" />
+        <img src="/assets/image.png" alt="NightFlow" width="28" height="28" />
       </div>
       <div class="sidebar-nav">
         {visibleNavItems.map((item) => (
           <button
             key={item.id}
-            class={`sidebar-btn${currentPage.value === item.id ? " active" : ""}`}
+            class={`sidebar-btn${
+              currentPage.value === item.id ||
+              (item.id === "experiments" && currentPage.value === "run-detail")
+                ? " active"
+                : ""
+            }`}
             onClick={() => navigate(item.id)}
             title={item.label}
           >

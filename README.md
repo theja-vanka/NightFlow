@@ -1,11 +1,11 @@
 <div align="center">
 
-<img src="assets/night_forge.png" width="140" alt="NightForge logo" />
+<img src="assets/night_flow.png" width="140" alt="NightFlow logo" />
 
 **A native desktop application for managing, running, and analyzing deep-learning experiments.**
 
-[![CI](https://img.shields.io/github/actions/workflow/status/your-org/NightForge/ci.yml?branch=dev&label=CI&style=flat-square)](../../actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/your-org/NightForge?style=flat-square&color=blue)](../../releases/latest)
+[![CI](https://img.shields.io/github/actions/workflow/status/your-org/NightFlow/ci.yml?branch=dev&label=CI&style=flat-square)](../../actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/your-org/NightFlow?style=flat-square&color=blue)](../../releases/latest)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green?style=flat-square)](LICENSE)
 
 [Features](#-features) · [Download](#-download) · [Development](#-development) · [Tech Stack](#-tech-stack) · [License](#-license)
@@ -110,7 +110,7 @@ Grab the latest build from the **[Releases](../../releases/latest)** page.
 
 ```bash
 # Clone
-git clone https://github.com/<your-org>/NightForge.git && cd NightForge
+git clone https://github.com/<your-org>/NightFlow.git && cd NightFlow
 
 # Install dependencies
 npm install --legacy-peer-deps
@@ -132,7 +132,7 @@ npx tauri build      →  Build distributable bundles
 ### Project Structure
 
 ```
-NightForge/
+NightFlow/
 │
 ├─ src/                       # Frontend (Preact + Signals)
 │  ├─ components/             #   Reusable UI components

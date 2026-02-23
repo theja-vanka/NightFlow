@@ -12,7 +12,7 @@ const TASK_CLASS_PATHS = {
 };
 
 /**
- * Build an AutoTimm YAML config string from a NightForge project object.
+ * Build an AutoTimm YAML config string from a NightFlow project object.
  */
 export function buildConfigYaml(project) {
   const task = project.taskType || "Classification";
