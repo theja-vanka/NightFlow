@@ -273,18 +273,41 @@ textarea {
 }
 
 /* ========================================
-   System Metrics Panel
+   System Metrics Panel & Banners Row
    ======================================== */
+
+.status-metrics-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  width: 100%;
+  margin-bottom: 28px;
+}
+
+.status-banners-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.status-metrics-row .system-metrics-panel {
+  max-width: none;
+  margin: 0;
+  height: 100%;
+}
+
+.status-banners-col .dataset-status-banner {
+  margin: 0;
+}
 
 .system-metrics-panel {
   max-width: 900px;
-  margin-left: auto;
-  margin-right: auto;
+  margin: 16px 24px 0;
   margin-bottom: 28px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 20px 24px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 18px;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
@@ -293,14 +316,15 @@ textarea {
 .metrics-header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 1rem;
+  gap: 8px;
+  font-size: 0.85rem;
   font-weight: 600;
   color: var(--text-primary);
+  margin-bottom: 10px;
 }
 
 .metrics-header svg {
-  color: var(--text-muted);
+  opacity: 0.6;
 }
 
 .metrics-grid {

@@ -642,9 +642,13 @@ export function DashboardView() {
               icon={icons.loss}
             />
           </div>
-          <SystemMetricsPanel />
-          <DatasetStatusBanner />
-          <EnvStatusBanner />
+          <div class="status-metrics-row">
+            <div class="status-banners-col">
+              <DatasetStatusBanner />
+              <EnvStatusBanner />
+            </div>
+            <SystemMetricsPanel />
+          </div>
           <TrainingPanel />
           {!trainingActive.value && <StartTrainingButton />}
           <ResyncButton />
