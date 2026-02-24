@@ -373,6 +373,7 @@ textarea {
 
 .metrics-progress-fill {
   height: 100%;
+  background: #3b82f6;
   border-radius: 3px;
   transition: width 0.3s ease, background-color 0.3s ease;
 }

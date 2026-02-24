@@ -145,9 +145,9 @@ export function SystemMetricsPanel() {
 
             <div class="metrics-grid">
                 <div class="metrics-main">
-                    <ProgressBar label="CPU" valueStr={cpuStr} percentage={cpuPct} colorPrimary="var(--accent)" />
-                    <ProgressBar label="Memory" valueStr={memStr} percentage={memPct} colorPrimary="var(--accent)" />
-                    <ProgressBar label="Disk (Root)" valueStr={diskStr} percentage={diskPct} colorPrimary="var(--accent)" />
+                    <ProgressBar label="CPU" valueStr={cpuStr} percentage={cpuPct} colorPrimary="#3b82f6" />
+                    <ProgressBar label="Memory" valueStr={memStr} percentage={memPct} colorPrimary="#3b82f6" />
+                    <ProgressBar label="Disk (Root)" valueStr={diskStr} percentage={diskPct} colorPrimary="#3b82f6" />
                 </div>
 
                 {metrics.gpus && metrics.gpus.length > 0 && (
