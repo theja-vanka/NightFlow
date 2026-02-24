@@ -1209,9 +1209,9 @@ fn meta_path(project_dir: &str) -> std::path::PathBuf {
     std::path::PathBuf::from(expand_tilde(project_dir)).join(TRAINING_META_FILE)
 }
 
-fn log_path(project_dir: &str, run_name: Option<&str>) -> std::path::PathBuf {
-    let filename = match run_name {
-        Some(name) if !name.is_empty() => format!("{}.jsonl", name),
+fn log_path(project_dir: &str, run_id: Option<&str>) -> std::path::PathBuf {
+    let filename = match run_id {
+        Some(id) if !id.is_empty() => format!("{}.jsonl", id),
         _ => TRAINING_LOG_FILE_DEFAULT.to_string(),
     };
     std::path::PathBuf::from(expand_tilde(project_dir)).join(filename)
@@ -1272,7 +1272,7 @@ async fn start_training(
         .unwrap_or_else(|| ".".to_string());
 
     // Ensure the log file path is absolute
-    let log_file_path = log_path(&resolved_cwd, run_name.as_deref());
+    let log_file_path = log_path(&resolved_cwd, Some(&run_id));
     let log_file_str = log_file_path.to_string_lossy().to_string();
 
     // Inject --trainer.json_progress=true and --trainer.json_progress_log_file
@@ -1771,10 +1771,10 @@ fn list_run_jsonl_files(project_path: String) -> Result<Vec<String>, String> {
 #[command]
 fn parse_run_jsonl(
     project_path: String,
-    run_name: String,
+    run_id: String,
 ) -> Result<HashMap<String, Vec<serde_json::Value>>, String> {
     let expanded = expand_tilde(&project_path);
-    let file_path = std::path::PathBuf::from(&expanded).join(format!("{}.jsonl", run_name));
+    let file_path = std::path::PathBuf::from(&expanded).join(format!("{}.jsonl", run_id));
 
     let content = std::fs::read_to_string(&file_path)
         .map_err(|e| format!("Failed to read {}: {}", file_path.display(), e))?;

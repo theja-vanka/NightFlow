@@ -127,7 +127,7 @@ export async function loadRunScalarsFromJsonl(run) {
   try {
     const scalars = await invoke("parse_run_jsonl", {
       projectPath: project.projectPath,
-      runName: run.name,
+      runId: run.id,
     });
     if (scalars && Object.keys(scalars).length > 0) {
       // Persist to the run so future opens are instant

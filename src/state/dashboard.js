@@ -79,11 +79,11 @@ function addSyncLog(projectId, message, type = "info") {
   const current = _getState(projectId);
   const timestamp = new Date().toLocaleTimeString();
   const newLog = { message, type, timestamp };
-  
+
   // Calculate progress based on sync milestones
   let progress = current.syncProgress;
   const lowerMessage = message.toLowerCase();
-  
+
   if (lowerMessage.includes("starting sync")) {
     progress = 5;
   } else if (lowerMessage.includes("creating project directory") || lowerMessage.includes("directory ready")) {
@@ -103,7 +103,7 @@ function addSyncLog(projectId, message, type = "info") {
   } else if (lowerMessage.includes("sync completed successfully") || lowerMessage.includes("imported")) {
     progress = 100;
   }
-  
+
   _setState(projectId, {
     syncLogs: [...current.syncLogs, newLog],
     syncProgress: progress,
@@ -200,7 +200,7 @@ export async function toggleSshConnection() {
   if (sshConnected.value) {
     // Stop any ongoing sync first
     stopSync(projectId);
-    
+
     // Disconnect: kill this project's terminal session
     setSshConnecting(true, projectId);
     try {
@@ -266,24 +266,24 @@ export async function syncDashboard() {
   const projectId = currentProjectId.value;
   _setState(projectId, { syncing: true, syncLogs: [], syncProgress: 0, syncShowingCompletion: false });
   addSyncLog(projectId, "Starting sync...", "info");
-  
+
   // Create abort controller for this sync
   const abortController = new AbortController();
   _syncAbortControllers[projectId] = abortController;
-  
+
   // Set a global timeout of 5 minutes to prevent indefinite hanging
   const syncTimeout = new Promise((_, reject) =>
     setTimeout(() => reject(new Error("Sync operation timed out after 5 minutes")), 5 * 60 * 1000)
   );
-  
+
   try {
     await Promise.race([doSync(projectId, abortController), syncTimeout]);
     addSyncLog(projectId, "Sync completed successfully ✓", "success");
-    
+
     // Show 100% completion for 500ms
     _setState(projectId, { syncShowingCompletion: true, syncProgress: 100, syncing: false });
     await new Promise(resolve => setTimeout(resolve, 500));
-    
+
     // Mark as synced and hide completion screen
     _setState(projectId, { synced: true, syncShowingCompletion: false, syncProgress: 0 });
 
@@ -319,7 +319,7 @@ async function doSync(projectId, abortController) {
   try {
     // Check if aborted before starting
     if (abortController.signal.aborted) throw new Error("AbortError");
-    
+
     const project = currentProject.value;
     if (project?.projectPath) {
       const rawSsh = project.sshCommand;
@@ -416,13 +416,13 @@ async function doSync(projectId, abortController) {
         const envPromise = isSSH
           ? invoke("ssh_setup_python_env", { sshCommand: rawSsh.trim(), projectPath: project.projectPath })
           : invoke("setup_python_env", { projectPath: project.projectPath });
-        
+
         const timeout = isSSH ? 600000 : 300000; // 10 min for SSH, 5 min for local
         const envResult = await Promise.race([
           envPromise,
           new Promise((_, reject) => setTimeout(() => reject(new Error("Python env setup timed out")), timeout))
         ]);
-        
+
         if (envResult.status === "error") {
           addSyncLog(projectId, `Python env error: ${envResult.message}`, "warning");
           _setState(projectId, { envInfo: { status: "error", message: envResult.message } });
@@ -488,18 +488,18 @@ async function doSync(projectId, abortController) {
         });
 
         if (jsonlNames && jsonlNames.length > 0) {
-          const existingByName = new Map(
+          const existingById = new Map(
             allRuns.value
-              .filter((r) => r.projectId === projectId && r.name)
-              .map((r) => [r.name, r])
+              .filter((r) => r.projectId === projectId)
+              .map((r) => [r.id, r])
           );
 
           // Create runs for JSONL files that have no matching run
-          for (const name of jsonlNames) {
-            if (!existingByName.has(name)) {
+          for (const id of jsonlNames) {
+            if (!existingById.has(id)) {
               const newRun = {
-                id: `run-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-                name,
+                id,
+                name: id, // Default name to ID if discovered from disk
                 projectId,
                 status: "completed",
                 model: project.modelCategory || "unknown",
@@ -512,15 +512,15 @@ async function doSync(projectId, abortController) {
                 created: Date.now(),
               };
               await addRun(newRun);
-              existingByName.set(name, newRun);
+              existingById.set(id, newRun);
             }
           }
 
           // Sync scalars from JSONL for all discovered runs (always refresh)
           let synced = 0;
-          for (const name of jsonlNames) {
+          for (const id of jsonlNames) {
             if (abortController.signal.aborted) throw new Error("AbortError");
-            const run = existingByName.get(name);
+            const run = existingById.get(id);
             if (!run) continue;
             try {
               const result = await loadRunScalarsFromJsonl(run);
