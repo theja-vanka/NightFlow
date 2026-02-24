@@ -376,7 +376,7 @@ export async function deleteRun(id) {
   }
 }
 
-// Load scalars from a run's TensorBoard logs or JSONL file on disk and persist to IndexedDB
+// Load scalars from a run's CSV file or JSONL file on disk and persist to IndexedDB
 export async function loadRunScalars(run, force = false) {
   if (!run?.id) return null;
 
@@ -389,16 +389,16 @@ export async function loadRunScalars(run, force = false) {
   if (!project?.projectPath) return null;
 
   try {
-    // 1. Try TensorBoard parser first (preferred source)
-    let scalars = await invoke("parse_tensorboard_run", {
+    // 1. Try CSV parser first (preferred source)
+    let scalars = await invoke("parse_csv_run", {
       projectPath: project.projectPath,
       runId: run.id,
     }).catch((err) => {
-      console.warn(`TensorBoard parsing failed for run ${run.id}:`, err);
+      console.warn(`CSV parsing failed for run ${run.id}:`, err);
       return null;
     });
 
-    // 2. If TensorBoard data is missing, try JSONL
+    // 2. If CSV data is missing, try JSONL
     if (!scalars || Object.keys(scalars).length === 0) {
       scalars = await invoke("parse_run_jsonl", {
         projectPath: project.projectPath,

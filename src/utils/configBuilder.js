@@ -183,7 +183,7 @@ export function buildConfigYaml(project, runId = "default") {
   lines.push("  logger:");
   lines.push("    - class_path: autotimm.loggers.LoggerConfig");
   lines.push("      init_args:");
-  lines.push("        backend: tensorboard");
+  lines.push("        backend: csv");
   lines.push("        params:");
   lines.push("          save_dir: logs");
   lines.push(`          name: ${runId}`);

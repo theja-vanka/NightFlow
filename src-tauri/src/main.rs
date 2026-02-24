@@ -2181,91 +2181,70 @@ fn parse_run_jsonl(
 }
 
 #[command]
-async fn parse_tensorboard_run(
+fn parse_csv_run(
     project_path: String,
     run_id: String,
 ) -> Result<HashMap<String, Vec<serde_json::Value>>, String> {
     let expanded = expand_tilde(&project_path);
-    let log_dir = std::path::PathBuf::from(&expanded)
+    let mut file_path = std::path::PathBuf::from(&expanded)
         .join("logs")
-        .join(&run_id);
+        .join(&run_id)
+        .join("metrics.csv");
 
-    if !log_dir.exists() {
-        return Err(format!(
-            "TensorBoard log directory not found: {}",
-            log_dir.display()
-        ));
+    if !file_path.exists() {
+        let alt_path = std::path::PathBuf::from(&expanded)
+            .join("logs")
+            .join(&run_id)
+            .join("version_0")
+            .join("metrics.csv");
+        if alt_path.exists() {
+            file_path = alt_path;
+        } else {
+            return Err(format!("metrics.csv not found for run {}", run_id));
+        }
     }
 
-    // Since parsing tfevents in Rust is complex, we use a small Python script.
-    // We try to find the project's venv python, otherwise fall back to system python.
-    let pp = project_path.replace("~", &std::env::var("HOME").unwrap_or_default());
-    let venv_python = std::path::PathBuf::from(&pp).join(".venv/bin/python");
-    let python_exe = if venv_python.exists() {
-        venv_python.to_string_lossy().to_string()
-    } else {
-        "python3".to_string()
-    };
+    let content = std::fs::read_to_string(&file_path)
+        .map_err(|e| format!("Failed to read {}: {}", file_path.display(), e))?;
 
-    let python_script = r#"
-import sys
-import json
-import os
+    let mut scalars: HashMap<String, Vec<serde_json::Value>> = HashMap::new();
+    let mut lines = content.lines();
 
-try:
-    from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
-except ImportError:
-    print(json.dumps({"error": "tensorboard package not found"}))
-    sys.exit(1)
-
-def parse_tb(log_dir):
-    try:
-        # Find the most recent tfevents file or just use the directory
-        ea = EventAccumulator(log_dir, size_guidance={'scalars': 0})
-        ea.Reload()
-        tags = ea.Tags().get('scalars', [])
-        data = {}
-        for tag in tags:
-            events = ea.Scalars(tag)
-            data[tag] = [{"step": e.step, "value": e.value} for e in events]
-        return data
-    except Exception as e:
-        return {"error": str(e)}
-
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        sys.exit(1)
-    log_dir = sys.argv[1]
-    result = parse_tb(log_dir)
-    print(json.dumps(result))
-"#;
-
-    let output = std::process::Command::new(python_exe)
-        .arg("-c")
-        .arg(python_script)
-        .arg(log_dir.to_string_lossy().to_string())
-        .output()
-        .map_err(|e| format!("Failed to run Python: {}", e))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Python script failed: {}", stderr));
+    if let Some(header_line) = lines.next() {
+        let headers: Vec<&str> = header_line.split(',').collect();
+        let step_idx = headers.iter().position(|&h| h == "step").unwrap_or(0);
+        
+        for line in lines {
+            let parts: Vec<&str> = line.split(',').collect();
+            if parts.is_empty() {
+                continue;
+            }
+            
+            let step: i64 = parts.get(step_idx).and_then(|s| s.parse().ok()).unwrap_or(0);
+            
+            for (i, &val_str) in parts.iter().enumerate() {
+                if i == step_idx { continue; }
+                if let Some(header) = headers.get(i) {
+                    if *header == "epoch" { continue; }
+                    if val_str.is_empty() { continue; }
+                    
+                    if let Ok(num) = val_str.parse::<f64>() {
+                        let entry = scalars.entry(header.to_string()).or_default();
+                        entry.push(serde_json::json!({ "step": step, "value": num }));
+                    }
+                }
+            }
+        }
     }
 
-    let stdout_str = String::from_utf8_lossy(&output.stdout);
-    let result: serde_json::Value = serde_json::from_str(&stdout_str).map_err(|e| {
-        format!(
-            "Failed to parse Python output: {}. Output was: {}",
-            e, stdout_str
-        )
-    })?;
-
-    if let Some(err) = result.get("error") {
-        return Err(format!("TensorBoard parsing error: {}", err));
+    // Sort each tag by step
+    for points in scalars.values_mut() {
+        points.sort_by(|a, b| {
+            let sa = a.get("step").and_then(|v| v.as_i64()).unwrap_or(0);
+            let sb = b.get("step").and_then(|v| v.as_i64()).unwrap_or(0);
+            sa.cmp(&sb)
+        });
     }
-
-    let scalars: HashMap<String, Vec<serde_json::Value>> = serde_json::from_value(result)
-        .map_err(|e| format!("Failed to convert TensorBoard data: {}", e))?;
 
     Ok(scalars)
 }
@@ -2433,7 +2412,7 @@ fn main() {
             watch_training_log,
             list_run_folders,
             parse_run_jsonl,
-            parse_tensorboard_run,
+            parse_csv_run,
             get_system_metrics,
         ])
         .run(tauri::generate_context!())
