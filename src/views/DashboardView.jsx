@@ -1,5 +1,6 @@
 import { SummaryCard } from "../components/SummaryCard.jsx";
 import { TrainingPanel } from "../components/TrainingPanel.jsx";
+import { SystemMetricsPanel } from "../components/SystemMetricsPanel.jsx";
 import SyncLogsPanel from "../components/SyncLogsPanel.jsx";
 import {
   stats,
@@ -641,6 +642,7 @@ export function DashboardView() {
               icon={icons.loss}
             />
           </div>
+          <SystemMetricsPanel />
           <DatasetStatusBanner />
           <EnvStatusBanner />
           <TrainingPanel />

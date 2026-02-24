@@ -273,6 +273,141 @@ textarea {
 }
 
 /* ========================================
+   System Metrics Panel
+   ======================================== */
+
+.system-metrics-panel {
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 28px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.metrics-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.metrics-header svg {
+  color: var(--text-muted);
+}
+
+.metrics-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.metrics-main {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 2rem;
+}
+
+.metrics-progress-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.metrics-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.metrics-progress-label {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.metrics-progress-value {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.metrics-progress-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(120, 120, 120, 0.15);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.metrics-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.metrics-gpus {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  border-top: 1px solid var(--border-color);
+  padding-top: 1.5rem;
+}
+
+.metrics-gpu-card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.metrics-gpu-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+.metrics-gpu-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.metrics-gpu-temp {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.metrics-loading,
+.metrics-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.metrics-error {
+  color: #ef4444;
+}
+
+/* ========================================
    SSH Status Banner
    ======================================== */
 

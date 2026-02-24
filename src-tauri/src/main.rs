@@ -2270,6 +2270,120 @@ if __name__ == "__main__":
     Ok(scalars)
 }
 
+#[command]
+async fn get_system_metrics(ssh_command: Option<String>) -> Result<String, String> {
+    let python_script = r#"
+import json, os, subprocess, sys
+
+res = {}
+if hasattr(os, 'cpu_count'):
+    res['cpu_cores'] = os.cpu_count()
+
+# Memory
+try:
+    if sys.platform == 'darwin':
+        mem_total = int(subprocess.check_output(['sysctl', '-n', 'hw.memsize']).strip())
+        vm_stat = subprocess.check_output(['vm_stat']).decode('utf-8').split('\n')
+        pages_active = 0
+        page_size = 4096
+        for line in vm_stat:
+            if 'Pages active:' in line: pages_active = int(line.split(':')[1].strip().strip('.'))
+        res['mem_total'] = mem_total
+        res['mem_used'] = pages_active * page_size
+    else:
+        with open('/proc/meminfo', 'r') as f:
+            lines = f.readlines()
+        mem_total = 0
+        mem_free = 0
+        mem_avail = 0
+        for line in lines:
+            if line.startswith('MemTotal:'):
+                mem_total = int(line.split()[1]) * 1024
+            elif line.startswith('MemFree:'):
+                mem_free = int(line.split()[1]) * 1024
+            elif line.startswith('MemAvailable:'):
+                mem_avail = int(line.split()[1]) * 1024
+        if mem_total > 0:
+            res['mem_total'] = mem_total
+            res['mem_used'] = mem_total - (mem_avail if mem_avail > 0 else mem_free)
+except Exception:
+    pass
+
+# Disk
+try:
+    st = os.statvfs('/')
+    res['disk_total'] = st.f_blocks * st.f_frsize
+    res['disk_used'] = (st.f_blocks - st.f_bfree) * st.f_frsize
+except Exception:
+    pass
+
+# GPU
+try:
+    gpu_out = subprocess.check_output(
+        ['nvidia-smi', '--query-gpu=index,name,utilization.gpu,memory.total,memory.used,temperature.gpu', '--format=csv,noheader,nounits'],
+        stderr=subprocess.STDOUT, text=True
+    )
+    gpus = []
+    for line in gpu_out.strip().split('\n'):
+        if not line: continue
+        parts = [p.strip() for p in line.split(',')]
+        if len(parts) >= 6:
+            gpus.append({
+                'index': int(parts[0]),
+                'name': parts[1],
+                'utilization': float(parts[2]) if parts[2].isdigit() else 0,
+                'mem_total': float(parts[3]),
+                'mem_used': float(parts[4]),
+                'temperature': float(parts[5]) if parts[5].isdigit() else 0
+            })
+    res['gpus'] = gpus
+except Exception:
+    res['gpus'] = []
+
+# CPU Load
+try:
+    res['loadavg'] = os.getloadavg()
+except Exception:
+    pass
+
+print(json.dumps(res))
+"#;
+
+    if let Some(cmd_str) = ssh_command {
+        let parts: Vec<String> = cmd_str.split_whitespace().map(String::from).collect();
+        if parts.is_empty() {
+            return Err("Empty SSH command".to_string());
+        }
+        let mut cmd = tokio::process::Command::new(&parts[0]);
+        cmd.args(["-o", "BatchMode=yes", "-o", "ConnectTimeout=5"]);
+        for arg in &parts[1..] {
+            cmd.arg(arg);
+        }
+        cmd.arg("python3");
+        cmd.arg("-c");
+        cmd.arg(python_script);
+        
+        let output = cmd.output().await.map_err(|e| e.to_string())?;
+        if output.status.success() {
+            Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+        } else {
+            Err(String::from_utf8_lossy(&output.stderr).to_string())
+        }
+    } else {
+        let output = tokio::process::Command::new("python3")
+            .arg("-c")
+            .arg(python_script)
+            .output()
+            .await
+            .map_err(|e| e.to_string())?;
+        if output.status.success() {
+            Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+        } else {
+            Err(String::from_utf8_lossy(&output.stderr).to_string())
+        }
+    }
+}
+
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 fn main() {
@@ -2320,6 +2434,7 @@ fn main() {
             list_run_folders,
             parse_run_jsonl,
             parse_tensorboard_run,
+            get_system_metrics,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
