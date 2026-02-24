@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="assets/night_flow.png" width="140" alt="NightFlow logo" />
+
 **A premium, native desktop application for professional deep-learning in computer vision experiment management and auto training.**
 
 [Features](#features) • [Quick Start](#quick-start) • [Architecture](#architecture) • [Download](#download)
