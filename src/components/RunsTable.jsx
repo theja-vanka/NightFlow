@@ -26,7 +26,7 @@ const columns = [
 
 function SortIcon({ field }) {
   if (sortField.value !== field)
-    return <span class="sort-icon dim">&udarr;</span>;
+    return <span class="sort-icon dim">{"\u2195"}</span>;
   return (
     <span class="sort-icon">
       {sortDir.value === "asc" ? "\u2191" : "\u2193"}

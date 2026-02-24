@@ -1216,11 +1216,13 @@ fn meta_path(project_dir: &str) -> std::path::PathBuf {
 }
 
 fn log_path(project_dir: &str, run_id: Option<&str>) -> std::path::PathBuf {
-    let filename = match run_id {
-        Some(id) if !id.is_empty() => format!("{}.jsonl", id),
-        _ => TRAINING_LOG_FILE_DEFAULT.to_string(),
-    };
-    std::path::PathBuf::from(expand_tilde(project_dir)).join(filename)
+    match run_id {
+        Some(id) if !id.is_empty() => std::path::PathBuf::from(expand_tilde(project_dir))
+            .join("logs")
+            .join(id)
+            .join(format!("{}.jsonl", id)),
+        _ => std::path::PathBuf::from(expand_tilde(project_dir)).join(TRAINING_LOG_FILE_DEFAULT),
+    }
 }
 
 fn write_training_meta(project_dir: &str, meta: &TrainingMeta) -> Result<(), String> {
@@ -1237,6 +1239,70 @@ fn read_training_meta(project_dir: &str) -> Option<TrainingMeta> {
 
 fn remove_training_meta(project_dir: &str) {
     let _ = std::fs::remove_file(meta_path(project_dir));
+}
+
+fn spawn_tail_task(
+    path: std::path::PathBuf,
+    alive: Arc<AtomicBool>,
+    is_json: bool,
+    prefix: Option<String>,
+    app: tauri::AppHandle,
+    session_id: String,
+    buf: Option<Arc<Mutex<Vec<String>>>>,
+) {
+    tokio::spawn(async move {
+        use std::io::{BufRead, Seek, SeekFrom};
+        let mut offset = 0;
+        loop {
+            let is_alive = alive.load(Ordering::SeqCst);
+            let size = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+            if size > offset {
+                if let Ok(mut f) = std::fs::File::open(&path) {
+                    if f.seek(SeekFrom::Start(offset)).is_ok() {
+                        let reader = std::io::BufReader::new(f);
+                        for line in reader.lines().map_while(Result::ok) {
+                            if is_json {
+                                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&line) {
+                                    let _ = app.emit(
+                                        "training-event",
+                                        TrainingEvent {
+                                            session_id: session_id.clone(),
+                                            data: json,
+                                        },
+                                    );
+                                }
+                            } else {
+                                let display_line = if let Some(ref p) = prefix {
+                                    format!("{} {}", p, line)
+                                } else {
+                                    line.clone()
+                                };
+                                let _ = app.emit(
+                                    "training-log",
+                                    TrainingLog {
+                                        session_id: session_id.clone(),
+                                        data: display_line,
+                                    },
+                                );
+                                if let Some(ref b_mutex) = buf {
+                                    let mut b = b_mutex.lock().unwrap();
+                                    b.push(line);
+                                    if b.len() > 20 {
+                                        b.remove(0);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                offset = size;
+            }
+            if !is_alive {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        }
+    });
 }
 
 /// Spawn a training process.  Stdout is parsed line-by-line as NDJSON and
@@ -1401,11 +1467,16 @@ async fn start_training(
             let _ = std::fs::create_dir_all(&logs_dir);
 
             // ── Step 1: fit (stream stdout as NDJSON, stderr as logs) ─────────
+            let fit_stdout_path = logs_dir.join("fit_stdout.log");
+            let fit_stderr_path = logs_dir.join("fit_stderr.log");
+            let fit_stdout_file = std::fs::OpenOptions::new().create(true).append(true).open(&fit_stdout_path).unwrap();
+            let fit_stderr_file = std::fs::OpenOptions::new().create(true).append(true).open(&fit_stderr_path).unwrap();
+
             let mut fit_cmd = tokio::process::Command::new(&fit_args[0]);
             fit_cmd.args(&fit_args[1..]);
             fit_cmd.current_dir(&cwd2);
-            fit_cmd.stdout(std::process::Stdio::piped());
-            fit_cmd.stderr(std::process::Stdio::piped());
+            fit_cmd.stdout(std::process::Stdio::from(fit_stdout_file));
+            fit_cmd.stderr(std::process::Stdio::from(fit_stderr_file));
             fit_cmd.kill_on_drop(false);
             if !shell_env.is_empty() {
                 fit_cmd.env_clear();
@@ -1442,44 +1513,28 @@ async fn start_training(
             };
             let _ = write_training_meta(&cwd2, &updated_meta);
 
-            if let Some(stdout) = fit_child.stdout.take() {
-                let sid_o = sid.clone();
-                let app_o = app2.clone();
-                tokio::spawn(async move {
-                    use tokio::io::{AsyncBufReadExt, BufReader};
-                    let mut lines = BufReader::new(stdout).lines();
-                    while let Ok(Some(line)) = lines.next_line().await {
-                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&line) {
-                            let _ = app_o.emit("training-event", TrainingEvent {
-                                session_id: sid_o.clone(),
-                                data: json,
-                            });
-                        }
-                    }
-                });
-            }
+            // Tail stdout
+            spawn_tail_task(
+                fit_stdout_path,
+                Arc::clone(&alive2),
+                true,
+                None,
+                app2.clone(),
+                sid.clone(),
+                None,
+            );
 
-            // Collect stderr into a shared buffer so we can include it in error messages
+            // Tail stderr
             let fit_stderr_buf: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
-            if let Some(stderr) = fit_child.stderr.take() {
-                let sid_e = sid.clone();
-                let app_e = app2.clone();
-                let buf = Arc::clone(&fit_stderr_buf);
-                tokio::spawn(async move {
-                    use tokio::io::{AsyncBufReadExt, BufReader};
-                    let mut lines = BufReader::new(stderr).lines();
-                    while let Ok(Some(line)) = lines.next_line().await {
-                        let _ = app_e.emit("training-log", TrainingLog {
-                            session_id: sid_e.clone(),
-                            data: line.clone(),
-                        });
-                        let mut b = buf.lock().unwrap();
-                        b.push(line);
-                        // Keep only last 20 lines to avoid unbounded growth
-                        if b.len() > 20 { b.remove(0); }
-                    }
-                });
-            }
+            spawn_tail_task(
+                fit_stderr_path,
+                Arc::clone(&alive2),
+                false,
+                None,
+                app2.clone(),
+                sid.clone(),
+                Some(Arc::clone(&fit_stderr_buf)),
+            );
 
             let fit_ok = fit_child.wait().await.map(|s| s.success()).unwrap_or(false);
 
@@ -1503,11 +1558,14 @@ async fn start_training(
 
             // ── Step 2: test (run to completion, pipe stderr to logs) ─────────
             {
+                let test_stderr_path = logs_dir.join("test_stderr.log");
+                let test_stderr_file = std::fs::OpenOptions::new().create(true).append(true).open(&test_stderr_path).unwrap();
+
                 let mut c = tokio::process::Command::new(&test_args[0]);
                 c.args(&test_args[1..]);
                 c.current_dir(&cwd2);
                 c.stdout(std::process::Stdio::null());
-                c.stderr(std::process::Stdio::piped());
+                c.stderr(std::process::Stdio::from(test_stderr_file));
                 c.kill_on_drop(false);
                 if !shell_env.is_empty() {
                     c.env_clear();
@@ -1516,20 +1574,15 @@ async fn start_training(
                 #[cfg(unix)]
                 unsafe { c.pre_exec(|| { libc::setsid(); Ok(()) }); }
                 if let Ok(mut child) = c.spawn() {
-                    if let Some(stderr) = child.stderr.take() {
-                        let sid_t = sid.clone();
-                        let app_t = app2.clone();
-                        tokio::spawn(async move {
-                            use tokio::io::{AsyncBufReadExt, BufReader};
-                            let mut lines = BufReader::new(stderr).lines();
-                            while let Ok(Some(line)) = lines.next_line().await {
-                                let _ = app_t.emit("training-log", TrainingLog {
-                                    session_id: sid_t.clone(),
-                                    data: format!("[test] {}", line),
-                                });
-                            }
-                        });
-                    }
+                    spawn_tail_task(
+                        test_stderr_path,
+                        Arc::clone(&alive2),
+                        false,
+                        Some("[test]".to_string()),
+                        app2.clone(),
+                        sid.clone(),
+                        None,
+                    );
                     let _ = child.wait().await;
                 }
             }
@@ -1576,13 +1629,21 @@ async fn start_training(
     } else {
         raw_executable
     };
+    let logs_dir = std::path::Path::new(&resolved_cwd).join(format!("logs/{}", run_id));
+    let _ = std::fs::create_dir_all(&logs_dir);
+    
+    let stdout_path = logs_dir.join("stdout.log");
+    let stderr_path = logs_dir.join("stderr.log");
+    let stdout_file = std::fs::OpenOptions::new().create(true).append(true).open(&stdout_path).map_err(|e| e.to_string())?;
+    let stderr_file = std::fs::OpenOptions::new().create(true).append(true).open(&stderr_path).map_err(|e| e.to_string())?;
+
     let mut cmd = tokio::process::Command::new(&executable);
     for arg in &final_parts[1..] {
         cmd.arg(arg);
     }
     cmd.current_dir(&resolved_cwd);
-    cmd.stdout(std::process::Stdio::piped());
-    cmd.stderr(std::process::Stdio::piped());
+    cmd.stdout(std::process::Stdio::from(stdout_file));
+    cmd.stderr(std::process::Stdio::from(stderr_file));
     cmd.kill_on_drop(false);
 
     #[cfg(unix)]
@@ -1593,10 +1654,8 @@ async fn start_training(
         });
     }
 
-    let mut child = cmd.spawn().map_err(|e| e.to_string())?;
+    let child = cmd.spawn().map_err(|e| e.to_string())?;
     let pid = child.id().unwrap_or(0);
-    let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
-    let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
     let alive = Arc::new(AtomicBool::new(true));
 
     let meta = TrainingMeta {
@@ -1624,43 +1683,45 @@ async fn start_training(
         );
     }
 
-    let sid_out = session_id.clone();
-    let alive_out = Arc::clone(&alive);
-    let app_out = app.clone();
     let cwd_out = resolved_cwd.clone();
+    let alive_out = Arc::clone(&alive);
+    spawn_tail_task(
+        stdout_path,
+        Arc::clone(&alive),
+        true,
+        None,
+        app.clone(),
+        session_id.clone(),
+        None,
+    );
+
+    // After spawning tailing tasks, spawn a watcher that cleans up if the process dies.
     tokio::spawn(async move {
-        use tokio::io::{AsyncBufReadExt, BufReader};
-        let mut lines = BufReader::new(stdout).lines();
-        while let Ok(Some(line)) = lines.next_line().await {
-            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&line) {
-                let _ = app_out.emit(
-                    "training-event",
-                    TrainingEvent {
-                        session_id: sid_out.clone(),
-                        data: json,
-                    },
-                );
+        // Here we just check occasionally if process is still alive. 
+        // We know it drops when `alive` becomes false, or if it naturally exits.
+        // But since we lost standard pipe wait, we'll just let `alive_out` handle cleanup if needed.
+        // Actually, without `child.wait()` in legacy mode, we just wait until `alive` is explicitly false.
+        // We don't have natural exit detection in legacy right now (it relied on stdout pipe closing).
+        // Let's at least poll pid.
+        loop {
+            if !alive_out.load(Ordering::SeqCst) || !is_pid_alive(pid) {
+                alive_out.store(false, Ordering::SeqCst);
+                remove_training_meta(&cwd_out);
+                break;
             }
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         }
-        alive_out.store(false, Ordering::SeqCst);
-        remove_training_meta(&cwd_out);
     });
 
-    let sid_err = session_id.clone();
-    let app_err = app.clone();
-    tokio::spawn(async move {
-        use tokio::io::{AsyncBufReadExt, BufReader};
-        let mut lines = BufReader::new(stderr).lines();
-        while let Ok(Some(line)) = lines.next_line().await {
-            let _ = app_err.emit(
-                "training-log",
-                TrainingLog {
-                    session_id: sid_err.clone(),
-                    data: line,
-                },
-            );
-        }
-    });
+    spawn_tail_task(
+        stderr_path,
+        Arc::clone(&alive),
+        false,
+        None,
+        app.clone(),
+        session_id.clone(),
+        None,
+    );
 
     Ok(())
 }

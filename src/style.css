@@ -832,7 +832,7 @@ textarea {
   text-align: left;
   padding: 11px 14px;
   font-weight: 600;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   text-transform: uppercase;
   font-size: 0.68rem;
   letter-spacing: 0.07em;
@@ -840,14 +840,6 @@ textarea {
   background: var(--bg-surface);
   white-space: nowrap;
   user-select: none;
-}
-
-.runs-table th:first-child {
-  border-top-left-radius: 12px;
-}
-
-.runs-table th:last-child {
-  border-top-right-radius: 12px;
 }
 
 .runs-table th.sortable {
@@ -3977,6 +3969,10 @@ select.wizard-input {
   width: 14px;
   height: 14px;
   border-radius: 4px;
+}
+
+[data-theme="dark"] .check-col input[type="checkbox"] {
+  accent-color: #525252;
 }
 
 .runs-compare-selected {
