@@ -67,7 +67,7 @@ export async function startTraining(command, cwd) {
   if (!projectId) return;
 
   const project = currentProject.value;
-  const runId = `run-${Date.now()}`;
+  const runId = crypto.randomUUID();
   const runName = generateRunName();
 
   // Collect hyperparameters from the project
