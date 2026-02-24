@@ -1,6 +1,6 @@
 import { useState, useEffect } from "preact/hooks";
 import { navigate, routeParams } from "../state/router.js";
-import { allRuns, loadRunScalarsFromJsonl } from "../state/experiments.js";
+import { allRuns, loadRunScalars } from "../state/experiments.js";
 import { ChartPanel } from "../components/ChartPanel.jsx";
 import { LineChart } from "../components/LineChart.jsx";
 
@@ -57,7 +57,7 @@ export function RunDetailView() {
   useEffect(() => {
     if (!run || (run.scalars && Object.keys(run.scalars).length > 0)) return;
     setLoading(true);
-    loadRunScalarsFromJsonl(run).finally(() => setLoading(false));
+    loadRunScalars(run).finally(() => setLoading(false));
   }, [runId]);
 
   // Auto-select first tab when scalars become available
@@ -104,10 +104,18 @@ export function RunDetailView() {
 
       <div class="run-detail-meta">
         {run.model && <span class="run-meta-tag">Model: {run.model}</span>}
-        {run.dataset && <span class="run-meta-tag">Dataset: {run.dataset}</span>}
-        {run.epochs != null && <span class="run-meta-tag">Epochs: {run.epochs}</span>}
-        {run.bestAcc != null && <span class="run-meta-tag">Best Acc: {run.bestAcc.toFixed(4)}</span>}
-        {run.valLoss != null && <span class="run-meta-tag">Val Loss: {run.valLoss.toFixed(4)}</span>}
+        {run.dataset && (
+          <span class="run-meta-tag">Dataset: {run.dataset}</span>
+        )}
+        {run.epochs != null && (
+          <span class="run-meta-tag">Epochs: {run.epochs}</span>
+        )}
+        {run.bestAcc != null && (
+          <span class="run-meta-tag">Best Acc: {run.bestAcc.toFixed(4)}</span>
+        )}
+        {run.valLoss != null && (
+          <span class="run-meta-tag">Val Loss: {run.valLoss.toFixed(4)}</span>
+        )}
         {run.status && <span class="run-meta-tag">Status: {run.status}</span>}
       </div>
 
@@ -131,7 +139,9 @@ export function RunDetailView() {
           ) : (
             <div class="run-detail-hparams">
               <h3 class="run-detail-group-title">Hyperparameters</h3>
-              <div class="run-detail-empty-sidebar">No hyperparameters recorded.</div>
+              <div class="run-detail-empty-sidebar">
+                No hyperparameters recorded.
+              </div>
             </div>
           )}
         </div>
@@ -139,7 +149,9 @@ export function RunDetailView() {
         {/* Columns 2-3: Charts with tabs */}
         <div class="run-detail-charts-area">
           {loading && (
-            <div class="run-detail-loading">Loading metrics from run log...</div>
+            <div class="run-detail-loading">
+              Loading metrics from run log...
+            </div>
           )}
 
           {hasScalars && sortedTabs.length > 0 ? (
@@ -159,9 +171,10 @@ export function RunDetailView() {
               <div class="run-detail-charts-grid">
                 {currentTags.map((tag) => {
                   const points = run.scalars[tag];
-                  const data = typeof points[0] === "number"
-                    ? points
-                    : points.map((s) => s.value);
+                  const data =
+                    typeof points[0] === "number"
+                      ? points
+                      : points.map((s) => s.value);
                   return (
                     <ChartPanel key={tag} title={stripPrefix(tag)}>
                       <LineChart
@@ -177,7 +190,9 @@ export function RunDetailView() {
           ) : null}
 
           {!loading && !hasScalars && (
-            <div class="run-detail-empty">No metric data available for this run.</div>
+            <div class="run-detail-empty">
+              No metric data available for this run.
+            </div>
           )}
         </div>
       </div>

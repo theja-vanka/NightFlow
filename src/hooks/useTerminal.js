@@ -6,28 +6,62 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { theme } from "../state/theme.js";
-import { setSshConnected, setSshConnecting, terminalKey } from "../state/dashboard.js";
+import {
+  setSshConnected,
+  setSshConnecting,
+  terminalKey,
+} from "../state/dashboard.js";
 
 // ── Themes ────────────────────────────────────────────────────────────────────
 
 const darkTheme = {
-  background: "#0f0f1a", foreground: "#d4d4d8", cursor: "#7dd3fc",
-  cursorAccent: "#0f0f1a", selectionBackground: "#7dd3fc33", selectionForeground: "#ffffff",
-  black: "#18181b", red: "#f87171", green: "#4ade80", yellow: "#facc15",
-  blue: "#60a5fa", magenta: "#c084fc", cyan: "#22d3ee", white: "#d4d4d8",
-  brightBlack: "#52525b", brightRed: "#fca5a5", brightGreen: "#86efac",
-  brightYellow: "#fde68a", brightBlue: "#93c5fd", brightMagenta: "#d8b4fe",
-  brightCyan: "#67e8f9", brightWhite: "#fafafa",
+  background: "#0f0f1a",
+  foreground: "#d4d4d8",
+  cursor: "#7dd3fc",
+  cursorAccent: "#0f0f1a",
+  selectionBackground: "#7dd3fc33",
+  selectionForeground: "#ffffff",
+  black: "#18181b",
+  red: "#f87171",
+  green: "#4ade80",
+  yellow: "#facc15",
+  blue: "#60a5fa",
+  magenta: "#c084fc",
+  cyan: "#22d3ee",
+  white: "#d4d4d8",
+  brightBlack: "#52525b",
+  brightRed: "#fca5a5",
+  brightGreen: "#86efac",
+  brightYellow: "#fde68a",
+  brightBlue: "#93c5fd",
+  brightMagenta: "#d8b4fe",
+  brightCyan: "#67e8f9",
+  brightWhite: "#fafafa",
 };
 
 const lightTheme = {
-  background: "#f5f5f5", foreground: "#1a1a1a", cursor: "#0369a1",
-  cursorAccent: "#f5f5f5", selectionBackground: "#0369a133", selectionForeground: "#000000",
-  black: "#1a1a1a", red: "#dc2626", green: "#16a34a", yellow: "#ca8a04",
-  blue: "#2563eb", magenta: "#9333ea", cyan: "#0891b2", white: "#d4d4d4",
-  brightBlack: "#737373", brightRed: "#ef4444", brightGreen: "#22c55e",
-  brightYellow: "#eab308", brightBlue: "#3b82f6", brightMagenta: "#a855f7",
-  brightCyan: "#06b6d4", brightWhite: "#fafafa",
+  background: "#f5f5f5",
+  foreground: "#1a1a1a",
+  cursor: "#0369a1",
+  cursorAccent: "#f5f5f5",
+  selectionBackground: "#0369a133",
+  selectionForeground: "#000000",
+  black: "#1a1a1a",
+  red: "#dc2626",
+  green: "#16a34a",
+  yellow: "#ca8a04",
+  blue: "#2563eb",
+  magenta: "#9333ea",
+  cyan: "#0891b2",
+  white: "#d4d4d4",
+  brightBlack: "#737373",
+  brightRed: "#ef4444",
+  brightGreen: "#22c55e",
+  brightYellow: "#eab308",
+  brightBlue: "#3b82f6",
+  brightMagenta: "#a855f7",
+  brightCyan: "#06b6d4",
+  brightWhite: "#fafafa",
 };
 
 const getTermTheme = () => (theme.value === "dark" ? darkTheme : lightTheme);
@@ -79,13 +113,19 @@ function _handleSshOutput(s, projectId, out) {
     /[$#]\s*$/.test(low);
 
   if (success) {
-    if (s._sshTimeout) { clearTimeout(s._sshTimeout); s._sshTimeout = null; }
+    if (s._sshTimeout) {
+      clearTimeout(s._sshTimeout);
+      s._sshTimeout = null;
+    }
     _setSessionStatus(s, "connected", "SSH connection established");
     setSshConnected(true, projectId);
     setSshConnecting(false, projectId);
     if (s.projectPath) {
       setTimeout(() => {
-        invoke("pty_write", { sessionId: projectId, data: `cd ${s.projectPath}\r` });
+        invoke("pty_write", {
+          sessionId: projectId,
+          data: `cd ${s.projectPath}\r`,
+        });
       }, 300);
     }
     setTimeout(() => {
@@ -95,28 +135,48 @@ function _handleSshOutput(s, projectId, out) {
   }
 
   const failure =
-    low.includes("connection refused") || low.includes("connection timed out") ||
-    low.includes("connection closed") || low.includes("connection reset") ||
-    low.includes("permission denied") || low.includes("authentication failed") ||
-    low.includes("publickey") || low.includes("no such identity") ||
-    low.includes("identity file") || low.includes("key_load_public") ||
-    low.includes("host key verification failed") || low.includes("no route to host") ||
-    low.includes("network is unreachable") || low.includes("could not resolve hostname") ||
-    low.includes("operation timed out") || low.includes("broken pipe");
+    low.includes("connection refused") ||
+    low.includes("connection timed out") ||
+    low.includes("connection closed") ||
+    low.includes("connection reset") ||
+    low.includes("permission denied") ||
+    low.includes("authentication failed") ||
+    low.includes("publickey") ||
+    low.includes("no such identity") ||
+    low.includes("identity file") ||
+    low.includes("key_load_public") ||
+    low.includes("host key verification failed") ||
+    low.includes("no route to host") ||
+    low.includes("network is unreachable") ||
+    low.includes("could not resolve hostname") ||
+    low.includes("operation timed out") ||
+    low.includes("broken pipe");
 
   if (failure) {
-    if (s._sshTimeout) { clearTimeout(s._sshTimeout); s._sshTimeout = null; }
+    if (s._sshTimeout) {
+      clearTimeout(s._sshTimeout);
+      s._sshTimeout = null;
+    }
     _setSessionStatus(s, "failed", "SSH connection failed");
     setSshConnected(false, projectId);
     setSshConnecting(false, projectId);
-    setTimeout(() => { if (s._sshStatus === "failed") _setSessionStatus(s, "idle", ""); }, 5000);
+    setTimeout(() => {
+      if (s._sshStatus === "failed") _setSessionStatus(s, "idle", "");
+    }, 5000);
   }
 }
 
-async function _initSession(container, projectId, sshCommand, isProject, projectPath) {
+async function _initSession(
+  container,
+  projectId,
+  sshCommand,
+  isProject,
+  projectPath,
+) {
   const term = new Terminal({
     fontSize: 13,
-    fontFamily: '"Hack Nerd Font Mono", "SF Mono", "Fira Code", "Cascadia Code", "Menlo", "Consolas", monospace',
+    fontFamily:
+      '"Hack Nerd Font Mono", "SF Mono", "Fira Code", "Cascadia Code", "Menlo", "Consolas", monospace',
     cursorBlink: false,
     cursorStyle: "block",
     scrollback: 10000,
@@ -129,18 +189,32 @@ async function _initSession(container, projectId, sshCommand, isProject, project
   term.loadAddon(fit);
   term.loadAddon(new WebLinksAddon());
   term.open(container);
-  try { term.loadAddon(new WebglAddon()); } catch (_) { /* ignore WebGL errors */ }
+  try {
+    term.loadAddon(new WebglAddon());
+  } catch (_) {
+    /* ignore WebGL errors */
+  }
   fit.fit();
 
   const s = {
-    term, fit,
-    info: null, alive: true,
-    sshCommand, isProject, projectPath,
-    onData: null, onResize: null,
-    unlistenOutput: null, unlistenExit: null,
-    onAliveChange: null, onDimsChange: null, onStatusChange: null,
+    term,
+    fit,
+    info: null,
+    alive: true,
+    sshCommand,
+    isProject,
+    projectPath,
+    onData: null,
+    onResize: null,
+    unlistenOutput: null,
+    unlistenExit: null,
+    onAliveChange: null,
+    onDimsChange: null,
+    onStatusChange: null,
     _termKey: terminalKey.value,
-    _sshStatus: "idle", _sshMessage: "", _sshTimeout: null,
+    _sshStatus: "idle",
+    _sshMessage: "",
+    _sshTimeout: null,
   };
 
   // Listen only to output events for this session
@@ -157,11 +231,15 @@ async function _initSession(container, projectId, sshCommand, isProject, project
     s.alive = false;
     if (isProject) setSshConnected(false, projectId);
     s.onAliveChange?.(false);
-    term.writeln("\r\n\x1b[2m[Process exited — press Restart to relaunch]\x1b[0m");
+    term.writeln(
+      "\r\n\x1b[2m[Process exited — press Restart to relaunch]\x1b[0m",
+    );
   });
 
   try {
-    const ptyAlive = await invoke("is_terminal_alive", { sessionId: projectId }).catch(() => false);
+    const ptyAlive = await invoke("is_terminal_alive", {
+      sessionId: projectId,
+    }).catch(() => false);
 
     if (!ptyAlive) {
       // Spawn a fresh PTY for this project
@@ -172,8 +250,12 @@ async function _initSession(container, projectId, sshCommand, isProject, project
             _setSessionStatus(s, "failed", "SSH connection timed out");
             setSshConnected(false, projectId);
             setSshConnecting(false, projectId);
-            term.writeln("\r\n\x1b[31m[SSH connection timed out after 30 seconds]\x1b[0m");
-            setTimeout(() => { if (s._sshStatus === "failed") _setSessionStatus(s, "idle", ""); }, 5000);
+            term.writeln(
+              "\r\n\x1b[31m[SSH connection timed out after 30 seconds]\x1b[0m",
+            );
+            setTimeout(() => {
+              if (s._sshStatus === "failed") _setSessionStatus(s, "idle", "");
+            }, 5000);
           }
         }, 30000);
       }
@@ -185,20 +267,30 @@ async function _initSession(container, projectId, sshCommand, isProject, project
       if (!sshCommand) setSshConnecting(false, projectId);
     } else if (sshCommand) {
       // PTY already running (spawned by dashboard connect) — send \r for a fresh prompt
-      setTimeout(() => invoke("pty_write", { sessionId: projectId, data: "\r" }), 150);
+      setTimeout(
+        () => invoke("pty_write", { sessionId: projectId, data: "\r" }),
+        150,
+      );
     }
   } catch (err) {
     term.writeln(`\r\n\x1b[31mFailed to spawn terminal: ${err}\x1b[0m`);
     if (sshCommand && isProject) {
-      if (s._sshTimeout) { clearTimeout(s._sshTimeout); s._sshTimeout = null; }
+      if (s._sshTimeout) {
+        clearTimeout(s._sshTimeout);
+        s._sshTimeout = null;
+      }
       _setSessionStatus(s, "failed", "Failed to spawn terminal");
       setSshConnected(false, projectId);
     }
     setSshConnecting(false, projectId);
   }
 
-  s.info = await invoke("get_terminal_info", { sessionId: projectId }).catch(() => null);
-  s.onData = term.onData((data) => invoke("pty_write", { sessionId: projectId, data }));
+  s.info = await invoke("get_terminal_info", { sessionId: projectId }).catch(
+    () => null,
+  );
+  s.onData = term.onData((data) =>
+    invoke("pty_write", { sessionId: projectId, data }),
+  );
   s.onResize = term.onResize(({ cols, rows }) => {
     s.onDimsChange?.({ cols, rows });
     invoke("pty_resize", { sessionId: projectId, rows, cols });
@@ -250,7 +342,13 @@ export function useTerminal({
       if (!_sessions.has(projectId)) {
         // Remove any other project's terminal element from the container before opening a new one
         _detachOtherSessions(container, null);
-        const s = await _initSession(container, projectId, sshCommand, isProject, projectPath);
+        const s = await _initSession(
+          container,
+          projectId,
+          sshCommand,
+          isProject,
+          projectPath,
+        );
         _sessions.set(projectId, s);
         s._termKey = terminalKey.value;
         if (cancelled) return;
@@ -318,7 +416,10 @@ export function useTerminal({
 
   async function kill() {
     const s = _sessions.get(projectId);
-    if (s?._sshTimeout) { clearTimeout(s._sshTimeout); s._sshTimeout = null; }
+    if (s?._sshTimeout) {
+      clearTimeout(s._sshTimeout);
+      s._sshTimeout = null;
+    }
     await invoke("kill_terminal", { sessionId: projectId });
     if (s) {
       if (s.isProject) setSshConnected(false, projectId);
@@ -334,7 +435,10 @@ export function useTerminal({
 
   async function restart() {
     const s = _sessions.get(projectId);
-    if (s?._sshTimeout) { clearTimeout(s._sshTimeout); s._sshTimeout = null; }
+    if (s?._sshTimeout) {
+      clearTimeout(s._sshTimeout);
+      s._sshTimeout = null;
+    }
     setSshStatus("idle");
     setSshMessageState("");
     setSshConnecting(false, projectId);
@@ -343,7 +447,13 @@ export function useTerminal({
     const container = containerRef.current;
     if (!container) return;
     _detachOtherSessions(container, null);
-    const newS = await _initSession(container, projectId, sshCommand, isProject, projectPath);
+    const newS = await _initSession(
+      container,
+      projectId,
+      sshCommand,
+      isProject,
+      projectPath,
+    );
     _sessions.set(projectId, newS);
     newS._termKey = terminalKey.value;
     newS.onAliveChange = (v) => setAlive(v);
@@ -364,5 +474,16 @@ export function useTerminal({
     _sessions.get(projectId)?.term?.focus();
   }
 
-  return { containerRef, dims, alive, info, sshStatus, sshMessage, clear, kill, restart, focus };
+  return {
+    containerRef,
+    dims,
+    alive,
+    info,
+    sshStatus,
+    sshMessage,
+    clear,
+    kill,
+    restart,
+    focus,
+  };
 }

@@ -4,19 +4,31 @@ import { projectRuns } from "./experiments.js";
 export const INTERPRETATION_METHODS = [
   { id: "gradcam", label: "GradCAM", desc: "Class activation mapping" },
   { id: "gradcampp", label: "GradCAM++", desc: "Better for multiple objects" },
-  { id: "integrated_gradients", label: "Integrated Gradients", desc: "Pixel-level attribution" },
+  {
+    id: "integrated_gradients",
+    label: "Integrated Gradients",
+    desc: "Pixel-level attribution",
+  },
   { id: "smoothgrad", label: "SmoothGrad", desc: "Noise-reduced gradients" },
-  { id: "attention_rollout", label: "Attention Rollout", desc: "For Vision Transformers" },
-  { id: "attention_flow", label: "Attention Flow", desc: "Transformer attention flow" },
+  {
+    id: "attention_rollout",
+    label: "Attention Rollout",
+    desc: "For Vision Transformers",
+  },
+  {
+    id: "attention_flow",
+    label: "Attention Flow",
+    desc: "Transformer attention flow",
+  },
 ];
 
 export const completedRuns = computed(() =>
-  projectRuns.value.filter((r) => r.status === "completed")
+  projectRuns.value.filter((r) => r.status === "completed"),
 );
 
 export const selectedRunId = signal("");
-export const selectedRun = computed(() =>
-  completedRuns.value.find((r) => r.id === selectedRunId.value) || null
+export const selectedRun = computed(
+  () => completedRuns.value.find((r) => r.id === selectedRunId.value) || null,
 );
 
 export const uploadedImage = signal(null);

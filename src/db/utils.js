@@ -1,4 +1,4 @@
-import { exportData, importData, clearAllData } from './database.js';
+import { exportData, importData, clearAllData } from "./database.js";
 
 /**
  * Export all data to a JSON file
@@ -7,10 +7,10 @@ export async function exportToJSON() {
   try {
     const data = await exportData();
     const json = JSON.stringify(data, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
+    const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
 
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `nightflow-backup-${Date.now()}.json`;
     a.click();
@@ -18,7 +18,7 @@ export async function exportToJSON() {
     URL.revokeObjectURL(url);
     return true;
   } catch (error) {
-    console.error('Failed to export data:', error);
+    console.error("Failed to export data:", error);
     return false;
   }
 }
@@ -33,16 +33,16 @@ export async function importFromJSON(file) {
 
     // Validate data structure
     if (!data.projects || !Array.isArray(data.projects)) {
-      throw new Error('Invalid backup file: missing projects array');
+      throw new Error("Invalid backup file: missing projects array");
     }
     if (!data.runs || !Array.isArray(data.runs)) {
-      throw new Error('Invalid backup file: missing runs array');
+      throw new Error("Invalid backup file: missing runs array");
     }
 
     await importData(data);
     return true;
   } catch (error) {
-    console.error('Failed to import data:', error);
+    console.error("Failed to import data:", error);
     return false;
   }
 }
@@ -55,7 +55,7 @@ export async function clearDatabase() {
     await clearAllData();
     return true;
   } catch (error) {
-    console.error('Failed to clear database:', error);
+    console.error("Failed to clear database:", error);
     return false;
   }
 }
@@ -72,7 +72,7 @@ export async function getDatabaseStats() {
       totalSize: JSON.stringify(data).length,
     };
   } catch (error) {
-    console.error('Failed to get database stats:', error);
+    console.error("Failed to get database stats:", error);
     return null;
   }
 }

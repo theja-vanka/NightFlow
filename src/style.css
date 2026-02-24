@@ -49,10 +49,16 @@
    ======================================== */
 
 :root {
-  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    sans-serif;
   color: var(--text-primary);
   background-color: var(--bg-primary);
-  transition: color 0.3s ease, background-color 0.3s ease;
+  transition:
+    color 0.3s ease,
+    background-color 0.3s ease;
 }
 
 * {
@@ -147,7 +153,9 @@ textarea {
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
-  transition: color 0.2s ease, background 0.2s ease;
+  transition:
+    color 0.2s ease,
+    background 0.2s ease;
   padding: 0;
 }
 
@@ -222,12 +230,16 @@ textarea {
   display: flex;
   align-items: center;
   gap: 14px;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 
 .summary-card:hover {
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent), 0 2px 12px var(--shadow-color);
+  box-shadow:
+    0 0 0 1px var(--accent),
+    0 2px 12px var(--shadow-color);
 }
 
 .summary-card-icon {
@@ -348,7 +360,9 @@ textarea {
 }
 
 @keyframes ssh-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .ssh-toggle-btn {
@@ -364,7 +378,10 @@ textarea {
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    opacity 0.15s;
 }
 
 .ssh-toggle-btn:hover {
@@ -469,7 +486,9 @@ textarea {
   align-items: center;
   justify-content: center;
   border-radius: 6px;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .modal-close-btn:hover {
@@ -519,7 +538,9 @@ textarea {
   font-weight: 600;
   cursor: pointer;
   border: none;
-  transition: background 0.15s, transform 0.1s;
+  transition:
+    background 0.15s,
+    transform 0.1s;
 }
 
 .btn:active {
@@ -660,8 +681,13 @@ textarea {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 /* ========================================
@@ -865,7 +891,9 @@ textarea {
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .terminal-toolbar-btn:hover {
@@ -1015,7 +1043,8 @@ textarea {
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
@@ -1040,7 +1069,6 @@ textarea {
 .terminal-xterm-container .xterm-viewport::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
-
 
 /* ========================================
    Settings View
@@ -1075,7 +1103,9 @@ textarea {
   border: none;
   border-bottom: 2px solid transparent;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
   margin-bottom: -1px;
 }
 
@@ -1189,7 +1219,9 @@ textarea {
   background: var(--bg-input);
   color: var(--text-primary);
   font-size: 0.82rem;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .settings-input:focus {
@@ -1229,7 +1261,9 @@ textarea {
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .settings-select:focus {
@@ -1265,7 +1299,9 @@ textarea {
   font-size: 0.78rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -1312,7 +1348,9 @@ textarea {
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .settings-danger-btn:hover {
@@ -1336,7 +1374,9 @@ textarea {
   opacity: 0;
   transform: translateY(8px);
   pointer-events: none;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
   margin-top: 8px;
 }
 
@@ -1366,7 +1406,9 @@ textarea {
   font-size: 0.78rem;
   font-weight: 500;
   cursor: pointer;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .settings-discard-btn:hover {
@@ -1631,7 +1673,9 @@ textarea {
   align-items: center;
   justify-content: center;
   font-size: 0;
-  transition: opacity 0.2s, transform 0.15s;
+  transition:
+    opacity 0.2s,
+    transform 0.15s;
   z-index: 999;
 }
 
@@ -1654,8 +1698,12 @@ textarea {
 }
 
 @keyframes resync-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ========================================
@@ -1848,7 +1896,9 @@ textarea {
   max-height: 0;
   overflow: hidden;
   opacity: 0;
-  transition: max-height 0.25s ease, opacity 0.2s ease;
+  transition:
+    max-height 0.25s ease,
+    opacity 0.2s ease;
 }
 
 .sidebar-projects-collapsible.open {
@@ -1900,7 +1950,9 @@ textarea {
   justify-content: center;
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.15s ease, background 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    background 0.15s ease;
   padding: 0;
   z-index: 2;
 }
@@ -1923,7 +1975,10 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    color 0.2s ease,
+    background 0.2s ease;
   padding: 0;
 }
 
@@ -1950,7 +2005,9 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: border-color 0.2s ease, color 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    color 0.2s ease;
   padding: 0;
 }
 
@@ -1975,8 +2032,12 @@ textarea {
 }
 
 @keyframes wizardFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .wizard-card {
@@ -1994,8 +2055,14 @@ textarea {
 }
 
 @keyframes wizardSlideUp {
-  from { transform: translateY(20px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .wizard-header {
@@ -2135,7 +2202,9 @@ textarea {
   font-weight: 500;
   cursor: pointer;
   text-align: center;
-  transition: border-color 0.2s ease, color 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    color 0.2s ease;
 }
 
 .wizard-option:hover {
@@ -2424,7 +2493,9 @@ select.wizard-input {
 }
 
 @keyframes wizard-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .wizard-ssh-spinner {
@@ -2582,7 +2653,9 @@ select.wizard-input {
   font-size: 0.8rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s ease, opacity 0.2s ease;
+  transition:
+    background 0.2s ease,
+    opacity 0.2s ease;
 }
 
 .wizard-btn-secondary {
@@ -3072,7 +3145,9 @@ select.wizard-input {
   font-size: 0.72rem;
   font-weight: 500;
   cursor: pointer;
-  transition: border-color 0.2s ease, color 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    color 0.2s ease;
 }
 
 .interp-method:hover {
@@ -3217,7 +3292,9 @@ select.wizard-input {
   background: none;
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
-  transition: border-color 0.2s ease, color 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    color 0.2s ease;
 }
 
 .interp-clear-btn:hover {
@@ -3288,7 +3365,9 @@ select.wizard-input {
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s ease, transform 0.1s ease;
+  transition:
+    background 0.2s ease,
+    transform 0.1s ease;
   margin-bottom: 48px;
 }
 
@@ -3443,7 +3522,9 @@ select.wizard-input {
   font-size: 0.72rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .training-stop-btn:hover {
@@ -3578,7 +3659,10 @@ select.wizard-input {
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+  transition:
+    background 0.2s,
+    transform 0.1s,
+    box-shadow 0.2s;
 }
 
 .start-training-btn:hover:not(:disabled) {
@@ -3643,7 +3727,8 @@ select.wizard-input {
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
@@ -3798,7 +3883,9 @@ select.wizard-input {
   border-radius: 6px;
   cursor: pointer;
   font-size: 13px;
-  transition: color 0.15s, border-color 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
   margin-bottom: 16px;
 }
 
@@ -3876,7 +3963,9 @@ select.wizard-input {
   font-weight: 500;
   cursor: pointer;
   text-transform: capitalize;
-  transition: color 0.15s, border-color 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
 }
 
 .run-detail-tab:hover {

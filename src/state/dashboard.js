@@ -1,10 +1,17 @@
 import { signal, computed } from "@preact/signals";
 import { invoke } from "@tauri-apps/api/core";
-import { projectRuns, loadRuns, allRuns, addRun, loadRunScalarsFromJsonl } from "./experiments.js";
+import {
+  projectRuns,
+  loadRuns,
+  allRuns,
+  addRun,
+  loadRunScalars,
+} from "./experiments.js";
 import { currentProject, currentProjectId } from "./projects.js";
 import { navigate, currentPage } from "./router.js";
 import { saveSyncMetadata, getSyncMetadata } from "../db/database.js";
 import { buildConfigYaml } from "../utils/configBuilder.js";
+import { getTrainingRunId } from "./training.js";
 
 // ── Per-project SSH state ─────────────────────────────────────────────────────
 // Each project maintains its own independent connection state.
@@ -41,24 +48,50 @@ function _setState(projectId, updates) {
 
 // ── Computed signals (always reflect the active project) ──────────────────────
 
-export const sshConnected = computed(() => _getState(currentProjectId.value).connected);
-export const sshConnecting = computed(() => _getState(currentProjectId.value).connecting);
-export const sshConnectedAt = computed(() => _getState(currentProjectId.value).connectedAt);
-export const shouldAutoConnect = computed(() => _getState(currentProjectId.value).shouldAutoConnect);
-export const dashboardSynced = computed(() => _getState(currentProjectId.value).synced);
-export const dashboardSyncing = computed(() => _getState(currentProjectId.value).syncing);
-export const syncProgress = computed(() => _getState(currentProjectId.value).syncProgress);
-export const syncShowingCompletion = computed(() => _getState(currentProjectId.value).syncShowingCompletion);
-export const sshConnectionError = computed(() => _getState(currentProjectId.value).error);
-export const condaInfo = computed(() => _getState(currentProjectId.value).condaInfo);
+export const sshConnected = computed(
+  () => _getState(currentProjectId.value).connected,
+);
+export const sshConnecting = computed(
+  () => _getState(currentProjectId.value).connecting,
+);
+export const sshConnectedAt = computed(
+  () => _getState(currentProjectId.value).connectedAt,
+);
+export const shouldAutoConnect = computed(
+  () => _getState(currentProjectId.value).shouldAutoConnect,
+);
+export const dashboardSynced = computed(
+  () => _getState(currentProjectId.value).synced,
+);
+export const dashboardSyncing = computed(
+  () => _getState(currentProjectId.value).syncing,
+);
+export const syncProgress = computed(
+  () => _getState(currentProjectId.value).syncProgress,
+);
+export const syncShowingCompletion = computed(
+  () => _getState(currentProjectId.value).syncShowingCompletion,
+);
+export const sshConnectionError = computed(
+  () => _getState(currentProjectId.value).error,
+);
+export const condaInfo = computed(
+  () => _getState(currentProjectId.value).condaInfo,
+);
 export const uvInfo = computed(() => _getState(currentProjectId.value).uvInfo);
-export const envInfo = computed(() => _getState(currentProjectId.value).envInfo);
-export const syncLogs = computed(() => _getState(currentProjectId.value).syncLogs);
+export const envInfo = computed(
+  () => _getState(currentProjectId.value).envInfo,
+);
+export const syncLogs = computed(
+  () => _getState(currentProjectId.value).syncLogs,
+);
 
 // ── Incremented to force useTerminal to tear down and reinitialize a session ──
 
 export const terminalKey = signal(0);
-export function bumpTerminalKey() { terminalKey.value++; }
+export function bumpTerminalKey() {
+  terminalKey.value++;
+}
 
 // ── Sync abort controller tracking ────────────────────────────────────────────
 
@@ -86,13 +119,25 @@ function addSyncLog(projectId, message, type = "info") {
 
   if (lowerMessage.includes("starting sync")) {
     progress = 5;
-  } else if (lowerMessage.includes("creating project directory") || lowerMessage.includes("directory ready")) {
+  } else if (
+    lowerMessage.includes("creating project directory") ||
+    lowerMessage.includes("directory ready")
+  ) {
     progress = Math.max(progress, 20);
-  } else if (lowerMessage.includes("checking conda") || lowerMessage.includes("checking uv")) {
+  } else if (
+    lowerMessage.includes("checking conda") ||
+    lowerMessage.includes("checking uv")
+  ) {
     progress = Math.max(progress, 30);
-  } else if (lowerMessage.includes("conda ready") || lowerMessage.includes("uv ready")) {
+  } else if (
+    lowerMessage.includes("conda ready") ||
+    lowerMessage.includes("uv ready")
+  ) {
     progress = Math.max(progress, 35);
-  } else if (lowerMessage.includes("setting up python") || lowerMessage.includes("python 3.12")) {
+  } else if (
+    lowerMessage.includes("setting up python") ||
+    lowerMessage.includes("python 3.12")
+  ) {
     progress = Math.max(progress, 40);
   } else if (lowerMessage.includes("python environment ready")) {
     progress = Math.max(progress, 55);
@@ -100,7 +145,10 @@ function addSyncLog(projectId, message, type = "info") {
     progress = Math.max(progress, 60);
   } else if (lowerMessage.includes("loading runs")) {
     progress = Math.max(progress, 90);
-  } else if (lowerMessage.includes("sync completed successfully") || lowerMessage.includes("imported")) {
+  } else if (
+    lowerMessage.includes("sync completed successfully") ||
+    lowerMessage.includes("imported")
+  ) {
     progress = 100;
   }
 
@@ -123,7 +171,9 @@ export const stats = computed(() => {
     ? Math.max(...completed.map((x) => x.bestAcc ?? 0))
     : null;
   const avgLoss = completed.length
-    ? +(completed.reduce((s, x) => s + (x.valLoss ?? 0), 0) / completed.length).toFixed(4)
+    ? +(
+      completed.reduce((s, x) => s + (x.valLoss ?? 0), 0) / completed.length
+    ).toFixed(4)
     : null;
   return {
     totalRuns: r.length,
@@ -146,7 +196,11 @@ export function setSshConnected(connected, projectId = currentProjectId.value) {
     synced: false,
   });
   // Navigate away from terminal if the active project disconnects
-  if (!connected && projectId === currentProjectId.value && currentPage.value === "terminal") {
+  if (
+    !connected &&
+    projectId === currentProjectId.value &&
+    currentPage.value === "terminal"
+  ) {
     navigate("dashboard");
   }
 }
@@ -182,7 +236,10 @@ export const sshInfo = computed(() => {
 // ── Dataset path status ───────────────────────────────────────────────────────
 
 export const datasetPathStatus = signal({
-  folderPath: null, trainPath: null, valPath: null, testPath: null,
+  folderPath: null,
+  trainPath: null,
+  valPath: null,
+  testPath: null,
 });
 
 // ── Error helpers ─────────────────────────────────────────────────────────────
@@ -218,10 +275,15 @@ export async function toggleSshConnection() {
     if (!project) return;
 
     const rawSsh = project.sshCommand;
-    const isSSH = rawSsh && rawSsh.trim() && rawSsh.trim().toLowerCase() !== "localhost";
+    const isSSH =
+      rawSsh && rawSsh.trim() && rawSsh.trim().toLowerCase() !== "localhost";
 
     // Kill any existing session for this project first
-    try { await invoke("kill_terminal", { sessionId: projectId }); } catch (_) { /* ignore errors */ }
+    try {
+      await invoke("kill_terminal", { sessionId: projectId });
+    } catch (_) {
+      /* ignore errors */
+    }
 
     if (isSSH) {
       setSshConnecting(true, projectId);
@@ -239,11 +301,16 @@ export async function toggleSshConnection() {
 
       // 2. Spawn the interactive PTY session for this project
       try {
-        await invoke("spawn_terminal", { sessionId: projectId, sshCommand: rawSsh.trim() });
+        await invoke("spawn_terminal", {
+          sessionId: projectId,
+          sshCommand: rawSsh.trim(),
+        });
       } catch (err) {
         setSshConnected(false, projectId);
         setSshConnecting(false, projectId);
-        _setState(projectId, { error: { message: `Failed to start SSH: ${err}` } });
+        _setState(projectId, {
+          error: { message: `Failed to start SSH: ${err}` },
+        });
         return;
       }
 
@@ -264,7 +331,12 @@ export async function toggleSshConnection() {
 
 export async function syncDashboard() {
   const projectId = currentProjectId.value;
-  _setState(projectId, { syncing: true, syncLogs: [], syncProgress: 0, syncShowingCompletion: false });
+  _setState(projectId, {
+    syncing: true,
+    syncLogs: [],
+    syncProgress: 0,
+    syncShowingCompletion: false,
+  });
   addSyncLog(projectId, "Starting sync...", "info");
 
   // Create abort controller for this sync
@@ -273,7 +345,10 @@ export async function syncDashboard() {
 
   // Set a global timeout of 5 minutes to prevent indefinite hanging
   const syncTimeout = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error("Sync operation timed out after 5 minutes")), 5 * 60 * 1000)
+    setTimeout(
+      () => reject(new Error("Sync operation timed out after 5 minutes")),
+      5 * 60 * 1000,
+    ),
   );
 
   try {
@@ -281,11 +356,19 @@ export async function syncDashboard() {
     addSyncLog(projectId, "Sync completed successfully ✓", "success");
 
     // Show 100% completion for 500ms
-    _setState(projectId, { syncShowingCompletion: true, syncProgress: 100, syncing: false });
-    await new Promise(resolve => setTimeout(resolve, 500));
+    _setState(projectId, {
+      syncShowingCompletion: true,
+      syncProgress: 100,
+      syncing: false,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
     // Mark as synced and hide completion screen
-    _setState(projectId, { synced: true, syncShowingCompletion: false, syncProgress: 0 });
+    _setState(projectId, {
+      synced: true,
+      syncShowingCompletion: false,
+      syncProgress: 0,
+    });
 
     // Persist sync metadata to IndexedDB
     const state = _getState(projectId);
@@ -309,7 +392,11 @@ export async function syncDashboard() {
       console.error("[syncDashboard] timeout or error:", err);
       addSyncLog(projectId, `Sync failed: ${err.message}`, "error");
     }
-    _setState(projectId, { syncing: false, syncProgress: 0, syncShowingCompletion: false });
+    _setState(projectId, {
+      syncing: false,
+      syncProgress: 0,
+      syncShowingCompletion: false,
+    });
   } finally {
     delete _syncAbortControllers[projectId];
   }
@@ -323,7 +410,8 @@ async function doSync(projectId, abortController) {
     const project = currentProject.value;
     if (project?.projectPath) {
       const rawSsh = project.sshCommand;
-      const isSSH = rawSsh && rawSsh.trim() && rawSsh.trim().toLowerCase() !== "localhost";
+      const isSSH =
+        rawSsh && rawSsh.trim() && rawSsh.trim().toLowerCase() !== "localhost";
 
       // Check abort signal before directory creation
       if (abortController.signal.aborted) throw new Error("AbortError");
@@ -331,23 +419,44 @@ async function doSync(projectId, abortController) {
       try {
         if (isSSH) {
           addSyncLog(projectId, `Connecting to SSH: ${rawSsh.trim()}`, "info");
-          addSyncLog(projectId, "Creating project directory on remote...", "info");
+          addSyncLog(
+            projectId,
+            "Creating project directory on remote...",
+            "info",
+          );
           await Promise.race([
-            invoke("ssh_mkdir", { sshCommand: rawSsh.trim(), path: project.projectPath }),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("ssh_mkdir timed out")), 30000))
+            invoke("ssh_mkdir", {
+              sshCommand: rawSsh.trim(),
+              path: project.projectPath,
+            }),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error("ssh_mkdir timed out")), 30000),
+            ),
           ]);
           addSyncLog(projectId, "Remote directory ready", "success");
         } else {
           addSyncLog(projectId, "Local mode", "info");
-          addSyncLog(projectId, "Creating project directory locally...", "info");
+          addSyncLog(
+            projectId,
+            "Creating project directory locally...",
+            "info",
+          );
           await Promise.race([
             invoke("ensure_project_dir", { path: project.projectPath }),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("ensure_project_dir timed out")), 10000))
+            new Promise((_, reject) =>
+              setTimeout(
+                () => reject(new Error("ensure_project_dir timed out")),
+                10000,
+              ),
+            ),
           ]);
           addSyncLog(projectId, "Local directory ready", "success");
         }
       } catch (dirErr) {
-        console.warn("[syncDashboard] Could not ensure project directory:", dirErr);
+        console.warn(
+          "[syncDashboard] Could not ensure project directory:",
+          dirErr,
+        );
         addSyncLog(projectId, `Warning: ${dirErr.message}`, "warning");
       }
 
@@ -372,14 +481,28 @@ async function doSync(projectId, abortController) {
         });
         if (condaResult.installed) {
           useConda = true;
-          addSyncLog(projectId, `conda ready (${condaResult.version || "installed"})`, "success");
+          addSyncLog(
+            projectId,
+            `conda ready (${condaResult.version || "installed"})`,
+            "success",
+          );
         } else {
           addSyncLog(projectId, "conda not found, falling back to uv", "info");
         }
       } catch (condaErr) {
         console.warn("[syncDashboard] conda check failed:", condaErr);
-        addSyncLog(projectId, "conda not available, falling back to uv", "info");
-        _setState(projectId, { condaInfo: { installed: false, version: null, message: `${condaErr}` } });
+        addSyncLog(
+          projectId,
+          "conda not available, falling back to uv",
+          "info",
+        );
+        _setState(projectId, {
+          condaInfo: {
+            installed: false,
+            version: null,
+            message: `${condaErr}`,
+          },
+        });
       }
 
       // If conda not available, ensure uv is installed
@@ -398,37 +521,65 @@ async function doSync(projectId, abortController) {
             },
           });
           if (uvResult.installed) {
-            addSyncLog(projectId, `uv ready (${uvResult.version || "installed"})`, "success");
+            addSyncLog(
+              projectId,
+              `uv ready (${uvResult.version || "installed"})`,
+              "success",
+            );
           } else {
-            addSyncLog(projectId, `uv not available: ${uvResult.message}`, "warning");
+            addSyncLog(
+              projectId,
+              `uv not available: ${uvResult.message}`,
+              "warning",
+            );
           }
         } catch (uvErr) {
           console.warn("[syncDashboard] uv check failed:", uvErr);
           addSyncLog(projectId, `uv check error: ${uvErr}`, "warning");
-          _setState(projectId, { uvInfo: { installed: false, version: null, message: `${uvErr}` } });
+          _setState(projectId, {
+            uvInfo: { installed: false, version: null, message: `${uvErr}` },
+          });
         }
       }
 
       // Set up Python venv with autotimm if it doesn't exist yet (can take a while)
       if (abortController.signal.aborted) throw new Error("AbortError");
       try {
-        addSyncLog(projectId, "Setting up Python 3.12 environment...", "info");
+        addSyncLog(projectId, "Setting up Python 3.12 environment with latest autotimm...", "info");
         const envPromise = isSSH
-          ? invoke("ssh_setup_python_env", { sshCommand: rawSsh.trim(), projectPath: project.projectPath })
+          ? invoke("ssh_setup_python_env", {
+            sshCommand: rawSsh.trim(),
+            projectPath: project.projectPath,
+          })
           : invoke("setup_python_env", { projectPath: project.projectPath });
 
         const timeout = isSSH ? 600000 : 300000; // 10 min for SSH, 5 min for local
         const envResult = await Promise.race([
           envPromise,
-          new Promise((_, reject) => setTimeout(() => reject(new Error("Python env setup timed out")), timeout))
+          new Promise((_, reject) =>
+            setTimeout(
+              () => reject(new Error("Python env setup timed out")),
+              timeout,
+            ),
+          ),
         ]);
 
         if (envResult.status === "error") {
-          addSyncLog(projectId, `Python env error: ${envResult.message}`, "warning");
-          _setState(projectId, { envInfo: { status: "error", message: envResult.message } });
+          addSyncLog(
+            projectId,
+            `Python env error: ${envResult.message}`,
+            "warning",
+          );
+          _setState(projectId, {
+            envInfo: { status: "error", message: envResult.message },
+          });
         } else {
           const versionInfo = `Python ${envResult.python_version || "?"}, autotimm ${envResult.autotimm_version || "?"}`;
-          addSyncLog(projectId, `Python environment ready (${versionInfo})`, "success");
+          addSyncLog(
+            projectId,
+            `Python environment ready (${versionInfo})`,
+            "success",
+          );
           _setState(projectId, {
             envInfo: {
               status: envResult.status,
@@ -441,23 +592,37 @@ async function doSync(projectId, abortController) {
       } catch (envErr) {
         console.warn("[syncDashboard] Python env setup failed:", envErr);
         addSyncLog(projectId, `Python env setup failed: ${envErr}`, "error");
-        _setState(projectId, { envInfo: { status: "error", message: `${envErr}` } });
+        _setState(projectId, {
+          envInfo: { status: "error", message: `${envErr}` },
+        });
       }
 
       addSyncLog(projectId, "Checking dataset paths...", "info");
-      const status = { folderPath: null, trainPath: null, valPath: null, testPath: null };
+      const status = {
+        folderPath: null,
+        trainPath: null,
+        valPath: null,
+        testPath: null,
+      };
       const pathsToCheck = [];
-      if (project.folderPath) pathsToCheck.push({ key: "folderPath", path: project.folderPath });
-      if (project.trainPath) pathsToCheck.push({ key: "trainPath", path: project.trainPath });
-      if (project.valPath) pathsToCheck.push({ key: "valPath", path: project.valPath });
-      if (project.testPath) pathsToCheck.push({ key: "testPath", path: project.testPath });
+      if (project.folderPath)
+        pathsToCheck.push({ key: "folderPath", path: project.folderPath });
+      if (project.trainPath)
+        pathsToCheck.push({ key: "trainPath", path: project.trainPath });
+      if (project.valPath)
+        pathsToCheck.push({ key: "valPath", path: project.valPath });
+      if (project.testPath)
+        pathsToCheck.push({ key: "testPath", path: project.testPath });
 
       if (pathsToCheck.length > 0) {
         await Promise.all(
           pathsToCheck.map(async ({ key, path }) => {
             try {
               status[key] = isSSH
-                ? await invoke("ssh_check_path", { sshCommand: rawSsh.trim(), path })
+                ? await invoke("ssh_check_path", {
+                  sshCommand: rawSsh.trim(),
+                  path,
+                })
                 : await invoke("check_path_exists", { path });
               if (status[key]) {
                 addSyncLog(projectId, `✓ ${key}: ${path}`, "success");
@@ -466,13 +631,16 @@ async function doSync(projectId, abortController) {
               }
             } catch {
               status[key] = null;
-              addSyncLog(projectId, `✗ Could not check ${key}: ${path}`, "warning");
+              addSyncLog(
+                projectId,
+                `✗ Could not check ${key}: ${path}`,
+                "warning",
+              );
             }
-          })
+          }),
         );
       }
       datasetPathStatus.value = status;
-
     }
 
     if (abortController.signal.aborted) throw new Error("AbortError");
@@ -483,19 +651,19 @@ async function doSync(projectId, abortController) {
     if (project.projectPath) {
       try {
         addSyncLog(projectId, "Scanning run logs...", "info");
-        const jsonlNames = await invoke("list_run_jsonl_files", {
+        const runIds = await invoke("list_run_folders", {
           projectPath: project.projectPath,
         });
 
-        if (jsonlNames && jsonlNames.length > 0) {
+        if (runIds && runIds.length > 0) {
           const existingById = new Map(
             allRuns.value
               .filter((r) => r.projectId === projectId)
-              .map((r) => [r.id, r])
+              .map((r) => [r.id, r]),
           );
 
-          // Create runs for JSONL files that have no matching run
-          for (const id of jsonlNames) {
+          // Create runs for discovered folders that have no matching run
+          for (const id of runIds) {
             if (!existingById.has(id)) {
               const newRun = {
                 id,
@@ -516,20 +684,24 @@ async function doSync(projectId, abortController) {
             }
           }
 
-          // Sync scalars from JSONL for all discovered runs (always refresh)
+          // Sync scalars from TensorBoard/JSONL for all discovered runs (always refresh)
           let synced = 0;
-          for (const id of jsonlNames) {
+          for (const id of runIds) {
             if (abortController.signal.aborted) throw new Error("AbortError");
             const run = existingById.get(id);
             if (!run) continue;
             try {
-              const result = await loadRunScalarsFromJsonl(run);
+              const result = await loadRunScalars(run);
               if (result) synced++;
             } catch {
-              // file may be empty or malformed — skip
+              // logs may be empty or malformed — skip
             }
           }
-          addSyncLog(projectId, `Synced metrics for ${synced} of ${jsonlNames.length} run(s)`, "success");
+          addSyncLog(
+            projectId,
+            `Synced metrics for ${synced} of ${runIds.length} run(s)`,
+            "success",
+          );
         } else {
           addSyncLog(projectId, "No run logs found", "info");
         }
@@ -553,15 +725,24 @@ async function doSync(projectId, abortController) {
 
 // ── Config YAML generation ─────────────────────────────────────────────────
 
-export async function syncConfig(project = currentProject.value, projectId = currentProjectId.value, runId = "default") {
+export async function syncConfig(
+  project = currentProject.value,
+  projectId = currentProjectId.value,
+  runId = null,
+) {
   if (!project || !project.projectPath) return;
 
-  const yaml = buildConfigYaml(project, runId);
-  const pp = project.projectPath.endsWith("/") ? project.projectPath.slice(0, -1) : project.projectPath;
+  // Use passed runId, or active training runId, or fallback to 'default'
+  const finalRunId = runId || getTrainingRunId(projectId) || "default";
+  const yaml = buildConfigYaml(project, finalRunId);
+  const pp = project.projectPath.endsWith("/")
+    ? project.projectPath.slice(0, -1)
+    : project.projectPath;
   const configPath = `${pp}/config.yaml`;
 
   const rawSsh = project.sshCommand;
-  const isSSH = rawSsh && rawSsh.trim() && rawSsh.trim().toLowerCase() !== "localhost";
+  const isSSH =
+    rawSsh && rawSsh.trim() && rawSsh.trim().toLowerCase() !== "localhost";
 
   try {
     if (isSSH) {

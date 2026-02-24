@@ -9,7 +9,8 @@ export default function SyncLogsPanel() {
   useEffect(() => {
     if (logsContainerRef.current) {
       setTimeout(() => {
-        logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
+        logsContainerRef.current.scrollTop =
+          logsContainerRef.current.scrollHeight;
       }, 0);
     }
   }, [syncLogs.value]);

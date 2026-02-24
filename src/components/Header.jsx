@@ -22,8 +22,16 @@ export function Header() {
           <span class="header-project-badge">{currentProject.value.name}</span>
         )}
       </div>
-      <button class="theme-toggle" onClick={toggleTheme} aria-label="Toggle theme">
-        <span dangerouslySetInnerHTML={{ __html: theme.value === "dark" ? sunIcon : moonIcon }} />
+      <button
+        class="theme-toggle"
+        onClick={toggleTheme}
+        aria-label="Toggle theme"
+      >
+        <span
+          dangerouslySetInnerHTML={{
+            __html: theme.value === "dark" ? sunIcon : moonIcon,
+          }}
+        />
       </button>
     </header>
   );

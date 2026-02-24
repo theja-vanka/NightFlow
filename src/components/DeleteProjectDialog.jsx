@@ -23,15 +23,23 @@ export function DeleteProjectDialog() {
   };
 
   return (
-    <div class="wizard-overlay" onClick={(e) => { if (e.target === e.currentTarget) closeDeleteDialog(); }}>
+    <div
+      class="wizard-overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) closeDeleteDialog();
+      }}
+    >
       <div class="delete-dialog">
         <div class="delete-dialog-header">
           <h2>Delete Project</h2>
-          <button class="wizard-close-btn" onClick={closeDeleteDialog}>&times;</button>
+          <button class="wizard-close-btn" onClick={closeDeleteDialog}>
+            &times;
+          </button>
         </div>
         <div class="delete-dialog-body">
           <p class="delete-dialog-warning">
-            This will permanently delete <strong>{project.name}</strong> and all its associated data. This action cannot be undone.
+            This will permanently delete <strong>{project.name}</strong> and all
+            its associated data. This action cannot be undone.
           </p>
           <p class="delete-dialog-prompt">
             Type <strong>delete</strong> to confirm:
@@ -41,7 +49,9 @@ export function DeleteProjectDialog() {
             type="text"
             placeholder="Type delete to confirm"
             value={deleteConfirmText.value}
-            onInput={(e) => { deleteConfirmText.value = e.target.value; }}
+            onInput={(e) => {
+              deleteConfirmText.value = e.target.value;
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && deleteConfirmed.value) handleDelete();
             }}
@@ -49,7 +59,10 @@ export function DeleteProjectDialog() {
           />
         </div>
         <div class="wizard-footer">
-          <button class="wizard-btn wizard-btn-secondary" onClick={closeDeleteDialog}>
+          <button
+            class="wizard-btn wizard-btn-secondary"
+            onClick={closeDeleteDialog}
+          >
             Cancel
           </button>
           <button

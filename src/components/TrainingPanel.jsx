@@ -30,6 +30,8 @@ function StatusLabel({ event, reconnected }) {
     tuning_started: "Auto-tuning...",
     tuning_complete: "Tuning complete",
     training_started: "Starting...",
+    testing_started: "Running tests...",
+    testing_complete: "Testing complete",
     epoch_started: "Training",
     batch_end: "Training",
     epoch_end: "Epoch complete",
@@ -67,7 +69,9 @@ export function TrainingPanel() {
   const isDone = event === "training_complete";
 
   return (
-    <div class={`training-panel${isError ? " training-panel--error" : isDone ? " training-panel--done" : ""}`}>
+    <div
+      class={`training-panel${isError ? " training-panel--error" : isDone ? " training-panel--done" : ""}`}
+    >
       <div class="training-panel-header">
         <div class="training-panel-title-row">
           {active && <div class="training-panel-spinner" />}
@@ -105,10 +109,23 @@ export function TrainingPanel() {
             )}
             {Object.entries(metrics).map(([key, val]) => {
               if (key === "train/loss" || key === "loss") return null;
-              const label = key.replace(/^(train|val|test)\//, "").replace(/_/g, " ");
-              const prefix = key.startsWith("val/") ? "Val" : key.startsWith("train/") ? "Train" : "";
+              const label = key
+                .replace(/^(train|val|test)\//, "")
+                .replace(/_/g, " ");
+              const prefix = key.startsWith("val/")
+                ? "Val"
+                : key.startsWith("train/")
+                  ? "Train"
+                  : key.startsWith("test/")
+                    ? "Test"
+                    : "";
               const displayLabel = prefix ? `${prefix} ${label}` : label;
-              const displayVal = typeof val === "number" ? (val < 1 && val > -1 ? val.toFixed(4) : val.toFixed(2)) : val;
+              const displayVal =
+                typeof val === "number"
+                  ? val < 1 && val > -1
+                    ? val.toFixed(4)
+                    : val.toFixed(2)
+                  : val;
               return (
                 <div class="training-stat" key={key}>
                   <span class="training-stat-label">{displayLabel}</span>
@@ -120,12 +137,12 @@ export function TrainingPanel() {
         </>
       )}
 
-      {isError && error && (
-        <div class="training-panel-error">{error}</div>
-      )}
+      {isError && error && <div class="training-panel-error">{error}</div>}
 
       {isDone && (
-        <div class="training-panel-done-msg">Training finished successfully.</div>
+        <div class="training-panel-done-msg">
+          Training finished successfully.
+        </div>
       )}
     </div>
   );

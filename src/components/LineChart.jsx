@@ -1,4 +1,10 @@
-export function LineChart({ series, width = 360, height = 180, yLabel = "", xLabel = "Epoch" }) {
+export function LineChart({
+  series,
+  width = 360,
+  height = 180,
+  yLabel = "",
+  xLabel = "Epoch",
+}) {
   // series: [{ label, data, dash? }]
   if (!series || !series.length) return <div class="chart-empty">No data</div>;
 
@@ -21,45 +27,107 @@ export function LineChart({ series, width = 360, height = 180, yLabel = "", xLab
 
   // Y-axis ticks
   const yTicks = 5;
-  const yTickValues = Array.from({ length: yTicks }, (_, i) => yMin + (yRange * i) / (yTicks - 1));
+  const yTickValues = Array.from(
+    { length: yTicks },
+    (_, i) => yMin + (yRange * i) / (yTicks - 1),
+  );
 
   // X-axis ticks
   const xTicks = Math.min(6, maxLen);
-  const xTickValues = Array.from({ length: xTicks }, (_, i) => Math.round((i / (xTicks - 1)) * (maxLen - 1)));
+  const xTickValues = Array.from({ length: xTicks }, (_, i) =>
+    Math.round((i / (xTicks - 1)) * (maxLen - 1)),
+  );
 
-  const strokes = ["#5b8def", "#f5a623", "#e55c7a", "#50c878", "#b07ce8", "#f06d3c", "#3cc7c7", "#d4a0f5"];
+  const strokes = [
+    "#5b8def",
+    "#f5a623",
+    "#e55c7a",
+    "#50c878",
+    "#b07ce8",
+    "#f06d3c",
+    "#3cc7c7",
+    "#d4a0f5",
+  ];
 
   return (
-    <svg class="line-chart" width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+    <svg
+      class="line-chart"
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+    >
       {/* Grid lines */}
       {yTickValues.map((v) => (
         <line
-          x1={pad.left} y1={toY(v)} x2={pad.left + cw} y2={toY(v)}
-          stroke="var(--border-color)" stroke-width="1"
+          x1={pad.left}
+          y1={toY(v)}
+          x2={pad.left + cw}
+          y2={toY(v)}
+          stroke="var(--border-color)"
+          stroke-width="1"
         />
       ))}
 
       {/* Axes */}
-      <line x1={pad.left} y1={pad.top} x2={pad.left} y2={pad.top + ch} stroke="var(--border-color)" stroke-width="1" />
-      <line x1={pad.left} y1={pad.top + ch} x2={pad.left + cw} y2={pad.top + ch} stroke="var(--border-color)" stroke-width="1" />
+      <line
+        x1={pad.left}
+        y1={pad.top}
+        x2={pad.left}
+        y2={pad.top + ch}
+        stroke="var(--border-color)"
+        stroke-width="1"
+      />
+      <line
+        x1={pad.left}
+        y1={pad.top + ch}
+        x2={pad.left + cw}
+        y2={pad.top + ch}
+        stroke="var(--border-color)"
+        stroke-width="1"
+      />
 
       {/* Y labels */}
       {yTickValues.map((v) => (
-        <text x={pad.left - 8} y={toY(v) + 4} text-anchor="end" class="chart-label">
+        <text
+          x={pad.left - 8}
+          y={toY(v) + 4}
+          text-anchor="end"
+          class="chart-label"
+        >
           {v < 1 ? v.toFixed(2) : v.toFixed(1)}
         </text>
       ))}
 
       {/* X labels */}
       {xTickValues.map((idx) => (
-        <text x={toX(idx)} y={pad.top + ch + 20} text-anchor="middle" class="chart-label">
+        <text
+          x={toX(idx)}
+          y={pad.top + ch + 20}
+          text-anchor="middle"
+          class="chart-label"
+        >
           {idx}
         </text>
       ))}
 
       {/* Axis titles */}
-      <text x={pad.left + cw / 2} y={height - 4} text-anchor="middle" class="chart-axis-title">{xLabel}</text>
-      <text x={14} y={pad.top + ch / 2} text-anchor="middle" class="chart-axis-title" transform={`rotate(-90, 14, ${pad.top + ch / 2})`}>{yLabel}</text>
+      <text
+        x={pad.left + cw / 2}
+        y={height - 4}
+        text-anchor="middle"
+        class="chart-axis-title"
+      >
+        {xLabel}
+      </text>
+      <text
+        x={14}
+        y={pad.top + ch / 2}
+        text-anchor="middle"
+        class="chart-axis-title"
+        transform={`rotate(-90, 14, ${pad.top + ch / 2})`}
+      >
+        {yLabel}
+      </text>
 
       {/* Data lines */}
       {series.map((s, si) => {
@@ -82,8 +150,18 @@ export function LineChart({ series, width = 360, height = 180, yLabel = "", xLab
       {/* Legend */}
       {series.map((s, si) => (
         <g transform={`translate(${pad.left + 6 + si * 90}, ${pad.top - 6})`}>
-          <line x1="0" y1="0" x2="12" y2="0" stroke={strokes[si % strokes.length]} stroke-width="1.5" stroke-dasharray={s.dash ? "4 3" : "none"} />
-          <text x="16" y="3" class="chart-legend-text">{s.label}</text>
+          <line
+            x1="0"
+            y1="0"
+            x2="12"
+            y2="0"
+            stroke={strokes[si % strokes.length]}
+            stroke-width="1.5"
+            stroke-dasharray={s.dash ? "4 3" : "none"}
+          />
+          <text x="16" y="3" class="chart-legend-text">
+            {s.label}
+          </text>
         </g>
       ))}
     </svg>

@@ -10,12 +10,18 @@ import {
 } from "../state/interpretation.js";
 
 const HEATMAP_GRADIENTS = {
-  gradcam: "radial-gradient(circle at 45% 40%, rgba(255,0,0,0.55) 0%, rgba(255,255,0,0.3) 35%, transparent 70%)",
-  gradcampp: "radial-gradient(ellipse at 50% 45%, rgba(255,0,0,0.5) 0%, rgba(255,165,0,0.35) 30%, rgba(255,255,0,0.2) 50%, transparent 75%)",
-  integrated_gradients: "linear-gradient(135deg, rgba(0,0,255,0.4) 0%, rgba(0,255,255,0.3) 25%, rgba(0,255,0,0.3) 50%, rgba(255,255,0,0.3) 75%, rgba(255,0,0,0.4) 100%)",
-  smoothgrad: "radial-gradient(circle at 50% 50%, rgba(255,80,80,0.4) 0%, rgba(255,200,50,0.25) 40%, transparent 65%)",
-  attention_rollout: "conic-gradient(from 0deg at 50% 50%, rgba(255,0,0,0.4), rgba(255,165,0,0.3), rgba(255,255,0,0.2), rgba(0,128,0,0.15), rgba(0,0,255,0.2), rgba(128,0,128,0.3), rgba(255,0,0,0.4))",
-  attention_flow: "radial-gradient(circle at 35% 35%, rgba(128,0,255,0.5) 0%, rgba(0,100,255,0.3) 40%, transparent 70%), radial-gradient(circle at 65% 60%, rgba(255,0,128,0.4) 0%, transparent 50%)",
+  gradcam:
+    "radial-gradient(circle at 45% 40%, rgba(255,0,0,0.55) 0%, rgba(255,255,0,0.3) 35%, transparent 70%)",
+  gradcampp:
+    "radial-gradient(ellipse at 50% 45%, rgba(255,0,0,0.5) 0%, rgba(255,165,0,0.35) 30%, rgba(255,255,0,0.2) 50%, transparent 75%)",
+  integrated_gradients:
+    "linear-gradient(135deg, rgba(0,0,255,0.4) 0%, rgba(0,255,255,0.3) 25%, rgba(0,255,0,0.3) 50%, rgba(255,255,0,0.3) 75%, rgba(255,0,0,0.4) 100%)",
+  smoothgrad:
+    "radial-gradient(circle at 50% 50%, rgba(255,80,80,0.4) 0%, rgba(255,200,50,0.25) 40%, transparent 65%)",
+  attention_rollout:
+    "conic-gradient(from 0deg at 50% 50%, rgba(255,0,0,0.4), rgba(255,165,0,0.3), rgba(255,255,0,0.2), rgba(0,128,0,0.15), rgba(0,0,255,0.2), rgba(128,0,128,0.3), rgba(255,0,0,0.4))",
+  attention_flow:
+    "radial-gradient(circle at 35% 35%, rgba(128,0,255,0.5) 0%, rgba(0,100,255,0.3) 40%, transparent 70%), radial-gradient(circle at 65% 60%, rgba(255,0,128,0.4) 0%, transparent 50%)",
 };
 
 function UploadZone() {
@@ -41,9 +47,30 @@ function UploadZone() {
   }
 
   return (
-    <div class="interp-upload" onDrop={handleDrop} onDragOver={handleDragOver} onClick={handleClick}>
-      <input ref={fileRef} type="file" accept="image/*" style="display:none" onChange={handleChange} />
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.3">
+    <div
+      class="interp-upload"
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
+      onClick={handleClick}
+    >
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        style="display:none"
+        onChange={handleChange}
+      />
+      <svg
+        width="48"
+        height="48"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        style="opacity:0.3"
+      >
         <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
         <circle cx="8.5" cy="8.5" r="1.5" />
         <polyline points="21 15 16 10 5 21" />
@@ -71,7 +98,10 @@ function ResultsPanel() {
             <div class="interp-panel-label">{m.label}</div>
             <div class="interp-image-wrap">
               <img class="interp-image" src={image.url} alt={m.label} />
-              <div class="interp-heatmap" style={{ background: HEATMAP_GRADIENTS[m.id] }} />
+              <div
+                class="interp-heatmap"
+                style={{ background: HEATMAP_GRADIENTS[m.id] }}
+              />
             </div>
             <div class="interp-panel-desc">{m.desc}</div>
           </div>
@@ -80,7 +110,9 @@ function ResultsPanel() {
       <div class="interp-info">
         <span class="interp-info-file">{image.name}</span>
       </div>
-      <button class="interp-clear-btn" onClick={clearImage}>Clear Image</button>
+      <button class="interp-clear-btn" onClick={clearImage}>
+        Clear Image
+      </button>
     </div>
   );
 }

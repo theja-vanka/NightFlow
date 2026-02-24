@@ -26,10 +26,18 @@ export function NetronView() {
           type="text"
           placeholder="Paste model URL (.onnx, .pt, .tflite, .pb, ...)"
           value={modelUrl.value}
-          onInput={(e) => { modelUrl.value = e.target.value; }}
-          onKeyDown={(e) => { if (e.key === "Enter") handleLoad(); }}
+          onInput={(e) => {
+            modelUrl.value = e.target.value;
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleLoad();
+          }}
         />
-        <button class="netron-btn netron-btn-primary" onClick={handleLoad} disabled={!modelUrl.value.trim()}>
+        <button
+          class="netron-btn netron-btn-primary"
+          onClick={handleLoad}
+          disabled={!modelUrl.value.trim()}
+        >
           Load
         </button>
         {loaded.value && (
@@ -48,17 +56,27 @@ export function NetronView() {
       ) : (
         <div class="netron-empty">
           <div class="netron-empty-icon">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="5" r="3"/>
-              <circle cx="5" cy="19" r="3"/>
-              <circle cx="19" cy="19" r="3"/>
-              <line x1="12" y1="8" x2="5" y2="16"/>
-              <line x1="12" y1="8" x2="19" y2="16"/>
+            <svg
+              width="48"
+              height="48"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="5" r="3" />
+              <circle cx="5" cy="19" r="3" />
+              <circle cx="19" cy="19" r="3" />
+              <line x1="12" y1="8" x2="5" y2="16" />
+              <line x1="12" y1="8" x2="19" y2="16" />
             </svg>
           </div>
           <p class="netron-empty-title">Netron Model Viewer</p>
           <p class="netron-empty-desc">
-            Paste a URL to an ONNX, TorchScript, TensorFlow, or other model file to visualize its architecture.
+            Paste a URL to an ONNX, TorchScript, TensorFlow, or other model file
+            to visualize its architecture.
           </p>
         </div>
       )}

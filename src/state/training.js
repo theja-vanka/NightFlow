@@ -10,9 +10,9 @@ const _trainingState = signal({}); // { [projectId]: TrainingState }
 
 const _defaultTraining = () => ({
   active: false,
-  reconnected: false,  // true if restored from an orphaned session
+  reconnected: false, // true if restored from an orphaned session
   runId: null,
-  event: null,         // last event type
+  event: null, // last event type
   epoch: 0,
   maxEpochs: 0,
   step: 0,
@@ -23,7 +23,7 @@ const _defaultTraining = () => ({
   fastDevRun: false,
   lossCurve: [],
   accCurve: [],
-  scalars: {},   // { [tag]: [{ step, value }] } — all metrics accumulated per epoch
+  scalars: {}, // { [tag]: [{ step, value }] } — all metrics accumulated per epoch
 });
 
 function _get(projectId) {
@@ -40,25 +40,45 @@ function _set(projectId, updates) {
 
 // ── Computed signals for active project ──────────────────────────────────────
 
-export const trainingActive = computed(() => _get(currentProjectId.value).active);
-export const trainingReconnected = computed(() => _get(currentProjectId.value).reconnected);
+export const trainingActive = computed(
+  () => _get(currentProjectId.value).active,
+);
+export const trainingReconnected = computed(
+  () => _get(currentProjectId.value).reconnected,
+);
 export const trainingEvent = computed(() => _get(currentProjectId.value).event);
 export const trainingEpoch = computed(() => _get(currentProjectId.value).epoch);
-export const trainingMaxEpochs = computed(() => _get(currentProjectId.value).maxEpochs);
+export const trainingMaxEpochs = computed(
+  () => _get(currentProjectId.value).maxEpochs,
+);
 export const trainingStep = computed(() => _get(currentProjectId.value).step);
-export const trainingTotalSteps = computed(() => _get(currentProjectId.value).totalSteps);
+export const trainingTotalSteps = computed(
+  () => _get(currentProjectId.value).totalSteps,
+);
 export const trainingLoss = computed(() => _get(currentProjectId.value).loss);
-export const trainingMetrics = computed(() => _get(currentProjectId.value).metrics);
+export const trainingMetrics = computed(
+  () => _get(currentProjectId.value).metrics,
+);
 export const trainingError = computed(() => _get(currentProjectId.value).error);
-export const trainingFastDevRun = computed(() => _get(currentProjectId.value).fastDevRun);
-export const trainingLossCurve = computed(() => _get(currentProjectId.value).lossCurve);
-export const trainingAccCurve = computed(() => _get(currentProjectId.value).accCurve);
+export const trainingFastDevRun = computed(
+  () => _get(currentProjectId.value).fastDevRun,
+);
+export const trainingLossCurve = computed(
+  () => _get(currentProjectId.value).lossCurve,
+);
+export const trainingAccCurve = computed(
+  () => _get(currentProjectId.value).accCurve,
+);
 
 export const trainingProgress = computed(() => {
   const s = _get(currentProjectId.value);
   if (!s.active || s.maxEpochs === 0) return 0;
   return Math.round(((s.epoch + 1) / s.maxEpochs) * 100);
 });
+
+export function getTrainingRunId(projectId) {
+  return _get(projectId).runId;
+}
 
 // ── Start / stop training ────────────────────────────────────────────────────
 
@@ -72,19 +92,29 @@ export async function startTraining(command, cwd, passedRunId) {
 
   // Collect hyperparameters from the project
   const hyperparameters = {};
-  if (project?.learningRate != null && project.learningRate !== "") hyperparameters.lr = Number(project.learningRate);
+  if (project?.learningRate != null && project.learningRate !== "")
+    hyperparameters.lr = Number(project.learningRate);
   if (project?.optimizer) hyperparameters.optimizer = project.optimizer;
-  if (project?.scheduler && project.scheduler !== "none") hyperparameters.scheduler = project.scheduler;
-  if (project?.weightDecay != null && project.weightDecay !== "") hyperparameters.weightDecay = Number(project.weightDecay);
-  if (project?.batchSize != null && project.batchSize !== "") hyperparameters.batchSize = Number(project.batchSize);
-  if (project?.maxEpochs != null && project.maxEpochs !== "") hyperparameters.maxEpochs = Number(project.maxEpochs);
-  if (project?.imageSize != null && project.imageSize !== "") hyperparameters.imageSize = Number(project.imageSize);
+  if (project?.scheduler && project.scheduler !== "none")
+    hyperparameters.scheduler = project.scheduler;
+  if (project?.weightDecay != null && project.weightDecay !== "")
+    hyperparameters.weightDecay = Number(project.weightDecay);
+  if (project?.batchSize != null && project.batchSize !== "")
+    hyperparameters.batchSize = Number(project.batchSize);
+  if (project?.maxEpochs != null && project.maxEpochs !== "")
+    hyperparameters.maxEpochs = Number(project.maxEpochs);
+  if (project?.imageSize != null && project.imageSize !== "")
+    hyperparameters.imageSize = Number(project.imageSize);
   if (project?.precision) hyperparameters.precision = project.precision;
-  if (project?.gradientClipVal != null && project.gradientClipVal !== "") hyperparameters.gradientClipVal = Number(project.gradientClipVal);
+  if (project?.gradientClipVal != null && project.gradientClipVal !== "")
+    hyperparameters.gradientClipVal = Number(project.gradientClipVal);
   if (project?.freezeBackbone) hyperparameters.freezeBackbone = true;
-  if (project?.seed != null && project.seed !== "") hyperparameters.seed = Number(project.seed);
-  if (project?.augmentationPreset) hyperparameters.augmentationPreset = project.augmentationPreset;
-  if (project?.numClasses != null && project.numClasses !== "") hyperparameters.numClasses = Number(project.numClasses);
+  if (project?.seed != null && project.seed !== "")
+    hyperparameters.seed = Number(project.seed);
+  if (project?.augmentationPreset)
+    hyperparameters.augmentationPreset = project.augmentationPreset;
+  if (project?.numClasses != null && project.numClasses !== "")
+    hyperparameters.numClasses = Number(project.numClasses);
 
   // Create a run record in experiments
   await addRun({
@@ -120,7 +150,11 @@ export async function startTraining(command, cwd, passedRunId) {
       cwd: cwd || project?.projectPath || null,
     });
   } catch (err) {
-    _set(projectId, { active: false, event: "training_error", error: `${err}` });
+    _set(projectId, {
+      active: false,
+      event: "training_error",
+      error: `${err}`,
+    });
     await updateRun(runId, { status: "failed" });
   }
 }
@@ -168,6 +202,14 @@ function _processEvent(session_id, data) {
 
     case "tuning_complete":
       _set(session_id, { event: "tuning_complete" });
+      break;
+
+    case "testing_started":
+      _set(session_id, { event: "testing_started" });
+      break;
+
+    case "testing_complete":
+      _set(session_id, { event: "testing_complete" });
       break;
 
     case "epoch_started":
@@ -315,15 +357,22 @@ export async function recoverOrphanedSessions() {
         // Run was lost from IndexedDB — recreate it
         runId = meta.run_id;
         const hp = {};
-        if (project.learningRate != null && project.learningRate !== "") hp.lr = Number(project.learningRate);
+        if (project.learningRate != null && project.learningRate !== "")
+          hp.lr = Number(project.learningRate);
         if (project.optimizer) hp.optimizer = project.optimizer;
-        if (project.scheduler && project.scheduler !== "none") hp.scheduler = project.scheduler;
-        if (project.weightDecay != null && project.weightDecay !== "") hp.weightDecay = Number(project.weightDecay);
-        if (project.batchSize != null && project.batchSize !== "") hp.batchSize = Number(project.batchSize);
-        if (project.maxEpochs != null && project.maxEpochs !== "") hp.maxEpochs = Number(project.maxEpochs);
-        if (project.imageSize != null && project.imageSize !== "") hp.imageSize = Number(project.imageSize);
+        if (project.scheduler && project.scheduler !== "none")
+          hp.scheduler = project.scheduler;
+        if (project.weightDecay != null && project.weightDecay !== "")
+          hp.weightDecay = Number(project.weightDecay);
+        if (project.batchSize != null && project.batchSize !== "")
+          hp.batchSize = Number(project.batchSize);
+        if (project.maxEpochs != null && project.maxEpochs !== "")
+          hp.maxEpochs = Number(project.maxEpochs);
+        if (project.imageSize != null && project.imageSize !== "")
+          hp.imageSize = Number(project.imageSize);
         if (project.precision) hp.precision = project.precision;
-        if (project.numClasses != null && project.numClasses !== "") hp.numClasses = Number(project.numClasses);
+        if (project.numClasses != null && project.numClasses !== "")
+          hp.numClasses = Number(project.numClasses);
         await addRun({
           id: runId,
           projectId,
@@ -362,13 +411,19 @@ export async function recoverOrphanedSessions() {
       if (result.alive) {
         // Process still running — override any stale error from the log
         // (e.g. a BrokenPipeError recorded when the app previously closed)
-        if (!stateAfterReplay.active || stateAfterReplay.event === "training_error") {
+        if (
+          !stateAfterReplay.active ||
+          stateAfterReplay.event === "training_error"
+        ) {
           _set(projectId, {
             active: true,
             reconnected: true,
-            event: stateAfterReplay.event === "training_error"
-              ? (stateAfterReplay.epoch > 0 ? "epoch_end" : "training_started")
-              : stateAfterReplay.event,
+            event:
+              stateAfterReplay.event === "training_error"
+                ? stateAfterReplay.epoch > 0
+                  ? "epoch_end"
+                  : "training_started"
+                : stateAfterReplay.event,
             error: null,
           });
           if (runId) {
@@ -376,7 +431,9 @@ export async function recoverOrphanedSessions() {
           }
         }
         // Start watching log file for new events
-        console.log(`[training] Reconnected to orphaned training for ${project.name} (PID ${meta.pid})`);
+        console.log(
+          `[training] Reconnected to orphaned training for ${project.name} (PID ${meta.pid})`,
+        );
         invoke("watch_training_log", {
           sessionId: projectId,
           logFile: meta.log_file,
@@ -388,19 +445,33 @@ export async function recoverOrphanedSessions() {
           _set(projectId, {
             active: false,
             reconnected: false,
-            event: stateAfterReplay.event === "training_complete" ? "training_complete" : "training_error",
-            error: stateAfterReplay.event === "training_complete" ? null : "Training process exited unexpectedly",
+            event:
+              stateAfterReplay.event === "training_complete"
+                ? "training_complete"
+                : "training_error",
+            error:
+              stateAfterReplay.event === "training_complete"
+                ? null
+                : "Training process exited unexpectedly",
           });
           if (runId) {
-            const finalStatus = stateAfterReplay.event === "training_complete" ? "completed" : "failed";
+            const finalStatus =
+              stateAfterReplay.event === "training_complete"
+                ? "completed"
+                : "failed";
             await updateRun(runId, { status: finalStatus });
           }
         }
-        console.log(`[training] Recovered completed/failed orphaned training for ${project.name}`);
+        console.log(
+          `[training] Recovered completed/failed orphaned training for ${project.name}`,
+        );
       }
     } catch (err) {
       // check_training_session can fail for non-local projects — ignore
-      console.debug(`[training] Could not check orphaned session for ${project.name}:`, err);
+      console.debug(
+        `[training] Could not check orphaned session for ${project.name}:`,
+        err,
+      );
     }
   }
 }
@@ -431,6 +502,12 @@ export async function initTrainingListeners() {
 }
 
 export function cleanupTrainingListeners() {
-  if (_unlistenEvent) { _unlistenEvent(); _unlistenEvent = null; }
-  if (_unlistenLog) { _unlistenLog(); _unlistenLog = null; }
+  if (_unlistenEvent) {
+    _unlistenEvent();
+    _unlistenEvent = null;
+  }
+  if (_unlistenLog) {
+    _unlistenLog();
+    _unlistenLog = null;
+  }
 }

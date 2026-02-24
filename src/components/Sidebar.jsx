@@ -1,6 +1,12 @@
 import { useState } from "preact/hooks";
 import { currentPage, navigate } from "../state/router.js";
-import { projectList, currentProjectId, selectProject, openWizard, openDeleteDialog } from "../state/projects.js";
+import {
+  projectList,
+  currentProjectId,
+  selectProject,
+  openWizard,
+  openDeleteDialog,
+} from "../state/projects.js";
 import { sshConnected, dashboardSynced } from "../state/dashboard.js";
 
 const navItems = [
@@ -64,11 +70,12 @@ export function Sidebar() {
         {visibleNavItems.map((item) => (
           <button
             key={item.id}
-            class={`sidebar-btn${currentPage.value === item.id ||
+            class={`sidebar-btn${
+              currentPage.value === item.id ||
               (item.id === "experiments" && currentPage.value === "run-detail")
-              ? " active"
-              : ""
-              }`}
+                ? " active"
+                : ""
+            }`}
             onClick={() => navigate(item.id)}
             title={item.label}
           >
@@ -83,9 +90,14 @@ export function Sidebar() {
           title={projectsOpen ? "Collapse projects" : "Expand projects"}
         >
           <span class="sidebar-projects-label">Projects</span>
-          <span class={`sidebar-projects-chevron${projectsOpen ? "" : " collapsed"}`} dangerouslySetInnerHTML={{ __html: chevronIcon }} />
+          <span
+            class={`sidebar-projects-chevron${projectsOpen ? "" : " collapsed"}`}
+            dangerouslySetInnerHTML={{ __html: chevronIcon }}
+          />
         </button>
-        <div class={`sidebar-projects-collapsible${projectsOpen ? " open" : ""}`}>
+        <div
+          class={`sidebar-projects-collapsible${projectsOpen ? " open" : ""}`}
+        >
           <div class="sidebar-projects-list">
             {projectList.value.map((p) => (
               <div key={p.id} class="sidebar-project-wrap">
@@ -98,7 +110,10 @@ export function Sidebar() {
                 </button>
                 <button
                   class="sidebar-project-delete"
-                  onClick={(e) => { e.stopPropagation(); openDeleteDialog(p.id); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openDeleteDialog(p.id);
+                  }}
                   title="Delete project"
                 >
                   &times;
@@ -107,7 +122,13 @@ export function Sidebar() {
             ))}
           </div>
         </div>
-        <button class="sidebar-add-btn" onClick={openWizard} title="New Project">+</button>
+        <button
+          class="sidebar-add-btn"
+          onClick={openWizard}
+          title="New Project"
+        >
+          +
+        </button>
       </div>
     </nav>
   );

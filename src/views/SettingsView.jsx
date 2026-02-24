@@ -18,13 +18,35 @@ import { projectList } from "../state/projects.js";
 import { navigate } from "../state/router.js";
 
 const EDITABLE_KEYS = [
-  "name", "connectionType", "sshCommand", "projectPath", "modelCategory",
-  "detectionArch", "segHeadType", "datasetFormat", "folderPath",
-  "trainPath", "valPath", "testPath", "numClasses", "powerUserMode",
-  "maxEpochs", "learningRate", "batchSize", "optimizer", "scheduler",
-  "weightDecay", "precision", "gradientClipVal", "imageSize",
-  "augmentationPreset", "freezeBackbone", "seed",
-  "earlyStopping", "earlyStoppingPatience", "earlyStoppingMonitor",
+  "name",
+  "connectionType",
+  "sshCommand",
+  "projectPath",
+  "modelCategory",
+  "detectionArch",
+  "segHeadType",
+  "datasetFormat",
+  "folderPath",
+  "trainPath",
+  "valPath",
+  "testPath",
+  "numClasses",
+  "powerUserMode",
+  "maxEpochs",
+  "learningRate",
+  "batchSize",
+  "optimizer",
+  "scheduler",
+  "weightDecay",
+  "precision",
+  "gradientClipVal",
+  "imageSize",
+  "augmentationPreset",
+  "freezeBackbone",
+  "seed",
+  "earlyStopping",
+  "earlyStoppingPatience",
+  "earlyStoppingMonitor",
 ];
 
 // Read-only fields that need to be included in draft for rendering
@@ -52,7 +74,11 @@ function isDirty(draft, source) {
 }
 
 const PATH_BASE = "~/nightflow/projects/";
-const sanitizeForPath = (n) => n.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+const sanitizeForPath = (n) =>
+  n
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 
 const sunIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
 const moonIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
@@ -81,11 +107,15 @@ function ClearAllDataRow() {
   }
 
   return (
-    <div class="settings-card-row settings-row-between" style="margin-top: 12px;">
+    <div
+      class="settings-card-row settings-row-between"
+      style="margin-top: 12px;"
+    >
       <div>
         <div class="settings-label">Clear all data</div>
         <div class="settings-desc">
-          Wipe all projects, runs, and metrics from the app. This cannot be undone.
+          Wipe all projects, runs, and metrics from the app. This cannot be
+          undone.
         </div>
       </div>
       {!confirming ? (
@@ -149,7 +179,12 @@ export function SettingsView() {
     }
   }, [proj?.id]);
 
-  if (!proj) return <div class="settings-view"><p class="settings-empty">No project selected.</p></div>;
+  if (!proj)
+    return (
+      <div class="settings-view">
+        <p class="settings-empty">No project selected.</p>
+      </div>
+    );
 
   const [activeTab, setActiveTab] = useState("general");
   const locked = sshConnected.value;
@@ -185,13 +220,15 @@ export function SettingsView() {
   async function handleSave() {
     try {
       const normalized = { ...draft };
-      if (normalized.projectPath) normalized.projectPath = ensureTrailingSlash(normalized.projectPath);
-      if (normalized.folderPath) normalized.folderPath = ensureTrailingSlash(normalized.folderPath);
+      if (normalized.projectPath)
+        normalized.projectPath = ensureTrailingSlash(normalized.projectPath);
+      if (normalized.folderPath)
+        normalized.folderPath = ensureTrailingSlash(normalized.folderPath);
       await updateProject(proj.id, normalized);
       // Regenerate config.yaml with updated settings
       const updatedProject = { ...proj, ...draft };
       syncConfig(updatedProject, proj.id).catch((err) =>
-        console.warn("[handleSave] syncConfig error:", err)
+        console.warn("[handleSave] syncConfig error:", err),
       );
       setSaved(true);
       clearTimeout(savedTimer.current);
@@ -215,7 +252,9 @@ export function SettingsView() {
     ? MODEL_CATEGORIES[draft.modelCategory]?.desc
     : null;
 
-  const derivedProjectPath = draft.name ? `${PATH_BASE}${sanitizeForPath(draft.name)}` : PATH_BASE;
+  const derivedProjectPath = draft.name
+    ? `${PATH_BASE}${sanitizeForPath(draft.name)}`
+    : PATH_BASE;
 
   return (
     <div class="settings-view">
@@ -246,381 +285,428 @@ export function SettingsView() {
 
       {/* ─── General Tab ─── */}
       {activeTab === "general" && (
-      <>
-
-      {/* General */}
-      <section class="settings-section">
-        <div class="settings-section-header">
-          <h2 class="settings-heading">General</h2>
-          <p class="settings-heading-desc">Basic project identity and connection</p>
-        </div>
-        <div class="settings-card">
-          <div class="settings-card-row">
-            <label class="settings-field">
-              <span class="settings-label">Project ID</span>
-              <span class="settings-hint">Unique identifier (read-only)</span>
-              <input
-                class="settings-input settings-input-mono"
-                type="text"
-                value={proj.id}
-                disabled
-                readOnly
-              />
-            </label>
-          </div>
-          <div class="settings-card-divider" />
-          <div class="settings-card-row">
-            <label class="settings-field">
-              <span class="settings-label">Project Name</span>
-              <input
-                class="settings-input"
-                type="text"
-                value={draft.name}
-                placeholder="My Project"
-                disabled={locked}
-                onInput={(e) => set("name", e.target.value)}
-              />
-            </label>
-          </div>
-          <div class="settings-card-divider" />
-          <div class="settings-card-row">
-            <label class="settings-field">
-              <span class="settings-label">Project Path</span>
-              <input
-                class="settings-input settings-input-mono"
-                type="text"
-                value={draft.projectPath || ""}
-                placeholder={derivedProjectPath}
-                disabled={locked}
-                onInput={(e) => set("projectPath", e.target.value)}
-              />
-            </label>
-          </div>
-          <div class="settings-card-divider" />
-          <div class="settings-card-row settings-row-grid">
-            <label class="settings-field">
-              <span class="settings-label">Connection Type</span>
-              <span class="settings-hint">Where to run training</span>
-              <div class="settings-select-wrap">
-                <select
-                  class="settings-select"
-                  value={draft.connectionType || "localhost"}
-                  disabled={locked}
-                  onChange={(e) => {
-                    const newType = e.target.value;
-                    set("connectionType", newType);
-                    if (newType === "localhost") {
-                      set("sshCommand", "localhost");
-                    } else if (draft.sshCommand === "localhost") {
-                      set("sshCommand", "");
+        <>
+          {/* General */}
+          <section class="settings-section">
+            <div class="settings-section-header">
+              <h2 class="settings-heading">General</h2>
+              <p class="settings-heading-desc">
+                Basic project identity and connection
+              </p>
+            </div>
+            <div class="settings-card">
+              <div class="settings-card-row">
+                <label class="settings-field">
+                  <span class="settings-label">Project ID</span>
+                  <span class="settings-hint">
+                    Unique identifier (read-only)
+                  </span>
+                  <input
+                    class="settings-input settings-input-mono"
+                    type="text"
+                    value={proj.id}
+                    disabled
+                    readOnly
+                  />
+                </label>
+              </div>
+              <div class="settings-card-divider" />
+              <div class="settings-card-row">
+                <label class="settings-field">
+                  <span class="settings-label">Project Name</span>
+                  <input
+                    class="settings-input"
+                    type="text"
+                    value={draft.name}
+                    placeholder="My Project"
+                    disabled={locked}
+                    onInput={(e) => set("name", e.target.value)}
+                  />
+                </label>
+              </div>
+              <div class="settings-card-divider" />
+              <div class="settings-card-row">
+                <label class="settings-field">
+                  <span class="settings-label">Project Path</span>
+                  <input
+                    class="settings-input settings-input-mono"
+                    type="text"
+                    value={draft.projectPath || ""}
+                    placeholder={derivedProjectPath}
+                    disabled={locked}
+                    onInput={(e) => set("projectPath", e.target.value)}
+                  />
+                </label>
+              </div>
+              <div class="settings-card-divider" />
+              <div class="settings-card-row settings-row-grid">
+                <label class="settings-field">
+                  <span class="settings-label">Connection Type</span>
+                  <span class="settings-hint">Where to run training</span>
+                  <div class="settings-select-wrap">
+                    <select
+                      class="settings-select"
+                      value={draft.connectionType || "localhost"}
+                      disabled={locked}
+                      onChange={(e) => {
+                        const newType = e.target.value;
+                        set("connectionType", newType);
+                        if (newType === "localhost") {
+                          set("sshCommand", "localhost");
+                        } else if (draft.sshCommand === "localhost") {
+                          set("sshCommand", "");
+                        }
+                      }}
+                    >
+                      <option value="localhost">Localhost</option>
+                      <option value="remote">Remote Instance</option>
+                    </select>
+                  </div>
+                </label>
+                <label class="settings-field">
+                  <span class="settings-label">SSH Command</span>
+                  <span class="settings-hint">
+                    {draft.connectionType === "remote"
+                      ? "Remote machine connection string"
+                      : "Set to localhost"}
+                  </span>
+                  <input
+                    class="settings-input settings-input-mono"
+                    type="text"
+                    value={draft.sshCommand}
+                    placeholder={
+                      draft.connectionType === "remote"
+                        ? "ssh user@host"
+                        : "localhost"
                     }
-                  }}
-                >
-                  <option value="localhost">Localhost</option>
-                  <option value="remote">Remote Instance</option>
-                </select>
+                    disabled={locked || draft.connectionType !== "remote"}
+                    onInput={(e) => set("sshCommand", e.target.value)}
+                  />
+                </label>
               </div>
-            </label>
-            <label class="settings-field">
-              <span class="settings-label">SSH Command</span>
-              <span class="settings-hint">
-                {draft.connectionType === "remote" ? "Remote machine connection string" : "Set to localhost"}
-              </span>
-              <input
-                class="settings-input settings-input-mono"
-                type="text"
-                value={draft.sshCommand}
-                placeholder={draft.connectionType === "remote" ? "ssh user@host" : "localhost"}
-                disabled={locked || draft.connectionType !== "remote"}
-                onInput={(e) => set("sshCommand", e.target.value)}
-              />
-            </label>
-          </div>
-        </div>
-      </section>
+            </div>
+          </section>
 
-      {/* Training */}
-      <section class="settings-section">
-        <div class="settings-section-header">
-          <h2 class="settings-heading">Training</h2>
-          <p class="settings-heading-desc">Task configuration and model selection</p>
-        </div>
-        <div class="settings-card">
-          <div class="settings-card-row settings-row-grid">
-            <label class="settings-field">
-              <span class="settings-label">Task Type</span>
-              <span class="settings-hint">Set at project creation (read-only)</span>
-              <div class="settings-select-wrap">
-                <select
-                  class="settings-select"
-                  value={draft.taskType}
-                  disabled
-                  onChange={(e) => onTaskTypeChange(e.target.value)}
-                >
-                  {TASK_TYPES.map((t) => (
-                    <option key={t.id} value={t.id}>{t.label}</option>
-                  ))}
-                </select>
-                <span class="settings-select-chevron" />
-              </div>
-            </label>
-            <label class="settings-field">
-              <span class="settings-label">Model Category</span>
-              <span class="settings-hint">Deployment target tier</span>
-              <div class="settings-select-wrap">
-                <select
-                  class="settings-select"
-                  value={draft.modelCategory}
-                  disabled={locked}
-                  onChange={(e) => set("modelCategory", e.target.value)}
-                >
-                  <option value="">Select category</option>
-                  {Object.keys(MODEL_CATEGORIES).map((k) => (
-                    <option key={k} value={k}>{k}</option>
-                  ))}
-                </select>
-                <span class="settings-select-chevron" />
-              </div>
-            </label>
-          </div>
-          {modelCatDesc && (
-            <div class="settings-card-note">{modelCatDesc}</div>
-          )}
-
-          {isDetection && (
-            <>
-              <div class="settings-card-divider" />
-              <div class="settings-card-row">
+          {/* Training */}
+          <section class="settings-section">
+            <div class="settings-section-header">
+              <h2 class="settings-heading">Training</h2>
+              <p class="settings-heading-desc">
+                Task configuration and model selection
+              </p>
+            </div>
+            <div class="settings-card">
+              <div class="settings-card-row settings-row-grid">
                 <label class="settings-field">
-                  <span class="settings-label">Detection Architecture</span>
-                  <div class="settings-select-wrap settings-select-narrow">
+                  <span class="settings-label">Task Type</span>
+                  <span class="settings-hint">
+                    Set at project creation (read-only)
+                  </span>
+                  <div class="settings-select-wrap">
                     <select
                       class="settings-select"
-                      value={draft.detectionArch}
-                      disabled={locked}
-                      onChange={(e) => set("detectionArch", e.target.value)}
+                      value={draft.taskType}
+                      disabled
+                      onChange={(e) => onTaskTypeChange(e.target.value)}
                     >
-                      {DETECTION_ARCHS.map((a) => (
-                        <option key={a} value={a}>{a}</option>
+                      {TASK_TYPES.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.label}
+                        </option>
+                      ))}
+                    </select>
+                    <span class="settings-select-chevron" />
+                  </div>
+                </label>
+                <label class="settings-field">
+                  <span class="settings-label">Model Category</span>
+                  <span class="settings-hint">Deployment target tier</span>
+                  <div class="settings-select-wrap">
+                    <select
+                      class="settings-select"
+                      value={draft.modelCategory}
+                      disabled={locked}
+                      onChange={(e) => set("modelCategory", e.target.value)}
+                    >
+                      <option value="">Select category</option>
+                      {Object.keys(MODEL_CATEGORIES).map((k) => (
+                        <option key={k} value={k}>
+                          {k}
+                        </option>
                       ))}
                     </select>
                     <span class="settings-select-chevron" />
                   </div>
                 </label>
               </div>
-            </>
-          )}
-          {isSegmentation && (
-            <>
-              <div class="settings-card-divider" />
+              {modelCatDesc && (
+                <div class="settings-card-note">{modelCatDesc}</div>
+              )}
+
+              {isDetection && (
+                <>
+                  <div class="settings-card-divider" />
+                  <div class="settings-card-row">
+                    <label class="settings-field">
+                      <span class="settings-label">Detection Architecture</span>
+                      <div class="settings-select-wrap settings-select-narrow">
+                        <select
+                          class="settings-select"
+                          value={draft.detectionArch}
+                          disabled={locked}
+                          onChange={(e) => set("detectionArch", e.target.value)}
+                        >
+                          {DETECTION_ARCHS.map((a) => (
+                            <option key={a} value={a}>
+                              {a}
+                            </option>
+                          ))}
+                        </select>
+                        <span class="settings-select-chevron" />
+                      </div>
+                    </label>
+                  </div>
+                </>
+              )}
+              {isSegmentation && (
+                <>
+                  <div class="settings-card-divider" />
+                  <div class="settings-card-row">
+                    <label class="settings-field">
+                      <span class="settings-label">Segmentation Head</span>
+                      <div class="settings-select-wrap settings-select-narrow">
+                        <select
+                          class="settings-select"
+                          value={draft.segHeadType}
+                          disabled={locked}
+                          onChange={(e) => set("segHeadType", e.target.value)}
+                        >
+                          {SEG_HEAD_TYPES.map((s) => (
+                            <option key={s} value={s}>
+                              {s}
+                            </option>
+                          ))}
+                        </select>
+                        <span class="settings-select-chevron" />
+                      </div>
+                    </label>
+                  </div>
+                </>
+              )}
+            </div>
+          </section>
+
+          {/* Dataset */}
+          <section class="settings-section">
+            <div class="settings-section-header">
+              <h2 class="settings-heading">Dataset</h2>
+              <p class="settings-heading-desc">
+                Data format and paths for training pipeline
+              </p>
+            </div>
+            <div class="settings-card">
               <div class="settings-card-row">
                 <label class="settings-field">
-                  <span class="settings-label">Segmentation Head</span>
-                  <div class="settings-select-wrap settings-select-narrow">
+                  <span class="settings-label">Format</span>
+                  <span class="settings-hint">
+                    {datasetFormats.length} format
+                    {datasetFormats.length !== 1 ? "s" : ""} available for{" "}
+                    {draft.taskType}
+                  </span>
+                  <div class="settings-select-wrap">
                     <select
                       class="settings-select"
-                      value={draft.segHeadType}
+                      value={draft.datasetFormat || ""}
                       disabled={locked}
-                      onChange={(e) => set("segHeadType", e.target.value)}
+                      onChange={(e) => set("datasetFormat", e.target.value)}
                     >
-                      {SEG_HEAD_TYPES.map((s) => (
-                        <option key={s} value={s}>{s}</option>
+                      <option value="">Select format</option>
+                      {datasetFormats.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.label}
+                        </option>
                       ))}
                     </select>
                     <span class="settings-select-chevron" />
                   </div>
                 </label>
               </div>
-            </>
-          )}
-        </div>
-      </section>
 
-      {/* Dataset */}
-      <section class="settings-section">
-        <div class="settings-section-header">
-          <h2 class="settings-heading">Dataset</h2>
-          <p class="settings-heading-desc">Data format and paths for training pipeline</p>
-        </div>
-        <div class="settings-card">
-          <div class="settings-card-row">
-            <label class="settings-field">
-              <span class="settings-label">Format</span>
-              <span class="settings-hint">
-                {datasetFormats.length} format{datasetFormats.length !== 1 ? "s" : ""} available for {draft.taskType}
-              </span>
-              <div class="settings-select-wrap">
-                <select
-                  class="settings-select"
-                  value={draft.datasetFormat || ""}
+              {draft.datasetFormat &&
+                draft.datasetFormat !== "CSV" &&
+                draft.datasetFormat !== "JSONL" && (
+                  <>
+                    <div class="settings-card-divider" />
+                    <div class="settings-card-row">
+                      <label class="settings-field">
+                        <span class="settings-label">Dataset Folder Path</span>
+                        <span class="settings-hint">
+                          Path to {draft.datasetFormat} dataset folder
+                        </span>
+                        <input
+                          class="settings-input settings-input-mono"
+                          type="text"
+                          value={draft.folderPath || ""}
+                          placeholder="/path/to/dataset"
+                          disabled={locked}
+                          onInput={(e) => set("folderPath", e.target.value)}
+                        />
+                      </label>
+                    </div>
+                  </>
+                )}
+
+              {(draft.datasetFormat === "CSV" ||
+                draft.datasetFormat === "JSONL") && (
+                  <>
+                    <div class="settings-card-divider" />
+                    <div class="settings-card-row">
+                      <label class="settings-field">
+                        <span class="settings-label">Train Path</span>
+                        <span class="settings-hint">
+                          Path to training data file
+                        </span>
+                        <input
+                          class="settings-input settings-input-mono"
+                          type="text"
+                          value={draft.trainPath || ""}
+                          placeholder={`/path/to/train.${draft.datasetFormat.toLowerCase()}`}
+                          disabled={locked}
+                          onInput={(e) => set("trainPath", e.target.value)}
+                        />
+                      </label>
+                    </div>
+                    <div class="settings-card-divider" />
+                    <div class="settings-card-row">
+                      <label class="settings-field">
+                        <span class="settings-label">Val Path</span>
+                        <span class="settings-hint">
+                          Path to validation data file (optional)
+                        </span>
+                        <input
+                          class="settings-input settings-input-mono"
+                          type="text"
+                          value={draft.valPath || ""}
+                          placeholder={`/path/to/val.${draft.datasetFormat.toLowerCase()}`}
+                          disabled={locked}
+                          onInput={(e) => set("valPath", e.target.value)}
+                        />
+                      </label>
+                    </div>
+                    <div class="settings-card-divider" />
+                    <div class="settings-card-row">
+                      <label class="settings-field">
+                        <span class="settings-label">Test Path</span>
+                        <span class="settings-hint">Path to test data file</span>
+                        <input
+                          class="settings-input settings-input-mono"
+                          type="text"
+                          value={draft.testPath || ""}
+                          placeholder={`/path/to/test.${draft.datasetFormat.toLowerCase()}`}
+                          disabled={locked}
+                          onInput={(e) => set("testPath", e.target.value)}
+                        />
+                      </label>
+                    </div>
+                  </>
+                )}
+
+              <div class="settings-card-divider" />
+              <div class="settings-card-row">
+                <label class="settings-field">
+                  <span class="settings-label">Number of Classes</span>
+                  <span class="settings-hint">
+                    Target classes in your dataset
+                  </span>
+                  <input
+                    class="settings-input"
+                    type="number"
+                    min="2"
+                    value={draft.numClasses}
+                    placeholder="e.g. 10"
+                    disabled={locked}
+                    onInput={(e) =>
+                      set(
+                        "numClasses",
+                        e.target.value === "" ? "" : Number(e.target.value),
+                      )
+                    }
+                  />
+                </label>
+              </div>
+            </div>
+          </section>
+
+          {/* Appearance */}
+          <section class="settings-section">
+            <div class="settings-section-header">
+              <h2 class="settings-heading">Appearance</h2>
+              <p class="settings-heading-desc">Visual preferences</p>
+            </div>
+            <div class="settings-card">
+              <div class="settings-card-row settings-row-between">
+                <div>
+                  <div class="settings-label">Theme</div>
+                  <div class="settings-desc">
+                    Switch between dark and light mode
+                  </div>
+                </div>
+                <button class="settings-theme-btn" onClick={toggleTheme}>
+                  <span
+                    class="settings-theme-icon"
+                    dangerouslySetInnerHTML={{
+                      __html: theme.value === "dark" ? sunIcon : moonIcon,
+                    }}
+                  />
+                  {theme.value === "dark" ? "Dark" : "Light"}
+                </button>
+              </div>
+              <div class="settings-card-divider" />
+              <div class="settings-card-row settings-row-between">
+                <div>
+                  <div class="settings-label">Power User Mode</div>
+                  <div class="settings-desc">
+                    Enable advanced features and controls
+                  </div>
+                </div>
+                <button
+                  class="settings-theme-btn"
                   disabled={locked}
-                  onChange={(e) => set("datasetFormat", e.target.value)}
+                  onClick={() => set("powerUserMode", !draft.powerUserMode)}
                 >
-                  <option value="">Select format</option>
-                  {datasetFormats.map((f) => (
-                    <option key={f.id} value={f.id}>{f.label}</option>
-                  ))}
-                </select>
-                <span class="settings-select-chevron" />
-              </div>
-            </label>
-          </div>
-
-          {draft.datasetFormat && draft.datasetFormat !== "CSV" && draft.datasetFormat !== "JSONL" && (
-            <>
-              <div class="settings-card-divider" />
-              <div class="settings-card-row">
-                <label class="settings-field">
-                  <span class="settings-label">Dataset Folder Path</span>
-                  <span class="settings-hint">Path to {draft.datasetFormat} dataset folder</span>
-                  <input
-                    class="settings-input settings-input-mono"
-                    type="text"
-                    value={draft.folderPath || ""}
-                    placeholder="/path/to/dataset"
-                    disabled={locked}
-                    onInput={(e) => set("folderPath", e.target.value)}
-                  />
-                </label>
-              </div>
-            </>
-          )}
-
-          {(draft.datasetFormat === "CSV" || draft.datasetFormat === "JSONL") && (
-            <>
-              <div class="settings-card-divider" />
-              <div class="settings-card-row">
-                <label class="settings-field">
-                  <span class="settings-label">Train Path</span>
-                  <span class="settings-hint">Path to training data file</span>
-                  <input
-                    class="settings-input settings-input-mono"
-                    type="text"
-                    value={draft.trainPath || ""}
-                    placeholder={`/path/to/train.${draft.datasetFormat.toLowerCase()}`}
-                    disabled={locked}
-                    onInput={(e) => set("trainPath", e.target.value)}
-                  />
-                </label>
-              </div>
-              <div class="settings-card-divider" />
-              <div class="settings-card-row">
-                <label class="settings-field">
-                  <span class="settings-label">Val Path</span>
-                  <span class="settings-hint">Path to validation data file (optional)</span>
-                  <input
-                    class="settings-input settings-input-mono"
-                    type="text"
-                    value={draft.valPath || ""}
-                    placeholder={`/path/to/val.${draft.datasetFormat.toLowerCase()}`}
-                    disabled={locked}
-                    onInput={(e) => set("valPath", e.target.value)}
-                  />
-                </label>
-              </div>
-              <div class="settings-card-divider" />
-              <div class="settings-card-row">
-                <label class="settings-field">
-                  <span class="settings-label">Test Path</span>
-                  <span class="settings-hint">Path to test data file</span>
-                  <input
-                    class="settings-input settings-input-mono"
-                    type="text"
-                    value={draft.testPath || ""}
-                    placeholder={`/path/to/test.${draft.datasetFormat.toLowerCase()}`}
-                    disabled={locked}
-                    onInput={(e) => set("testPath", e.target.value)}
-                  />
-                </label>
-              </div>
-            </>
-          )}
-
-          <div class="settings-card-divider" />
-          <div class="settings-card-row">
-            <label class="settings-field">
-              <span class="settings-label">Number of Classes</span>
-              <span class="settings-hint">Target classes in your dataset</span>
-              <input
-                class="settings-input"
-                type="number"
-                min="2"
-                value={draft.numClasses}
-                placeholder="e.g. 10"
-                disabled={locked}
-                onInput={(e) => set("numClasses", e.target.value === "" ? "" : Number(e.target.value))}
-              />
-            </label>
-          </div>
-        </div>
-      </section>
-
-      {/* Appearance */}
-      <section class="settings-section">
-        <div class="settings-section-header">
-          <h2 class="settings-heading">Appearance</h2>
-          <p class="settings-heading-desc">Visual preferences</p>
-        </div>
-        <div class="settings-card">
-          <div class="settings-card-row settings-row-between">
-            <div>
-              <div class="settings-label">Theme</div>
-              <div class="settings-desc">Switch between dark and light mode</div>
-            </div>
-            <button class="settings-theme-btn" onClick={toggleTheme}>
-              <span
-                class="settings-theme-icon"
-                dangerouslySetInnerHTML={{ __html: theme.value === "dark" ? sunIcon : moonIcon }}
-              />
-              {theme.value === "dark" ? "Dark" : "Light"}
-            </button>
-          </div>
-          <div class="settings-card-divider" />
-          <div class="settings-card-row settings-row-between">
-            <div>
-              <div class="settings-label">Power User Mode</div>
-              <div class="settings-desc">Enable advanced features and controls</div>
-            </div>
-            <button
-              class="settings-theme-btn"
-              disabled={locked}
-              onClick={() => set("powerUserMode", !draft.powerUserMode)}
-            >
-              {draft.powerUserMode ? "On" : "Off"}
-            </button>
-          </div>
-        </div>
-      </section>
-
-
-
-      {/* Danger Zone */}
-      <section class="settings-section">
-        <div class="settings-danger">
-          <div class="settings-danger-header">
-            <h2 class="settings-heading">Danger Zone</h2>
-          </div>
-          <div class="settings-card-row settings-row-between">
-            <div>
-              <div class="settings-label">Delete this project</div>
-              <div class="settings-desc">
-                Once deleted, this project and all associated data cannot be recovered.
+                  {draft.powerUserMode ? "On" : "Off"}
+                </button>
               </div>
             </div>
-            <button
-              class="settings-danger-btn"
-              disabled={locked}
-              onClick={() => openDeleteDialog(proj.id)}
-            >
-              <span dangerouslySetInnerHTML={{ __html: trashIcon }} />
-              Delete Project
-            </button>
-          </div>
-          <ClearAllDataRow />
-        </div>
-      </section>
+          </section>
 
-      </>
+          {/* Danger Zone */}
+          <section class="settings-section">
+            <div class="settings-danger">
+              <div class="settings-danger-header">
+                <h2 class="settings-heading">Danger Zone</h2>
+              </div>
+              <div class="settings-card-row settings-row-between">
+                <div>
+                  <div class="settings-label">Delete this project</div>
+                  <div class="settings-desc">
+                    Once deleted, this project and all associated data cannot be
+                    recovered.
+                  </div>
+                </div>
+                <button
+                  class="settings-danger-btn"
+                  disabled={locked}
+                  onClick={() => openDeleteDialog(proj.id)}
+                >
+                  <span dangerouslySetInnerHTML={{ __html: trashIcon }} />
+                  Delete Project
+                </button>
+              </div>
+              {draft.powerUserMode && <ClearAllDataRow />}
+            </div>
+          </section>
+        </>
       )}
 
       {/* ─── Advanced Training Tab ─── */}
@@ -629,7 +715,9 @@ export function SettingsView() {
           <section class="settings-section">
             <div class="settings-section-header">
               <h2 class="settings-heading">Training Basics</h2>
-              <p class="settings-heading-desc">Core hyperparameters for the training loop</p>
+              <p class="settings-heading-desc">
+                Core hyperparameters for the training loop
+              </p>
             </div>
             <div class="settings-card">
               <div class="settings-card-row settings-row-grid">
@@ -642,12 +730,19 @@ export function SettingsView() {
                     min="1"
                     value={draft.maxEpochs}
                     disabled={locked}
-                    onInput={(e) => set("maxEpochs", e.target.value === "" ? "" : Number(e.target.value))}
+                    onInput={(e) =>
+                      set(
+                        "maxEpochs",
+                        e.target.value === "" ? "" : Number(e.target.value),
+                      )
+                    }
                   />
                 </label>
                 <label class="settings-field">
                   <span class="settings-label">Learning Rate</span>
-                  <span class="settings-hint">Leave empty for AutoTimm default</span>
+                  <span class="settings-hint">
+                    Leave empty for AutoTimm default
+                  </span>
                   <input
                     class="settings-input"
                     type="number"
@@ -655,7 +750,12 @@ export function SettingsView() {
                     value={draft.learningRate}
                     placeholder="auto"
                     disabled={locked}
-                    onInput={(e) => set("learningRate", e.target.value === "" ? "" : Number(e.target.value))}
+                    onInput={(e) =>
+                      set(
+                        "learningRate",
+                        e.target.value === "" ? "" : Number(e.target.value),
+                      )
+                    }
                   />
                 </label>
                 <label class="settings-field">
@@ -668,7 +768,12 @@ export function SettingsView() {
                     value={draft.batchSize}
                     placeholder="auto"
                     disabled={locked}
-                    onInput={(e) => set("batchSize", e.target.value === "" ? "" : Number(e.target.value))}
+                    onInput={(e) =>
+                      set(
+                        "batchSize",
+                        e.target.value === "" ? "" : Number(e.target.value),
+                      )
+                    }
                   />
                 </label>
               </div>
@@ -684,7 +789,12 @@ export function SettingsView() {
                     value={draft.weightDecay}
                     placeholder="auto"
                     disabled={locked}
-                    onInput={(e) => set("weightDecay", e.target.value === "" ? "" : Number(e.target.value))}
+                    onInput={(e) =>
+                      set(
+                        "weightDecay",
+                        e.target.value === "" ? "" : Number(e.target.value),
+                      )
+                    }
                   />
                 </label>
               </div>
@@ -732,7 +842,9 @@ export function SettingsView() {
               <div class="settings-card-row settings-row-between">
                 <div>
                   <div class="settings-label">Early Stopping</div>
-                  <div class="settings-desc">Halt training after patience epochs with no improvement</div>
+                  <div class="settings-desc">
+                    Halt training after patience epochs with no improvement
+                  </div>
                 </div>
                 <button
                   class="settings-theme-btn"
@@ -748,23 +860,31 @@ export function SettingsView() {
                   <div class="settings-card-row settings-row-grid">
                     <label class="settings-field">
                       <span class="settings-label">Monitor Metric</span>
-                      <span class="settings-hint">Metric to watch for improvement</span>
+                      <span class="settings-hint">
+                        Metric to watch for improvement
+                      </span>
                       <div class="settings-select-wrap">
                         <select
                           class="settings-select"
                           value={draft.earlyStoppingMonitor}
                           disabled={locked}
-                          onChange={(e) => set("earlyStoppingMonitor", e.target.value)}
+                          onChange={(e) =>
+                            set("earlyStoppingMonitor", e.target.value)
+                          }
                         >
                           <option value="val/loss">Validation Loss</option>
-                          <option value="val/accuracy">Validation Accuracy</option>
+                          <option value="val/accuracy">
+                            Validation Accuracy
+                          </option>
                         </select>
                         <span class="settings-select-chevron" />
                       </div>
                     </label>
                     <label class="settings-field">
                       <span class="settings-label">Patience</span>
-                      <span class="settings-hint">Epochs to wait before stopping (default 10)</span>
+                      <span class="settings-hint">
+                        Epochs to wait before stopping (default 10)
+                      </span>
                       <input
                         class="settings-input"
                         type="number"
@@ -772,7 +892,12 @@ export function SettingsView() {
                         value={draft.earlyStoppingPatience}
                         placeholder="10"
                         disabled={locked}
-                        onInput={(e) => set("earlyStoppingPatience", e.target.value === "" ? "" : Number(e.target.value))}
+                        onInput={(e) =>
+                          set(
+                            "earlyStoppingPatience",
+                            e.target.value === "" ? "" : Number(e.target.value),
+                          )
+                        }
                       />
                     </label>
                   </div>
@@ -784,7 +909,9 @@ export function SettingsView() {
           <section class="settings-section">
             <div class="settings-section-header">
               <h2 class="settings-heading">Precision & Data</h2>
-              <p class="settings-heading-desc">Mixed precision, image size, and augmentation</p>
+              <p class="settings-heading-desc">
+                Mixed precision, image size, and augmentation
+              </p>
             </div>
             <div class="settings-card">
               <div class="settings-card-row settings-row-grid">
@@ -816,7 +943,12 @@ export function SettingsView() {
                     value={draft.imageSize}
                     placeholder="auto"
                     disabled={locked}
-                    onInput={(e) => set("imageSize", e.target.value === "" ? "" : Number(e.target.value))}
+                    onInput={(e) =>
+                      set(
+                        "imageSize",
+                        e.target.value === "" ? "" : Number(e.target.value),
+                      )
+                    }
                   />
                 </label>
               </div>
@@ -830,7 +962,9 @@ export function SettingsView() {
                       class="settings-select"
                       value={draft.augmentationPreset}
                       disabled={locked}
-                      onChange={(e) => set("augmentationPreset", e.target.value)}
+                      onChange={(e) =>
+                        set("augmentationPreset", e.target.value)
+                      }
                     >
                       <option value="">Auto (default)</option>
                       <option value="default">Default</option>
@@ -851,7 +985,12 @@ export function SettingsView() {
                     value={draft.gradientClipVal}
                     placeholder="auto"
                     disabled={locked}
-                    onInput={(e) => set("gradientClipVal", e.target.value === "" ? "" : Number(e.target.value))}
+                    onInput={(e) =>
+                      set(
+                        "gradientClipVal",
+                        e.target.value === "" ? "" : Number(e.target.value),
+                      )
+                    }
                   />
                 </label>
               </div>
@@ -861,13 +1000,17 @@ export function SettingsView() {
           <section class="settings-section">
             <div class="settings-section-header">
               <h2 class="settings-heading">Advanced</h2>
-              <p class="settings-heading-desc">Backbone freezing and reproducibility</p>
+              <p class="settings-heading-desc">
+                Backbone freezing and reproducibility
+              </p>
             </div>
             <div class="settings-card">
               <div class="settings-card-row settings-row-between">
                 <div>
                   <div class="settings-label">Freeze Backbone</div>
-                  <div class="settings-desc">Freeze pretrained backbone weights during training</div>
+                  <div class="settings-desc">
+                    Freeze pretrained backbone weights during training
+                  </div>
                 </div>
                 <button
                   class="settings-theme-btn"
@@ -881,7 +1024,9 @@ export function SettingsView() {
               <div class="settings-card-row">
                 <label class="settings-field">
                   <span class="settings-label">Seed</span>
-                  <span class="settings-hint">Random seed for reproducibility (leave empty for random)</span>
+                  <span class="settings-hint">
+                    Random seed for reproducibility (leave empty for random)
+                  </span>
                   <input
                     class="settings-input"
                     type="number"
@@ -889,13 +1034,17 @@ export function SettingsView() {
                     value={draft.seed}
                     placeholder="random"
                     disabled={locked}
-                    onInput={(e) => set("seed", e.target.value === "" ? "" : Number(e.target.value))}
+                    onInput={(e) =>
+                      set(
+                        "seed",
+                        e.target.value === "" ? "" : Number(e.target.value),
+                      )
+                    }
                   />
                 </label>
               </div>
             </div>
           </section>
-
         </>
       )}
 
@@ -910,8 +1059,16 @@ export function SettingsView() {
           <>
             <span class="settings-save-hint">You have unsaved changes</span>
             <div class="settings-save-actions">
-              <button class="settings-discard-btn" onClick={handleDiscard}>Discard</button>
-              <button class="settings-save-btn" disabled={locked} onClick={handleSave}>Save Changes</button>
+              <button class="settings-discard-btn" onClick={handleDiscard}>
+                Discard
+              </button>
+              <button
+                class="settings-save-btn"
+                disabled={locked}
+                onClick={handleSave}
+              >
+                Save Changes
+              </button>
             </div>
           </>
         )}

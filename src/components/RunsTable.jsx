@@ -1,5 +1,13 @@
 import { signal } from "@preact/signals";
-import { filteredRuns, filterText, filterStatus, sortField, sortDir, toggleSort, deleteRun } from "../state/experiments.js";
+import {
+  filteredRuns,
+  filterText,
+  filterStatus,
+  sortField,
+  sortDir,
+  toggleSort,
+  deleteRun,
+} from "../state/experiments.js";
 import { navigate } from "../state/router.js";
 import { StatusBadge } from "./StatusBadge.jsx";
 
@@ -17,8 +25,13 @@ const columns = [
 ];
 
 function SortIcon({ field }) {
-  if (sortField.value !== field) return <span class="sort-icon dim">&udarr;</span>;
-  return <span class="sort-icon">{sortDir.value === "asc" ? "\u2191" : "\u2193"}</span>;
+  if (sortField.value !== field)
+    return <span class="sort-icon dim">&udarr;</span>;
+  return (
+    <span class="sort-icon">
+      {sortDir.value === "asc" ? "\u2191" : "\u2193"}
+    </span>
+  );
 }
 
 function toggleSelect(runId, e) {
@@ -31,7 +44,8 @@ function toggleSelect(runId, e) {
 
 function toggleSelectAll() {
   const ids = filteredRuns.value.map((r) => r.id);
-  const allSelected = ids.length > 0 && ids.every((id) => selectedRunIds.value.has(id));
+  const allSelected =
+    ids.length > 0 && ids.every((id) => selectedRunIds.value.has(id));
   selectedRunIds.value = allSelected ? new Set() : new Set(ids);
 }
 
@@ -45,7 +59,8 @@ async function deleteSelected() {
 
 export function RunsTable() {
   const ids = filteredRuns.value.map((r) => r.id);
-  const allChecked = ids.length > 0 && ids.every((id) => selectedRunIds.value.has(id));
+  const allChecked =
+    ids.length > 0 && ids.every((id) => selectedRunIds.value.has(id));
   const someChecked = selectedRunIds.value.size > 0;
 
   return (
@@ -92,12 +107,16 @@ export function RunsTable() {
                   <th
                     key={col.key}
                     class={col.sortable === false ? "" : "sortable"}
-                    onClick={col.sortable === false ? undefined : () => toggleSort(col.key)}
+                    onClick={
+                      col.sortable === false
+                        ? undefined
+                        : () => toggleSort(col.key)
+                    }
                   >
                     {col.label}
                     {col.sortable !== false && <SortIcon field={col.key} />}
                   </th>
-                )
+                ),
               )}
             </tr>
           </thead>
@@ -116,12 +135,22 @@ export function RunsTable() {
                   />
                 </td>
                 <td class="mono">{run.name || run.id}</td>
-                <td class="mono">{run.created ? new Date(run.created).toLocaleString() : "\u2014"}</td>
-                <td><StatusBadge status={run.status} /></td>
+                <td class="mono">
+                  {run.created
+                    ? new Date(run.created).toLocaleString()
+                    : "\u2014"}
+                </td>
+                <td>
+                  <StatusBadge status={run.status} />
+                </td>
                 <td>{run.model}</td>
                 <td>{run.dataset}</td>
-                <td class="mono">{run.bestAcc != null ? run.bestAcc.toFixed(4) : "\u2014"}</td>
-                <td class="mono">{run.valLoss != null ? run.valLoss.toFixed(4) : "\u2014"}</td>
+                <td class="mono">
+                  {run.bestAcc != null ? run.bestAcc.toFixed(4) : "\u2014"}
+                </td>
+                <td class="mono">
+                  {run.valLoss != null ? run.valLoss.toFixed(4) : "\u2014"}
+                </td>
               </tr>
             ))}
           </tbody>

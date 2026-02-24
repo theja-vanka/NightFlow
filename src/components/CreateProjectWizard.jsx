@@ -105,7 +105,9 @@ function StepSSH() {
             <button
               class="wizard-btn wizard-btn-secondary wizard-ssh-test-btn"
               onClick={handleTestSSH}
-              disabled={!isValidSshCommand(d.sshCommand) || testStatus === "testing"}
+              disabled={
+                !isValidSshCommand(d.sshCommand) || testStatus === "testing"
+              }
             >
               {testStatus === "testing" && <span class="wizard-ssh-spinner" />}
               {testStatus === "testing" ? "Testing…" : "Test SSH"}
@@ -134,8 +136,8 @@ function StepName() {
     return name
       .trim()
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
   };
 
   const DEFAULT_BASE = "~/nightflow/projects/";
@@ -146,7 +148,9 @@ function StepName() {
 
   // Auto if path is empty, equals base, or equals the current derived path
   const pathIsAuto = useRef(
-    !d.projectPath || d.projectPath === DEFAULT_BASE || d.projectPath === derivedPath
+    !d.projectPath ||
+      d.projectPath === DEFAULT_BASE ||
+      d.projectPath === derivedPath,
   );
 
   const handleNameInput = (e) => {
@@ -154,7 +158,10 @@ function StepName() {
     wizardSetField("name", name);
     if (pathIsAuto.current) {
       const sanitized = sanitizeName(name);
-      wizardSetField("projectPath", sanitized ? `${DEFAULT_BASE}${sanitized}` : DEFAULT_BASE);
+      wizardSetField(
+        "projectPath",
+        sanitized ? `${DEFAULT_BASE}${sanitized}` : DEFAULT_BASE,
+      );
     }
   };
 
@@ -208,7 +215,7 @@ function StepName() {
 // ── Step 2: Task Type ──
 
 const TASK_EXAMPLES = {
-  "Classification": (
+  Classification: (
     <svg viewBox="0 0 220 180" class="wizard-task-svg">
       <defs>
         <linearGradient id="cls-photo" x1="0" y1="0" x2="1" y2="1">
@@ -217,30 +224,159 @@ const TASK_EXAMPLES = {
         </linearGradient>
       </defs>
       {/* Photo card */}
-      <rect x="20" y="16" width="84" height="84" rx="10" fill="url(#cls-photo)" stroke="var(--border-color)" stroke-width="1.2" />
-      <rect x="28" y="24" width="68" height="50" rx="6" fill="var(--accent)" opacity="0.06" />
+      <rect
+        x="20"
+        y="16"
+        width="84"
+        height="84"
+        rx="10"
+        fill="url(#cls-photo)"
+        stroke="var(--border-color)"
+        stroke-width="1.2"
+      />
+      <rect
+        x="28"
+        y="24"
+        width="68"
+        height="50"
+        rx="6"
+        fill="var(--accent)"
+        opacity="0.06"
+      />
       {/* Stylized photo icon */}
       <circle cx="48" cy="42" r="6" fill="var(--accent)" opacity="0.18" />
-      <polygon points="32,68 52,46 72,58 88,48 88,68" fill="var(--accent)" opacity="0.12" />
-      <text x="62" y="88" text-anchor="middle" font-size="8" font-weight="500" fill="var(--text-muted)">image.jpg</text>
+      <polygon
+        points="32,68 52,46 72,58 88,48 88,68"
+        fill="var(--accent)"
+        opacity="0.12"
+      />
+      <text
+        x="62"
+        y="88"
+        text-anchor="middle"
+        font-size="8"
+        font-weight="500"
+        fill="var(--text-muted)"
+      >
+        image.jpg
+      </text>
       {/* Arrow */}
-      <path d="M112,58 L134,58" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round" marker-end="url(#cls-arrow)" />
-      <polygon id="cls-arr" points="134,55 140,58 134,61" fill="var(--text-muted)" />
+      <path
+        d="M112,58 L134,58"
+        stroke="var(--text-muted)"
+        stroke-width="1.5"
+        stroke-linecap="round"
+        marker-end="url(#cls-arrow)"
+      />
+      <polygon
+        id="cls-arr"
+        points="134,55 140,58 134,61"
+        fill="var(--text-muted)"
+      />
       {/* Output label card */}
-      <rect x="148" y="34" width="56" height="48" rx="8" fill="var(--accent)" opacity="0.08" stroke="var(--accent)" stroke-width="1.2" />
-      <text x="176" y="54" text-anchor="middle" font-size="10" font-weight="600" fill="var(--accent)">Cat</text>
-      <text x="176" y="68" text-anchor="middle" font-size="8" fill="var(--text-muted)">97.3%</text>
+      <rect
+        x="148"
+        y="34"
+        width="56"
+        height="48"
+        rx="8"
+        fill="var(--accent)"
+        opacity="0.08"
+        stroke="var(--accent)"
+        stroke-width="1.2"
+      />
+      <text
+        x="176"
+        y="54"
+        text-anchor="middle"
+        font-size="10"
+        font-weight="600"
+        fill="var(--accent)"
+      >
+        Cat
+      </text>
+      <text
+        x="176"
+        y="68"
+        text-anchor="middle"
+        font-size="8"
+        fill="var(--text-muted)"
+      >
+        97.3%
+      </text>
       {/* Bottom bar chart */}
-      <text x="30" y="122" font-size="7" fill="var(--text-muted)">cat</text>
-      <rect x="50" y="115" width="130" height="10" rx="3" fill="var(--accent)" opacity="0.08" />
-      <rect x="50" y="115" width="124" height="10" rx="3" fill="var(--accent)" opacity="0.5" />
-      <text x="30" y="138" font-size="7" fill="var(--text-muted)">dog</text>
-      <rect x="50" y="131" width="130" height="10" rx="3" fill="var(--accent)" opacity="0.08" />
-      <rect x="50" y="131" width="18" height="10" rx="3" fill="var(--text-muted)" opacity="0.25" />
-      <text x="30" y="154" font-size="7" fill="var(--text-muted)">bird</text>
-      <rect x="50" y="147" width="130" height="10" rx="3" fill="var(--accent)" opacity="0.08" />
-      <rect x="50" y="147" width="6" height="10" rx="3" fill="var(--text-muted)" opacity="0.15" />
-      <text x="110" y="174" text-anchor="middle" font-size="8" fill="var(--text-muted)">One label per image</text>
+      <text x="30" y="122" font-size="7" fill="var(--text-muted)">
+        cat
+      </text>
+      <rect
+        x="50"
+        y="115"
+        width="130"
+        height="10"
+        rx="3"
+        fill="var(--accent)"
+        opacity="0.08"
+      />
+      <rect
+        x="50"
+        y="115"
+        width="124"
+        height="10"
+        rx="3"
+        fill="var(--accent)"
+        opacity="0.5"
+      />
+      <text x="30" y="138" font-size="7" fill="var(--text-muted)">
+        dog
+      </text>
+      <rect
+        x="50"
+        y="131"
+        width="130"
+        height="10"
+        rx="3"
+        fill="var(--accent)"
+        opacity="0.08"
+      />
+      <rect
+        x="50"
+        y="131"
+        width="18"
+        height="10"
+        rx="3"
+        fill="var(--text-muted)"
+        opacity="0.25"
+      />
+      <text x="30" y="154" font-size="7" fill="var(--text-muted)">
+        bird
+      </text>
+      <rect
+        x="50"
+        y="147"
+        width="130"
+        height="10"
+        rx="3"
+        fill="var(--accent)"
+        opacity="0.08"
+      />
+      <rect
+        x="50"
+        y="147"
+        width="6"
+        height="10"
+        rx="3"
+        fill="var(--text-muted)"
+        opacity="0.15"
+      />
+      <text
+        x="110"
+        y="174"
+        text-anchor="middle"
+        font-size="8"
+        fill="var(--text-muted)"
+      >
+        One label per image
+      </text>
     </svg>
   ),
   "Multi-Label Classification": (
@@ -252,136 +388,791 @@ const TASK_EXAMPLES = {
         </linearGradient>
       </defs>
       {/* Photo card */}
-      <rect x="20" y="24" width="84" height="84" rx="10" fill="url(#ml-photo)" stroke="var(--border-color)" stroke-width="1.2" />
-      <rect x="28" y="32" width="68" height="50" rx="6" fill="var(--accent)" opacity="0.06" />
+      <rect
+        x="20"
+        y="24"
+        width="84"
+        height="84"
+        rx="10"
+        fill="url(#ml-photo)"
+        stroke="var(--border-color)"
+        stroke-width="1.2"
+      />
+      <rect
+        x="28"
+        y="32"
+        width="68"
+        height="50"
+        rx="6"
+        fill="var(--accent)"
+        opacity="0.06"
+      />
       <circle cx="48" cy="48" r="6" fill="#e8a035" opacity="0.2" />
-      <polygon points="32,76 52,54 72,66 88,56 88,76" fill="#5b9bd5" opacity="0.12" />
-      <text x="62" y="98" text-anchor="middle" font-size="8" font-weight="500" fill="var(--text-muted)">scene.jpg</text>
+      <polygon
+        points="32,76 52,54 72,66 88,56 88,76"
+        fill="#5b9bd5"
+        opacity="0.12"
+      />
+      <text
+        x="62"
+        y="98"
+        text-anchor="middle"
+        font-size="8"
+        font-weight="500"
+        fill="var(--text-muted)"
+      >
+        scene.jpg
+      </text>
       {/* Arrow */}
-      <path d="M112,66 L134,66" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round" />
+      <path
+        d="M112,66 L134,66"
+        stroke="var(--text-muted)"
+        stroke-width="1.5"
+        stroke-linecap="round"
+      />
       <polygon points="134,63 140,66 134,69" fill="var(--text-muted)" />
       {/* Tag list */}
-      <rect x="148" y="28" width="56" height="22" rx="11" fill="var(--accent)" opacity="0.12" stroke="var(--accent)" stroke-width="1" />
-      <text x="176" y="43" text-anchor="middle" font-size="8.5" font-weight="600" fill="var(--accent)">beach</text>
-      <rect x="148" y="56" width="56" height="22" rx="11" fill="#e8a035" opacity="0.12" stroke="#e8a035" stroke-width="1" />
-      <text x="176" y="71" text-anchor="middle" font-size="8.5" font-weight="600" fill="#e8a035">sunset</text>
-      <rect x="148" y="84" width="56" height="22" rx="11" fill="#5b9bd5" opacity="0.12" stroke="#5b9bd5" stroke-width="1" />
-      <text x="176" y="99" text-anchor="middle" font-size="8.5" font-weight="600" fill="#5b9bd5">ocean</text>
+      <rect
+        x="148"
+        y="28"
+        width="56"
+        height="22"
+        rx="11"
+        fill="var(--accent)"
+        opacity="0.12"
+        stroke="var(--accent)"
+        stroke-width="1"
+      />
+      <text
+        x="176"
+        y="43"
+        text-anchor="middle"
+        font-size="8.5"
+        font-weight="600"
+        fill="var(--accent)"
+      >
+        beach
+      </text>
+      <rect
+        x="148"
+        y="56"
+        width="56"
+        height="22"
+        rx="11"
+        fill="#e8a035"
+        opacity="0.12"
+        stroke="#e8a035"
+        stroke-width="1"
+      />
+      <text
+        x="176"
+        y="71"
+        text-anchor="middle"
+        font-size="8.5"
+        font-weight="600"
+        fill="#e8a035"
+      >
+        sunset
+      </text>
+      <rect
+        x="148"
+        y="84"
+        width="56"
+        height="22"
+        rx="11"
+        fill="#5b9bd5"
+        opacity="0.12"
+        stroke="#5b9bd5"
+        stroke-width="1"
+      />
+      <text
+        x="176"
+        y="99"
+        text-anchor="middle"
+        font-size="8.5"
+        font-weight="600"
+        fill="#5b9bd5"
+      >
+        ocean
+      </text>
       {/* Checkmarks */}
-      <path d="M152,39 l3,3 l6,-6" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-      <path d="M152,67 l3,3 l6,-6" fill="none" stroke="#e8a035" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-      <path d="M152,95 l3,3 l6,-6" fill="none" stroke="#5b9bd5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      <path
+        d="M152,39 l3,3 l6,-6"
+        fill="none"
+        stroke="var(--accent)"
+        stroke-width="1.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M152,67 l3,3 l6,-6"
+        fill="none"
+        stroke="#e8a035"
+        stroke-width="1.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M152,95 l3,3 l6,-6"
+        fill="none"
+        stroke="#5b9bd5"
+        stroke-width="1.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
       {/* Confidence bars */}
-      <text x="24" y="130" font-size="7" fill="var(--text-muted)">beach</text>
-      <rect x="56" y="123" width="50" height="8" rx="2.5" fill="var(--accent)" opacity="0.4" />
-      <text x="110" y="130" font-size="7" fill="var(--text-muted)">91%</text>
-      <text x="24" y="144" font-size="7" fill="var(--text-muted)">sunset</text>
-      <rect x="56" y="137" width="44" height="8" rx="2.5" fill="#e8a035" opacity="0.4" />
-      <text x="104" y="144" font-size="7" fill="var(--text-muted)">87%</text>
-      <text x="24" y="158" font-size="7" fill="var(--text-muted)">ocean</text>
-      <rect x="56" y="151" width="38" height="8" rx="2.5" fill="#5b9bd5" opacity="0.4" />
-      <text x="98" y="158" font-size="7" fill="var(--text-muted)">78%</text>
-      <text x="110" y="174" text-anchor="middle" font-size="8" fill="var(--text-muted)">Multiple labels per image</text>
+      <text x="24" y="130" font-size="7" fill="var(--text-muted)">
+        beach
+      </text>
+      <rect
+        x="56"
+        y="123"
+        width="50"
+        height="8"
+        rx="2.5"
+        fill="var(--accent)"
+        opacity="0.4"
+      />
+      <text x="110" y="130" font-size="7" fill="var(--text-muted)">
+        91%
+      </text>
+      <text x="24" y="144" font-size="7" fill="var(--text-muted)">
+        sunset
+      </text>
+      <rect
+        x="56"
+        y="137"
+        width="44"
+        height="8"
+        rx="2.5"
+        fill="#e8a035"
+        opacity="0.4"
+      />
+      <text x="104" y="144" font-size="7" fill="var(--text-muted)">
+        87%
+      </text>
+      <text x="24" y="158" font-size="7" fill="var(--text-muted)">
+        ocean
+      </text>
+      <rect
+        x="56"
+        y="151"
+        width="38"
+        height="8"
+        rx="2.5"
+        fill="#5b9bd5"
+        opacity="0.4"
+      />
+      <text x="98" y="158" font-size="7" fill="var(--text-muted)">
+        78%
+      </text>
+      <text
+        x="110"
+        y="174"
+        text-anchor="middle"
+        font-size="8"
+        fill="var(--text-muted)"
+      >
+        Multiple labels per image
+      </text>
     </svg>
   ),
   "Object Detection": (
     <svg viewBox="0 0 220 180" class="wizard-task-svg">
       {/* Image background */}
-      <rect x="14" y="10" width="192" height="130" rx="10" fill="var(--bg-primary)" stroke="var(--border-color)" stroke-width="1.2" />
+      <rect
+        x="14"
+        y="10"
+        width="192"
+        height="130"
+        rx="10"
+        fill="var(--bg-primary)"
+        stroke="var(--border-color)"
+        stroke-width="1.2"
+      />
       {/* Ground */}
-      <rect x="14" y="110" width="192" height="30" rx="0" fill="var(--text-muted)" opacity="0.04" />
+      <rect
+        x="14"
+        y="110"
+        width="192"
+        height="30"
+        rx="0"
+        fill="var(--text-muted)"
+        opacity="0.04"
+      />
       {/* Box A — tall rectangle */}
-      <rect x="28" y="26" width="48" height="80" rx="3" fill="var(--accent)" opacity="0.07" stroke="var(--accent)" stroke-width="2" />
+      <rect
+        x="28"
+        y="26"
+        width="48"
+        height="80"
+        rx="3"
+        fill="var(--accent)"
+        opacity="0.07"
+        stroke="var(--accent)"
+        stroke-width="2"
+      />
       <rect x="28" y="20" width="48" height="14" rx="4" fill="var(--accent)" />
-      <text x="52" y="30" text-anchor="middle" font-size="8" font-weight="600" fill="white">person 92%</text>
+      <text
+        x="52"
+        y="30"
+        text-anchor="middle"
+        font-size="8"
+        font-weight="600"
+        fill="white"
+      >
+        person 92%
+      </text>
       {/* Small corner marks */}
-      <line x1="28" y1="26" x2="36" y2="26" stroke="var(--accent)" stroke-width="2.5" />
-      <line x1="28" y1="26" x2="28" y2="34" stroke="var(--accent)" stroke-width="2.5" />
-      <line x1="76" y1="26" x2="68" y2="26" stroke="var(--accent)" stroke-width="2.5" />
-      <line x1="76" y1="26" x2="76" y2="34" stroke="var(--accent)" stroke-width="2.5" />
-      <line x1="28" y1="106" x2="36" y2="106" stroke="var(--accent)" stroke-width="2.5" />
-      <line x1="28" y1="106" x2="28" y2="98" stroke="var(--accent)" stroke-width="2.5" />
-      <line x1="76" y1="106" x2="68" y2="106" stroke="var(--accent)" stroke-width="2.5" />
-      <line x1="76" y1="106" x2="76" y2="98" stroke="var(--accent)" stroke-width="2.5" />
+      <line
+        x1="28"
+        y1="26"
+        x2="36"
+        y2="26"
+        stroke="var(--accent)"
+        stroke-width="2.5"
+      />
+      <line
+        x1="28"
+        y1="26"
+        x2="28"
+        y2="34"
+        stroke="var(--accent)"
+        stroke-width="2.5"
+      />
+      <line
+        x1="76"
+        y1="26"
+        x2="68"
+        y2="26"
+        stroke="var(--accent)"
+        stroke-width="2.5"
+      />
+      <line
+        x1="76"
+        y1="26"
+        x2="76"
+        y2="34"
+        stroke="var(--accent)"
+        stroke-width="2.5"
+      />
+      <line
+        x1="28"
+        y1="106"
+        x2="36"
+        y2="106"
+        stroke="var(--accent)"
+        stroke-width="2.5"
+      />
+      <line
+        x1="28"
+        y1="106"
+        x2="28"
+        y2="98"
+        stroke="var(--accent)"
+        stroke-width="2.5"
+      />
+      <line
+        x1="76"
+        y1="106"
+        x2="68"
+        y2="106"
+        stroke="var(--accent)"
+        stroke-width="2.5"
+      />
+      <line
+        x1="76"
+        y1="106"
+        x2="76"
+        y2="98"
+        stroke="var(--accent)"
+        stroke-width="2.5"
+      />
       {/* Box B — wide rectangle */}
-      <rect x="94" y="54" width="80" height="52" rx="3" fill="#e8a035" opacity="0.07" stroke="#e8a035" stroke-width="2" />
+      <rect
+        x="94"
+        y="54"
+        width="80"
+        height="52"
+        rx="3"
+        fill="#e8a035"
+        opacity="0.07"
+        stroke="#e8a035"
+        stroke-width="2"
+      />
       <rect x="94" y="48" width="38" height="14" rx="4" fill="#e8a035" />
-      <text x="113" y="58" text-anchor="middle" font-size="8" font-weight="600" fill="white">car 88%</text>
-      <line x1="94" y1="54" x2="102" y2="54" stroke="#e8a035" stroke-width="2.5" />
-      <line x1="94" y1="54" x2="94" y2="62" stroke="#e8a035" stroke-width="2.5" />
-      <line x1="174" y1="54" x2="166" y2="54" stroke="#e8a035" stroke-width="2.5" />
-      <line x1="174" y1="54" x2="174" y2="62" stroke="#e8a035" stroke-width="2.5" />
-      <line x1="94" y1="106" x2="102" y2="106" stroke="#e8a035" stroke-width="2.5" />
-      <line x1="94" y1="106" x2="94" y2="98" stroke="#e8a035" stroke-width="2.5" />
-      <line x1="174" y1="106" x2="166" y2="106" stroke="#e8a035" stroke-width="2.5" />
-      <line x1="174" y1="106" x2="174" y2="98" stroke="#e8a035" stroke-width="2.5" />
+      <text
+        x="113"
+        y="58"
+        text-anchor="middle"
+        font-size="8"
+        font-weight="600"
+        fill="white"
+      >
+        car 88%
+      </text>
+      <line
+        x1="94"
+        y1="54"
+        x2="102"
+        y2="54"
+        stroke="#e8a035"
+        stroke-width="2.5"
+      />
+      <line
+        x1="94"
+        y1="54"
+        x2="94"
+        y2="62"
+        stroke="#e8a035"
+        stroke-width="2.5"
+      />
+      <line
+        x1="174"
+        y1="54"
+        x2="166"
+        y2="54"
+        stroke="#e8a035"
+        stroke-width="2.5"
+      />
+      <line
+        x1="174"
+        y1="54"
+        x2="174"
+        y2="62"
+        stroke="#e8a035"
+        stroke-width="2.5"
+      />
+      <line
+        x1="94"
+        y1="106"
+        x2="102"
+        y2="106"
+        stroke="#e8a035"
+        stroke-width="2.5"
+      />
+      <line
+        x1="94"
+        y1="106"
+        x2="94"
+        y2="98"
+        stroke="#e8a035"
+        stroke-width="2.5"
+      />
+      <line
+        x1="174"
+        y1="106"
+        x2="166"
+        y2="106"
+        stroke="#e8a035"
+        stroke-width="2.5"
+      />
+      <line
+        x1="174"
+        y1="106"
+        x2="174"
+        y2="98"
+        stroke="#e8a035"
+        stroke-width="2.5"
+      />
       {/* Legend */}
-      <rect x="30" y="150" width="10" height="10" rx="2" fill="var(--accent)" opacity="0.5" />
-      <text x="44" y="159" font-size="8" fill="var(--text-muted)">person</text>
-      <rect x="90" y="150" width="10" height="10" rx="2" fill="#e8a035" opacity="0.5" />
-      <text x="104" y="159" font-size="8" fill="var(--text-muted)">car</text>
-      <text x="110" y="176" text-anchor="middle" font-size="8" fill="var(--text-muted)">Bounding boxes with class + confidence</text>
+      <rect
+        x="30"
+        y="150"
+        width="10"
+        height="10"
+        rx="2"
+        fill="var(--accent)"
+        opacity="0.5"
+      />
+      <text x="44" y="159" font-size="8" fill="var(--text-muted)">
+        person
+      </text>
+      <rect
+        x="90"
+        y="150"
+        width="10"
+        height="10"
+        rx="2"
+        fill="#e8a035"
+        opacity="0.5"
+      />
+      <text x="104" y="159" font-size="8" fill="var(--text-muted)">
+        car
+      </text>
+      <text
+        x="110"
+        y="176"
+        text-anchor="middle"
+        font-size="8"
+        fill="var(--text-muted)"
+      >
+        Bounding boxes with class + confidence
+      </text>
     </svg>
   ),
   "Semantic Segmentation": (
     <svg viewBox="0 0 220 180" class="wizard-task-svg">
       {/* Left image — grayscale placeholder */}
-      <rect x="8" y="16" width="88" height="88" rx="8" fill="var(--bg-primary)" stroke="var(--border-color)" stroke-width="1.2" />
-      <rect x="8" y="16" width="88" height="35" rx="8" fill="var(--text-muted)" opacity="0.06" />
-      <rect x="8" y="68" width="88" height="36" fill="var(--text-muted)" opacity="0.04" />
-      <rect x="36" y="36" width="32" height="42" fill="var(--text-muted)" opacity="0.08" />
-      <text x="52" y="114" text-anchor="middle" font-size="7.5" font-weight="500" fill="var(--text-muted)">Input</text>
+      <rect
+        x="8"
+        y="16"
+        width="88"
+        height="88"
+        rx="8"
+        fill="var(--bg-primary)"
+        stroke="var(--border-color)"
+        stroke-width="1.2"
+      />
+      <rect
+        x="8"
+        y="16"
+        width="88"
+        height="35"
+        rx="8"
+        fill="var(--text-muted)"
+        opacity="0.06"
+      />
+      <rect
+        x="8"
+        y="68"
+        width="88"
+        height="36"
+        fill="var(--text-muted)"
+        opacity="0.04"
+      />
+      <rect
+        x="36"
+        y="36"
+        width="32"
+        height="42"
+        fill="var(--text-muted)"
+        opacity="0.08"
+      />
+      <text
+        x="52"
+        y="114"
+        text-anchor="middle"
+        font-size="7.5"
+        font-weight="500"
+        fill="var(--text-muted)"
+      >
+        Input
+      </text>
       {/* Arrow */}
-      <path d="M102,60 L116,60" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round" />
+      <path
+        d="M102,60 L116,60"
+        stroke="var(--text-muted)"
+        stroke-width="1.5"
+        stroke-linecap="round"
+      />
       <polygon points="116,57 122,60 116,63" fill="var(--text-muted)" />
       {/* Right image — colored mask */}
-      <rect x="128" y="16" width="88" height="88" rx="8" fill="var(--bg-primary)" stroke="var(--border-color)" stroke-width="1.2" />
+      <rect
+        x="128"
+        y="16"
+        width="88"
+        height="88"
+        rx="8"
+        fill="var(--bg-primary)"
+        stroke="var(--border-color)"
+        stroke-width="1.2"
+      />
       {/* Sky region */}
-      <rect x="128" y="16" width="88" height="35" rx="8" fill="#5b9bd5" opacity="0.35" />
+      <rect
+        x="128"
+        y="16"
+        width="88"
+        height="35"
+        rx="8"
+        fill="#5b9bd5"
+        opacity="0.35"
+      />
       {/* Building region */}
-      <rect x="156" y="36" width="32" height="42" fill="#e8a035" opacity="0.35" />
+      <rect
+        x="156"
+        y="36"
+        width="32"
+        height="42"
+        fill="#e8a035"
+        opacity="0.35"
+      />
       {/* Ground region */}
-      <rect x="128" y="68" width="88" height="36" fill="#70ad47" opacity="0.35" />
-      <text x="172" y="114" text-anchor="middle" font-size="7.5" font-weight="500" fill="var(--text-muted)">Mask</text>
+      <rect
+        x="128"
+        y="68"
+        width="88"
+        height="36"
+        fill="#70ad47"
+        opacity="0.35"
+      />
+      <text
+        x="172"
+        y="114"
+        text-anchor="middle"
+        font-size="7.5"
+        font-weight="500"
+        fill="var(--text-muted)"
+      >
+        Mask
+      </text>
       {/* Color legend */}
-      <rect x="24" y="130" width="12" height="12" rx="3" fill="#5b9bd5" opacity="0.5" />
-      <text x="40" y="140" font-size="8" font-weight="500" fill="var(--text-secondary)">Sky</text>
-      <rect x="74" y="130" width="12" height="12" rx="3" fill="#e8a035" opacity="0.5" />
-      <text x="90" y="140" font-size="8" font-weight="500" fill="var(--text-secondary)">Building</text>
-      <rect x="140" y="130" width="12" height="12" rx="3" fill="#70ad47" opacity="0.5" />
-      <text x="156" y="140" font-size="8" font-weight="500" fill="var(--text-secondary)">Ground</text>
+      <rect
+        x="24"
+        y="130"
+        width="12"
+        height="12"
+        rx="3"
+        fill="#5b9bd5"
+        opacity="0.5"
+      />
+      <text
+        x="40"
+        y="140"
+        font-size="8"
+        font-weight="500"
+        fill="var(--text-secondary)"
+      >
+        Sky
+      </text>
+      <rect
+        x="74"
+        y="130"
+        width="12"
+        height="12"
+        rx="3"
+        fill="#e8a035"
+        opacity="0.5"
+      />
+      <text
+        x="90"
+        y="140"
+        font-size="8"
+        font-weight="500"
+        fill="var(--text-secondary)"
+      >
+        Building
+      </text>
+      <rect
+        x="140"
+        y="130"
+        width="12"
+        height="12"
+        rx="3"
+        fill="#70ad47"
+        opacity="0.5"
+      />
+      <text
+        x="156"
+        y="140"
+        font-size="8"
+        font-weight="500"
+        fill="var(--text-secondary)"
+      >
+        Ground
+      </text>
       {/* Pixel grid hint */}
-      <line x1="128" y1="51" x2="216" y2="51" stroke="white" stroke-width="0.3" opacity="0.4" />
-      <line x1="128" y1="68" x2="216" y2="68" stroke="white" stroke-width="0.3" opacity="0.4" />
-      <line x1="156" y1="16" x2="156" y2="104" stroke="white" stroke-width="0.3" opacity="0.4" />
-      <line x1="188" y1="16" x2="188" y2="104" stroke="white" stroke-width="0.3" opacity="0.4" />
-      <text x="110" y="162" text-anchor="middle" font-size="8" fill="var(--text-muted)">Every pixel gets a class color</text>
+      <line
+        x1="128"
+        y1="51"
+        x2="216"
+        y2="51"
+        stroke="white"
+        stroke-width="0.3"
+        opacity="0.4"
+      />
+      <line
+        x1="128"
+        y1="68"
+        x2="216"
+        y2="68"
+        stroke="white"
+        stroke-width="0.3"
+        opacity="0.4"
+      />
+      <line
+        x1="156"
+        y1="16"
+        x2="156"
+        y2="104"
+        stroke="white"
+        stroke-width="0.3"
+        opacity="0.4"
+      />
+      <line
+        x1="188"
+        y1="16"
+        x2="188"
+        y2="104"
+        stroke="white"
+        stroke-width="0.3"
+        opacity="0.4"
+      />
+      <text
+        x="110"
+        y="162"
+        text-anchor="middle"
+        font-size="8"
+        fill="var(--text-muted)"
+      >
+        Every pixel gets a class color
+      </text>
     </svg>
   ),
   "Instance Segmentation": (
     <svg viewBox="0 0 220 180" class="wizard-task-svg">
       {/* Image background */}
-      <rect x="14" y="10" width="192" height="120" rx="10" fill="var(--bg-primary)" stroke="var(--border-color)" stroke-width="1.2" />
+      <rect
+        x="14"
+        y="10"
+        width="192"
+        height="120"
+        rx="10"
+        fill="var(--bg-primary)"
+        stroke="var(--border-color)"
+        stroke-width="1.2"
+      />
       {/* Instance A — filled blob with border */}
-      <rect x="24" y="28" width="52" height="78" rx="20" fill="var(--accent)" opacity="0.15" stroke="var(--accent)" stroke-width="2" stroke-dasharray="5 3" />
+      <rect
+        x="24"
+        y="28"
+        width="52"
+        height="78"
+        rx="20"
+        fill="var(--accent)"
+        opacity="0.15"
+        stroke="var(--accent)"
+        stroke-width="2"
+        stroke-dasharray="5 3"
+      />
       <rect x="24" y="18" width="52" height="16" rx="5" fill="var(--accent)" />
-      <text x="50" y="29" text-anchor="middle" font-size="7.5" font-weight="600" fill="white">person #1</text>
+      <text
+        x="50"
+        y="29"
+        text-anchor="middle"
+        font-size="7.5"
+        font-weight="600"
+        fill="white"
+      >
+        person #1
+      </text>
       {/* Instance B — filled blob with border */}
-      <rect x="86" y="36" width="46" height="70" rx="18" fill="#c960cf" opacity="0.15" stroke="#c960cf" stroke-width="2" stroke-dasharray="5 3" />
+      <rect
+        x="86"
+        y="36"
+        width="46"
+        height="70"
+        rx="18"
+        fill="#c960cf"
+        opacity="0.15"
+        stroke="#c960cf"
+        stroke-width="2"
+        stroke-dasharray="5 3"
+      />
       <rect x="86" y="26" width="46" height="16" rx="5" fill="#c960cf" />
-      <text x="109" y="37" text-anchor="middle" font-size="7.5" font-weight="600" fill="white">person #2</text>
+      <text
+        x="109"
+        y="37"
+        text-anchor="middle"
+        font-size="7.5"
+        font-weight="600"
+        fill="white"
+      >
+        person #2
+      </text>
       {/* Instance C — wider blob */}
-      <ellipse cx="170" cy="82" rx="30" ry="22" fill="#e8a035" opacity="0.15" stroke="#e8a035" stroke-width="2" stroke-dasharray="5 3" />
+      <ellipse
+        cx="170"
+        cy="82"
+        rx="30"
+        ry="22"
+        fill="#e8a035"
+        opacity="0.15"
+        stroke="#e8a035"
+        stroke-width="2"
+        stroke-dasharray="5 3"
+      />
       <rect x="148" y="52" width="44" height="16" rx="5" fill="#e8a035" />
-      <text x="170" y="63" text-anchor="middle" font-size="7.5" font-weight="600" fill="white">dog #1</text>
+      <text
+        x="170"
+        y="63"
+        text-anchor="middle"
+        font-size="7.5"
+        font-weight="600"
+        fill="white"
+      >
+        dog #1
+      </text>
       {/* Legend */}
-      <rect x="16" y="142" width="12" height="12" rx="3" fill="var(--accent)" opacity="0.4" stroke="var(--accent)" stroke-width="1" />
-      <text x="32" y="152" font-size="8" font-weight="500" fill="var(--text-secondary)">Instance 1</text>
-      <rect x="88" y="142" width="12" height="12" rx="3" fill="#c960cf" opacity="0.4" stroke="#c960cf" stroke-width="1" />
-      <text x="104" y="152" font-size="8" font-weight="500" fill="var(--text-secondary)">Instance 2</text>
-      <rect x="160" y="142" width="12" height="12" rx="3" fill="#e8a035" opacity="0.4" stroke="#e8a035" stroke-width="1" />
-      <text x="176" y="152" font-size="8" font-weight="500" fill="var(--text-secondary)">Instance 3</text>
-      <text x="110" y="174" text-anchor="middle" font-size="8" fill="var(--text-muted)">Unique mask + ID per object instance</text>
+      <rect
+        x="16"
+        y="142"
+        width="12"
+        height="12"
+        rx="3"
+        fill="var(--accent)"
+        opacity="0.4"
+        stroke="var(--accent)"
+        stroke-width="1"
+      />
+      <text
+        x="32"
+        y="152"
+        font-size="8"
+        font-weight="500"
+        fill="var(--text-secondary)"
+      >
+        Instance 1
+      </text>
+      <rect
+        x="88"
+        y="142"
+        width="12"
+        height="12"
+        rx="3"
+        fill="#c960cf"
+        opacity="0.4"
+        stroke="#c960cf"
+        stroke-width="1"
+      />
+      <text
+        x="104"
+        y="152"
+        font-size="8"
+        font-weight="500"
+        fill="var(--text-secondary)"
+      >
+        Instance 2
+      </text>
+      <rect
+        x="160"
+        y="142"
+        width="12"
+        height="12"
+        rx="3"
+        fill="#e8a035"
+        opacity="0.4"
+        stroke="#e8a035"
+        stroke-width="1"
+      />
+      <text
+        x="176"
+        y="152"
+        font-size="8"
+        font-weight="500"
+        fill="var(--text-secondary)"
+      >
+        Instance 3
+      </text>
+      <text
+        x="110"
+        y="174"
+        text-anchor="middle"
+        font-size="8"
+        fill="var(--text-muted)"
+      >
+        Unique mask + ID per object instance
+      </text>
     </svg>
   ),
 };
@@ -395,7 +1186,9 @@ function StepTaskType() {
   return (
     <div>
       <p class="wizard-step-title">Task Type</p>
-      <p class="wizard-step-desc">What kind of vision task will this project handle?</p>
+      <p class="wizard-step-desc">
+        What kind of vision task will this project handle?
+      </p>
       <div class="wizard-task-layout">
         <div class="wizard-category-list">
           {TASK_TYPES.map((t) => (
@@ -510,13 +1303,19 @@ function ModelPreview({ category }) {
         <div class="wizard-model-bar-row">
           <span class="wizard-model-bar-label">Speed</span>
           <div class="wizard-model-bar-track">
-            <div class="wizard-model-bar-fill wizard-model-bar-speed" style={{ width: `${preview.speed}%` }} />
+            <div
+              class="wizard-model-bar-fill wizard-model-bar-speed"
+              style={{ width: `${preview.speed}%` }}
+            />
           </div>
         </div>
         <div class="wizard-model-bar-row">
           <span class="wizard-model-bar-label">Accuracy</span>
           <div class="wizard-model-bar-track">
-            <div class="wizard-model-bar-fill wizard-model-bar-acc" style={{ width: `${preview.accuracy}%` }} />
+            <div
+              class="wizard-model-bar-fill wizard-model-bar-acc"
+              style={{ width: `${preview.accuracy}%` }}
+            />
           </div>
         </div>
       </div>
@@ -556,7 +1355,9 @@ function StepModelCategory() {
   return (
     <div>
       <p class="wizard-step-title">Model Category</p>
-      <p class="wizard-step-desc">Choose a model tier based on your deployment target.</p>
+      <p class="wizard-step-desc">
+        Choose a model tier based on your deployment target.
+      </p>
       <div class="wizard-model-layout">
         <div class="wizard-category-list">
           {categories.map((cat) => {
@@ -573,9 +1374,7 @@ function StepModelCategory() {
             );
           })}
         </div>
-        {d.modelCategory && (
-          <ModelPreview category={d.modelCategory} />
-        )}
+        {d.modelCategory && <ModelPreview category={d.modelCategory} />}
       </div>
     </div>
   );
@@ -623,7 +1422,8 @@ const STRUCTURE_PREVIEWS = {
       { name: "img_001.jpg", indent: 2, file: true },
     ],
     note: "One JSON object per line.",
-    sample: '{"image": "images/img_001.jpg", "label": "cat"}\n{"image": "images/img_002.jpg", "label": "dog"}',
+    sample:
+      '{"image": "images/img_001.jpg", "label": "cat"}\n{"image": "images/img_002.jpg", "label": "dog"}',
   },
   // ── Multi-Label Classification ──
   "Multi-Label Classification::CSV": {
@@ -636,7 +1436,8 @@ const STRUCTURE_PREVIEWS = {
       { name: "img_001.jpg", indent: 2, file: true },
     ],
     note: "CSV columns: image_path, labels (pipe-separated)",
-    sample: "images/img_001.jpg,beach|sunset|ocean\nimages/img_002.jpg,mountain|snow",
+    sample:
+      "images/img_001.jpg,beach|sunset|ocean\nimages/img_002.jpg,mountain|snow",
   },
   "Multi-Label Classification::JSONL": {
     label: "JSONL (Multi-Label)",
@@ -648,7 +1449,8 @@ const STRUCTURE_PREVIEWS = {
       { name: "img_001.jpg", indent: 2, file: true },
     ],
     note: "Labels as a JSON array.",
-    sample: '{"image": "images/img_001.jpg", "labels": ["beach", "sunset"]}\n{"image": "images/img_002.jpg", "labels": ["mountain"]}',
+    sample:
+      '{"image": "images/img_001.jpg", "labels": ["beach", "sunset"]}\n{"image": "images/img_002.jpg", "labels": ["mountain"]}',
   },
   // ── Object Detection ──
   "Object Detection::COCO JSON": {
@@ -675,7 +1477,8 @@ const STRUCTURE_PREVIEWS = {
       { name: "img_001.jpg", indent: 2, file: true },
     ],
     note: "CSV columns: image_path, x_min, y_min, x_max, y_max, label",
-    sample: "images/img_001.jpg,10,20,150,200,cat\nimages/img_001.jpg,180,30,300,180,dog",
+    sample:
+      "images/img_001.jpg,10,20,150,200,cat\nimages/img_001.jpg,180,30,300,180,dog",
   },
   "Object Detection::JSONL": {
     label: "JSONL (Detection)",
@@ -687,7 +1490,8 @@ const STRUCTURE_PREVIEWS = {
       { name: "img_001.jpg", indent: 2, file: true },
     ],
     note: "Each line: image + list of bounding boxes.",
-    sample: '{"image": "images/img_001.jpg", "boxes": [\n  {"bbox": [10,20,150,200], "label": "cat"}\n]}',
+    sample:
+      '{"image": "images/img_001.jpg", "boxes": [\n  {"bbox": [10,20,150,200], "label": "cat"}\n]}',
   },
   // ── Semantic Segmentation ──
   "Semantic Segmentation::PNG Masks": {
@@ -764,7 +1568,8 @@ const STRUCTURE_PREVIEWS = {
       { name: "img_001.png", indent: 2, file: true },
     ],
     note: "CSV columns: image_path, mask_path",
-    sample: "images/img_001.jpg,masks/img_001.png\nimages/img_002.jpg,masks/img_002.png",
+    sample:
+      "images/img_001.jpg,masks/img_001.png\nimages/img_002.jpg,masks/img_002.png",
   },
   "Semantic Segmentation::JSONL": {
     label: "JSONL (Segmentation)",
@@ -803,7 +1608,8 @@ const STRUCTURE_PREVIEWS = {
       { name: "masks/", indent: 1 },
     ],
     note: "CSV columns: image_path, mask_path, label, instance_id",
-    sample: "images/img_001.jpg,masks/img_001_0.png,person,0\nimages/img_001.jpg,masks/img_001_1.png,car,1",
+    sample:
+      "images/img_001.jpg,masks/img_001_0.png,person,0\nimages/img_001.jpg,masks/img_001_1.png,car,1",
   },
   "Instance Segmentation::JSONL": {
     label: "JSONL (Instance)",
@@ -815,18 +1621,39 @@ const STRUCTURE_PREVIEWS = {
       { name: "masks/", indent: 1 },
     ],
     note: "Each line: image + list of instance annotations.",
-    sample: '{"image": "images/img_001.jpg", "instances": [\n  {"mask": "masks/001_0.png", "label": "person"}\n]}',
+    sample:
+      '{"image": "images/img_001.jpg", "instances": [\n  {"mask": "masks/001_0.png", "label": "person"}\n]}',
   },
 };
 
 const TreeIconFolder = () => (
-  <svg class="wizard-tree-icon wizard-tree-icon-dir" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <svg
+    class="wizard-tree-icon wizard-tree-icon-dir"
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
     <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
   </svg>
 );
 
 const TreeIconFile = () => (
-  <svg class="wizard-tree-icon wizard-tree-icon-file" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <svg
+    class="wizard-tree-icon wizard-tree-icon-file"
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
     <polyline points="14 2 14 8 20 8" />
   </svg>
@@ -842,9 +1669,14 @@ function StructurePreview({ taskType, format }) {
       <div class="wizard-structure-header">Directory Structure</div>
       <div class="wizard-structure-tree">
         {info.tree.map((item, i) => (
-          <div key={i} class="wizard-tree-line" style={{ paddingLeft: `${item.indent * 16}px` }}>
+          <div
+            key={i}
+            class="wizard-tree-line"
+            style={{ paddingLeft: `${item.indent * 16}px` }}
+          >
             <span class={item.file ? "wizard-tree-file" : "wizard-tree-dir"}>
-              {item.file ? <TreeIconFile /> : <TreeIconFolder />}{item.name}
+              {item.file ? <TreeIconFile /> : <TreeIconFolder />}
+              {item.name}
             </span>
           </div>
         ))}
@@ -862,15 +1694,17 @@ function StructurePreview({ taskType, format }) {
 
 // ── Step 4: Dataset Format ──
 
-
-
-
 function StepDataset() {
   const d = wizardData.value;
   const formats = DATASET_FORMATS[d.taskType] || [];
   const isCsvOrJsonl = d.datasetFormat === "CSV" || d.datasetFormat === "JSONL";
   const needsFolderPath = d.datasetFormat && !isCsvOrJsonl; // All formats except CSV/JSONL need folder path
-  const fileExtension = d.datasetFormat === "CSV" ? "csv" : d.datasetFormat === "JSONL" ? "jsonl" : null;
+  const fileExtension =
+    d.datasetFormat === "CSV"
+      ? "csv"
+      : d.datasetFormat === "JSONL"
+        ? "jsonl"
+        : null;
 
   const handleFolderPathInput = (e) => {
     const value = e.target.value;
@@ -899,7 +1733,7 @@ function StepDataset() {
             <button
               key={f.id}
               class={`wizard-category${d.datasetFormat === f.id ? " selected" : ""}`}
-                onClick={() => {
+              onClick={() => {
                 wizardSetField("datasetFormat", f.id);
                 // Clear validation errors when changing format
                 trainPathError.value = "";
@@ -931,7 +1765,6 @@ function StepDataset() {
               if (e.key === "Enter" && wizardCanProceed.value) wizardNext();
             }}
           />
-        
         </div>
       )}
       <div class="wizard-folder-path-section">
@@ -944,7 +1777,12 @@ function StepDataset() {
           min="2"
           placeholder="e.g. 10"
           value={d.numClasses}
-          onInput={(e) => wizardSetField("numClasses", e.target.value === "" ? "" : Number(e.target.value))}
+          onInput={(e) =>
+            wizardSetField(
+              "numClasses",
+              e.target.value === "" ? "" : Number(e.target.value),
+            )
+          }
           onKeyDown={(e) => {
             if (e.key === "Enter" && wizardCanProceed.value) wizardNext();
           }}
@@ -1009,12 +1847,18 @@ function StepConfirm() {
     ["Project Name", d.name],
     d.projectPath ? ["Project Path", d.projectPath] : null,
     ["Task Type", d.taskType],
-    d.taskType === "Object Detection" ? ["Detection Arch", d.detectionArch.toUpperCase()] : null,
-    d.taskType === "Semantic Segmentation" ? ["Seg Head", d.segHeadType === "deeplabv3plus" ? "DeepLabV3+" : "FCN"] : null,
+    d.taskType === "Object Detection"
+      ? ["Detection Arch", d.detectionArch.toUpperCase()]
+      : null,
+    d.taskType === "Semantic Segmentation"
+      ? ["Seg Head", d.segHeadType === "deeplabv3plus" ? "DeepLabV3+" : "FCN"]
+      : null,
     ["Model Category", d.modelCategory],
     ["Dataset Format", d.datasetFormat],
     d.numClasses ? ["Number of Classes", d.numClasses] : null,
-    d.datasetFormat === "Folder" && d.folderPath ? ["Folder Path", d.folderPath] : null,
+    d.datasetFormat === "Folder" && d.folderPath
+      ? ["Folder Path", d.folderPath]
+      : null,
     isCsvOrJsonl && d.trainPath ? ["Train Path", d.trainPath] : null,
     isCsvOrJsonl && d.valPath ? ["Val Path", d.valPath] : null,
     isCsvOrJsonl && d.testPath ? ["Test Path", d.testPath] : null,
@@ -1023,7 +1867,9 @@ function StepConfirm() {
   return (
     <div>
       <p class="wizard-step-title">Confirm Project</p>
-      <p class="wizard-step-desc">Review your settings before creating the project.</p>
+      <p class="wizard-step-desc">
+        Review your settings before creating the project.
+      </p>
       <div class="wizard-confirm-table">
         {rows.map(([label, value]) => (
           <div key={label} class="wizard-confirm-row">
@@ -1038,7 +1884,14 @@ function StepConfirm() {
 
 // ── Steps array ──
 
-const steps = [StepSSH, StepName, StepTaskType, StepModelCategory, StepDataset, StepConfirm];
+const steps = [
+  StepSSH,
+  StepName,
+  StepTaskType,
+  StepModelCategory,
+  StepDataset,
+  StepConfirm,
+];
 
 // ── Wizard Shell ──
 
@@ -1054,12 +1907,20 @@ export function CreateProjectWizard() {
       <div class="wizard-card wizard-card-wide">
         <div class="wizard-header">
           <h2>New Project</h2>
-          <span class="wizard-step-counter">{step + 1} / {STEP_COUNT}</span>
-          <button class="wizard-close-btn" onClick={closeWizard}>&times;</button>
+          <span class="wizard-step-counter">
+            {step + 1} / {STEP_COUNT}
+          </span>
+          <button class="wizard-close-btn" onClick={closeWizard}>
+            &times;
+          </button>
         </div>
         <div class="wizard-dots">
           {Array.from({ length: STEP_COUNT }, (_, i) => (
-            <div key={i} class={`wizard-dot${i <= step ? " active" : ""}`} title={STEP_LABELS[i]} />
+            <div
+              key={i}
+              class={`wizard-dot${i <= step ? " active" : ""}`}
+              title={STEP_LABELS[i]}
+            />
           ))}
         </div>
         <div class="wizard-body">

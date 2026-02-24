@@ -20,14 +20,24 @@ export function TerminalView() {
   const enabled = !isSSH || sshConnected.value || sshConnecting.value;
   const showTerminal = !isSSH || sshConnected.value;
 
-  const { containerRef, dims, alive, info, sshStatus, sshMessage, clear, kill, restart, focus } =
-    useTerminal({
-      projectId,
-      sshCommand: projectSshCommand,
-      isProject: hasProject,
-      projectPath: project?.projectPath ?? null,
-      enabled,
-    });
+  const {
+    containerRef,
+    dims,
+    alive,
+    info,
+    sshStatus,
+    sshMessage,
+    clear,
+    kill,
+    restart,
+    focus,
+  } = useTerminal({
+    projectId,
+    sshCommand: projectSshCommand,
+    isProject: hasProject,
+    projectPath: project?.projectPath ?? null,
+    enabled,
+  });
 
   const showOverlay = isSSH && sshStatus !== "idle";
   const isConnecting = sshStatus === "connecting";
@@ -78,11 +88,15 @@ export function TerminalView() {
                 <>
                   <span class="terminal-toolbar-shell">ssh</span>
                   <span class="terminal-toolbar-sep" />
-                  <span class="terminal-toolbar-userhost">{info.sshTarget}</span>
+                  <span class="terminal-toolbar-userhost">
+                    {info.sshTarget}
+                  </span>
                 </>
               ) : (
                 <>
-                  <span class="terminal-toolbar-shell">{info?.shell || "shell"}</span>
+                  <span class="terminal-toolbar-shell">
+                    {info?.shell || "shell"}
+                  </span>
                   <span class="terminal-toolbar-sep" />
                   {info?.user && info?.hostname && (
                     <span class="terminal-toolbar-userhost">
@@ -91,28 +105,48 @@ export function TerminalView() {
                   )}
                 </>
               )}
-              <span class={`terminal-toolbar-status ${alive ? "alive" : "dead"}`}>
+              <span
+                class={`terminal-toolbar-status ${alive ? "alive" : "dead"}`}
+              >
                 {alive ? "Running" : "Exited"}
               </span>
             </div>
             <div class="terminal-toolbar-right">
-              <span class="terminal-toolbar-dims">{dims.cols} x {dims.rows}</span>
+              <span class="terminal-toolbar-dims">
+                {dims.cols} x {dims.rows}
+              </span>
               <span class="terminal-toolbar-sep" />
-              <button class="terminal-toolbar-btn" onClick={clear} title="Clear scrollback">
+              <button
+                class="terminal-toolbar-btn"
+                onClick={clear}
+                title="Clear scrollback"
+              >
                 <span dangerouslySetInnerHTML={{ __html: clearIcon }} />
               </button>
               {alive ? (
-                <button class="terminal-toolbar-btn terminal-toolbar-btn-kill" onClick={kill} title="Kill terminal">
+                <button
+                  class="terminal-toolbar-btn terminal-toolbar-btn-kill"
+                  onClick={kill}
+                  title="Kill terminal"
+                >
                   <span dangerouslySetInnerHTML={{ __html: killIcon }} />
                 </button>
               ) : (
-                <button class="terminal-toolbar-btn terminal-toolbar-btn-restart" onClick={restart} title="Restart terminal">
+                <button
+                  class="terminal-toolbar-btn terminal-toolbar-btn-restart"
+                  onClick={restart}
+                  title="Restart terminal"
+                >
                   <span dangerouslySetInnerHTML={{ __html: restartIcon }} />
                 </button>
               )}
             </div>
           </div>
-          <div class="terminal-xterm-container" ref={containerRef} onClick={focus} />
+          <div
+            class="terminal-xterm-container"
+            ref={containerRef}
+            onClick={focus}
+          />
         </>
       )}
     </div>

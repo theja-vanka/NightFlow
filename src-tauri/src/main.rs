@@ -1,14 +1,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
+use portable_pty::{CommandBuilder, MasterPty, PtySize, native_pty_system};
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc, Mutex,
+    atomic::{AtomicBool, Ordering},
 };
-use tauri::{command, window::Color, Emitter, Manager, State};
-
+use tauri::{Emitter, Manager, State, command, window::Color};
 
 // ── Per-session data ──────────────────────────────────────────────────────────
 
@@ -37,11 +36,6 @@ struct PtyExit {
 }
 
 // ── Misc commands ─────────────────────────────────────────────────────────────
-
-#[command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! Welcome to NightFlow.", name)
-}
 
 #[command]
 fn close_splash(app: tauri::AppHandle) {
@@ -80,10 +74,7 @@ fn write_file(path: String, contents: String) -> Result<(), String> {
 
 #[command]
 async fn ssh_write_file(ssh_command: String, path: String, contents: String) -> Result<(), String> {
-    let parts: Vec<String> = ssh_command
-        .split_whitespace()
-        .map(String::from)
-        .collect();
+    let parts: Vec<String> = ssh_command.split_whitespace().map(String::from).collect();
     if parts.is_empty() {
         return Err("Empty SSH command".to_string());
     }
@@ -106,7 +97,10 @@ async fn ssh_write_file(ssh_command: String, path: String, contents: String) -> 
     let mut child = cmd.spawn().map_err(|e| e.to_string())?;
     if let Some(mut stdin) = child.stdin.take() {
         use tokio::io::AsyncWriteExt;
-        stdin.write_all(contents.as_bytes()).await.map_err(|e| e.to_string())?;
+        stdin
+            .write_all(contents.as_bytes())
+            .await
+            .map_err(|e| e.to_string())?;
         drop(stdin);
     }
 
@@ -184,10 +178,7 @@ fn spawn_terminal(
         cmd
     };
 
-    let mut child = pair
-        .slave
-        .spawn_command(cmd)
-        .map_err(|e| e.to_string())?;
+    let mut child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
     drop(pair.slave);
 
     let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
@@ -246,15 +237,14 @@ fn spawn_terminal(
 }
 
 #[command]
-fn pty_write(
-    session_id: String,
-    data: String,
-    state: State<'_, PtyState>,
-) -> Result<(), String> {
+fn pty_write(session_id: String, data: String, state: State<'_, PtyState>) -> Result<(), String> {
     let mut sessions = state.sessions.lock().unwrap();
     if let Some(session) = sessions.get_mut(&session_id)
-        && let Some(ref mut writer) = session.writer {
-        writer.write_all(data.as_bytes()).map_err(|e| e.to_string())?;
+        && let Some(ref mut writer) = session.writer
+    {
+        writer
+            .write_all(data.as_bytes())
+            .map_err(|e| e.to_string())?;
         writer.flush().map_err(|e| e.to_string())?;
     }
     Ok(())
@@ -269,7 +259,8 @@ fn pty_resize(
 ) -> Result<(), String> {
     let sessions = state.sessions.lock().unwrap();
     if let Some(session) = sessions.get(&session_id)
-        && let Some(ref master) = session.master {
+        && let Some(ref master) = session.master
+    {
         master
             .resize(PtySize {
                 rows,
@@ -326,7 +317,8 @@ fn get_terminal_info(
 
     let sessions = state.sessions.lock().unwrap();
     if let Some(session) = sessions.get(&session_id)
-        && let Some(ref ssh_cmd) = session.ssh_command {
+        && let Some(ref ssh_cmd) = session.ssh_command
+    {
         info.insert("isSSH".into(), "true".into());
         info.insert("sshCommand".into(), ssh_cmd.clone());
         let parts: Vec<&str> = ssh_cmd.split_whitespace().collect();
@@ -343,10 +335,7 @@ fn get_terminal_info(
 
 #[command]
 async fn test_ssh(ssh_command: String) -> Result<String, String> {
-    let parts: Vec<String> = ssh_command
-        .split_whitespace()
-        .map(String::from)
-        .collect();
+    let parts: Vec<String> = ssh_command.split_whitespace().map(String::from).collect();
     if parts.is_empty() {
         return Err("Empty SSH command".to_string());
     }
@@ -378,10 +367,7 @@ async fn test_ssh(ssh_command: String) -> Result<String, String> {
 
 #[command]
 async fn ssh_mkdir(ssh_command: String, path: String) -> Result<String, String> {
-    let parts: Vec<String> = ssh_command
-        .split_whitespace()
-        .map(String::from)
-        .collect();
+    let parts: Vec<String> = ssh_command.split_whitespace().map(String::from).collect();
     if parts.is_empty() {
         return Err("Empty SSH command".to_string());
     }
@@ -420,10 +406,7 @@ async fn ssh_mkdir(ssh_command: String, path: String) -> Result<String, String> 
 
 #[command]
 async fn ssh_check_path(ssh_command: String, path: String) -> Result<bool, String> {
-    let parts: Vec<String> = ssh_command
-        .split_whitespace()
-        .map(String::from)
-        .collect();
+    let parts: Vec<String> = ssh_command.split_whitespace().map(String::from).collect();
     if parts.is_empty() {
         return Err("Empty SSH command".to_string());
     }
@@ -615,10 +598,7 @@ async fn ensure_uv() -> Result<UvStatus, String> {
 /// Tauri command: check if uv exists on remote, install if missing.
 #[command]
 async fn ssh_ensure_uv(ssh_command: String) -> Result<UvStatus, String> {
-    let parts: Vec<String> = ssh_command
-        .split_whitespace()
-        .map(String::from)
-        .collect();
+    let parts: Vec<String> = ssh_command.split_whitespace().map(String::from).collect();
     if parts.is_empty() {
         return Err("Empty SSH command".to_string());
     }
@@ -657,9 +637,8 @@ fi"#;
                     message: format!("SSH uv check failed: {}", stderr),
                 });
             }
-            serde_json::from_str::<UvStatus>(&stdout).map_err(|e| {
-                format!("Failed to parse uv status: {} (raw: {})", e, stdout)
-            })
+            serde_json::from_str::<UvStatus>(&stdout)
+                .map_err(|e| format!("Failed to parse uv status: {} (raw: {})", e, stdout))
         }
         Ok(Err(e)) => Err(e.to_string()),
         Err(_) => Ok(UvStatus {
@@ -733,10 +712,7 @@ async fn check_conda() -> Result<CondaStatus, String> {
 /// Tauri command: check if conda exists on remote.
 #[command]
 async fn ssh_check_conda(ssh_command: String) -> Result<CondaStatus, String> {
-    let parts: Vec<String> = ssh_command
-        .split_whitespace()
-        .map(String::from)
-        .collect();
+    let parts: Vec<String> = ssh_command.split_whitespace().map(String::from).collect();
     if parts.is_empty() {
         return Err("Empty SSH command".to_string());
     }
@@ -789,9 +765,8 @@ fi"#;
                     message: "SSH conda check failed".to_string(),
                 });
             }
-            serde_json::from_str::<CondaStatus>(&stdout).map_err(|e| {
-                format!("Failed to parse conda status: {} (raw: {})", e, stdout)
-            })
+            serde_json::from_str::<CondaStatus>(&stdout)
+                .map_err(|e| format!("Failed to parse conda status: {} (raw: {})", e, stdout))
         }
         Ok(Err(e)) => Err(e.to_string()),
         Err(_) => Ok(CondaStatus {
@@ -842,17 +817,17 @@ async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, String
         let detected_env_type = if is_conda_env { "conda" } else { "uv" };
 
         let (python_version, autotimm_version) = get_venv_versions(&venv_path).await;
-        if autotimm_version.is_none() {
+        if autotimm_version.is_none() || detected_env_type == "conda" {
             let uv_bin = find_uv().unwrap_or_else(|| "uv".to_string());
             let _ = tokio::process::Command::new(&uv_bin)
-                .args(["pip", "install", "autotimm", "--python", ".venv/bin/python"])
+                .args(["pip", "install", "--upgrade", "autotimm", "--python", ".venv/bin/python"])
                 .current_dir(&expanded)
                 .output()
                 .await;
             let (python_version, autotimm_version) = get_venv_versions(&venv_path).await;
             return Ok(EnvSetupResult {
                 status: "exists".to_string(),
-                message: "Using project .venv".to_string(),
+                message: "Using project .venv (updated)".to_string(),
                 python_version,
                 autotimm_version,
                 env_type: Some(detected_env_type.to_string()),
@@ -882,7 +857,12 @@ async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, String
             .await
             .ok()
             .filter(|o| o.status.success())
-            .map(|o| String::from_utf8_lossy(&o.stdout).trim().trim_start_matches("Python ").to_string());
+            .map(|o| {
+                String::from_utf8_lossy(&o.stdout)
+                    .trim()
+                    .trim_start_matches("Python ")
+                    .to_string()
+            });
         return Ok(EnvSetupResult {
             status: "system".to_string(),
             message: "Using system Python environment".to_string(),
@@ -921,9 +901,9 @@ async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, String
             });
         }
 
-        // Install autotimm using conda run + pip
+        // Install autotimm using conda run + pip (with upgrade)
         let install_output = tokio::process::Command::new(&conda_bin)
-            .args(["run", "-p", ".venv", "pip", "install", "autotimm"])
+            .args(["run", "-p", ".venv", "pip", "install", "--upgrade", "autotimm"])
             .stdin(std::process::Stdio::null())
             .current_dir(&expanded)
             .output()
@@ -963,7 +943,12 @@ async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, String
     )
     .await;
 
-    let uv_args = vec!["venv".to_string(), ".venv".to_string(), "--python".to_string(), "3.12".to_string()];
+    let uv_args = vec![
+        "venv".to_string(),
+        ".venv".to_string(),
+        "--python".to_string(),
+        "3.12".to_string(),
+    ];
 
     let venv_output = tokio::process::Command::new(&uv_bin)
         .args(&uv_args)
@@ -984,9 +969,9 @@ async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, String
         });
     }
 
-    // Install autotimm using uv pip
+    // Install autotimm using uv pip (with upgrade)
     let install_output = tokio::process::Command::new(&uv_bin)
-        .args(["pip", "install", "autotimm", "--python", ".venv/bin/python"])
+        .args(["pip", "install", "--upgrade", "autotimm", "--python", ".venv/bin/python"])
         .current_dir(&expanded)
         .output()
         .await
@@ -1018,10 +1003,7 @@ async fn ssh_setup_python_env(
     ssh_command: String,
     project_path: String,
 ) -> Result<EnvSetupResult, String> {
-    let parts: Vec<String> = ssh_command
-        .split_whitespace()
-        .map(String::from)
-        .collect();
+    let parts: Vec<String> = ssh_command.split_whitespace().map(String::from).collect();
     if parts.is_empty() {
         return Err("Empty SSH command".to_string());
     }
@@ -1066,11 +1048,11 @@ jout() {{
 if [ -d .venv ]; then
   PV=$(.venv/bin/python --version 2>/dev/null | sed 's/Python //')
   AV=$(.venv/bin/python -c "import autotimm; print(autotimm.__version__)" 2>/dev/null)
-  if [ -z "$AV" ]; then
+  if [ -z "$AV" ] || [ -n "$CONDA_BIN" ]; then
     if [ -n "$CONDA_BIN" ]; then
-      "$CONDA_BIN" run -p .venv pip install 'autotimm' </dev/null >/dev/null 2>&1
+      "$CONDA_BIN" run -p .venv pip install --upgrade 'autotimm' </dev/null >/dev/null 2>&1
     else
-      uv pip install 'autotimm' --python .venv/bin/python >/dev/null 2>&1
+      uv pip install --upgrade 'autotimm' --python .venv/bin/python >/dev/null 2>&1
     fi
     AV=$(.venv/bin/python -c "import autotimm; print(autotimm.__version__)" 2>/dev/null)
   fi
@@ -1087,7 +1069,7 @@ else
       jout error "Failed to create conda env: $CONDA_ERR" "" ""
       exit 0
     fi
-    PIP_ERR=$("$CONDA_BIN" run -p .venv pip install 'autotimm' </dev/null 2>&1)
+    PIP_ERR=$("$CONDA_BIN" run -p .venv pip install --upgrade 'autotimm' </dev/null 2>&1)
     if [ $? -ne 0 ]; then
       jout error "Failed to install dependencies (conda): $PIP_ERR" "" ""
       exit 0
@@ -1103,7 +1085,7 @@ else
       jout error "Failed to create venv: $VENV_ERR" "" ""
       exit 0
     fi
-    PIP_ERR=$(uv pip install 'autotimm' --python .venv/bin/python 2>&1)
+    PIP_ERR=$(uv pip install --upgrade 'autotimm' --python .venv/bin/python 2>&1)
     if [ $? -ne 0 ]; then
       jout error "Failed to install dependencies: $PIP_ERR" "" ""
       exit 0
@@ -1137,9 +1119,8 @@ fi"#,
                     env_type: None,
                 });
             }
-            serde_json::from_str::<EnvSetupResult>(&stdout).map_err(|e| {
-                format!("Failed to parse env setup output: {} (raw: {})", e, stdout)
-            })
+            serde_json::from_str::<EnvSetupResult>(&stdout)
+                .map_err(|e| format!("Failed to parse env setup output: {} (raw: {})", e, stdout))
         }
         Ok(Err(e)) => Err(e.to_string()),
         Err(_) => Ok(EnvSetupResult {
@@ -1245,7 +1226,7 @@ async fn start_training(
     state: State<'_, TrainingState>,
     session_id: String,
     run_id: String,
-    run_name: Option<String>,
+    _run_name: Option<String>,
     command: String,
     cwd: Option<String>,
 ) -> Result<(), String> {
@@ -1282,10 +1263,16 @@ async fn start_training(
     if !final_parts.iter().any(|a| a.contains("json_progress=")) {
         final_parts.push("--trainer.json_progress=true".into());
     }
-    
+
     let tb_jsonl_path = format!("logs/{}/{}.jsonl", run_id, run_id);
-    if !final_parts.iter().any(|a| a.contains("--trainer.json_progress_log_file")) {
-        final_parts.push(format!("--trainer.json_progress_log_file={}", tb_jsonl_path));
+    if !final_parts
+        .iter()
+        .any(|a| a.contains("--trainer.json_progress_log_file"))
+    {
+        final_parts.push(format!(
+            "--trainer.json_progress_log_file={}",
+            tb_jsonl_path
+        ));
     }
 
     // Resolve "conda" to the full path (GUI apps may not have it in PATH)
@@ -1428,10 +1415,7 @@ async fn stop_training(
 }
 
 #[command]
-fn is_training_alive(
-    session_id: String,
-    state: State<'_, TrainingState>,
-) -> bool {
+fn is_training_alive(session_id: String, state: State<'_, TrainingState>) -> bool {
     let procs = state.processes.lock().unwrap();
     procs
         .get(&session_id)
@@ -1484,7 +1468,10 @@ async fn replay_training_log(
     let mut replayed = 0u32;
     for line in content.lines() {
         if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
-            let ts = json.get("timestamp").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let ts = json
+                .get("timestamp")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0);
             if ts > after_timestamp {
                 let _ = app.emit(
                     "training-event",
@@ -1741,32 +1728,34 @@ fn validate_file_path(path: String, expected_extension: Option<String>) -> PathV
     }
 }
 
-
 // ── Run JSONL scanning & parsing ──────────────────────────────────────────────
 
-/// List all discovered runs by scanning logs/ directory for subfolders containing .jsonl files.
+/// List all discovered runs by scanning logs/ directory for subfolders.
 #[command]
-fn list_run_jsonl_files(project_path: String) -> Result<Vec<String>, String> {
+fn list_run_folders(project_path: String) -> Result<Vec<String>, String> {
     let expanded = expand_tilde(&project_path);
     let logs_dir = std::path::PathBuf::from(&expanded).join("logs");
-    
+
     if !logs_dir.exists() {
         return Ok(Vec::new());
     }
 
-    let entries = std::fs::read_dir(&logs_dir)
-        .map_err(|e| format!("Failed to read logs directory {}: {}", logs_dir.display(), e))?;
-    
+    let entries = std::fs::read_dir(&logs_dir).map_err(|e| {
+        format!(
+            "Failed to read logs directory {}: {}",
+            logs_dir.display(),
+            e
+        )
+    })?;
+
     let mut names = Vec::new();
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.is_dir() {
-            if let Some(run_id) = path.file_name().and_then(|s| s.to_str()) {
-                let jsonl_file = path.join(format!("{}.jsonl", run_id));
-                if jsonl_file.exists() && jsonl_file.is_file() {
-                    names.push(run_id.to_string());
-                }
-            }
+        if path.is_dir()
+            && let Some(run_id) = path.file_name().and_then(|s| s.to_str())
+        {
+            // Return any subdirectory as a run, as it might contain tfevents
+            names.push(run_id.to_string());
         }
     }
     names.sort();
@@ -1840,7 +1829,10 @@ async fn parse_tensorboard_run(
         .join(&run_id);
 
     if !log_dir.exists() {
-        return Err(format!("TensorBoard log directory not found: {}", log_dir.display()));
+        return Err(format!(
+            "TensorBoard log directory not found: {}",
+            log_dir.display()
+        ));
     }
 
     // Since parsing tfevents in Rust is complex, we use a small Python script.
@@ -1899,8 +1891,12 @@ if __name__ == "__main__":
     }
 
     let stdout_str = String::from_utf8_lossy(&output.stdout);
-    let result: serde_json::Value = serde_json::from_str(&stdout_str)
-        .map_err(|e| format!("Failed to parse Python output: {}. Output was: {}", e, stdout_str))?;
+    let result: serde_json::Value = serde_json::from_str(&stdout_str).map_err(|e| {
+        format!(
+            "Failed to parse Python output: {}. Output was: {}",
+            e, stdout_str
+        )
+    })?;
 
     if let Some(err) = result.get("error") {
         return Err(format!("TensorBoard parsing error: {}", err));
@@ -1929,7 +1925,6 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            greet,
             close_splash,
             spawn_terminal,
             pty_write,
@@ -1959,7 +1954,7 @@ fn main() {
             check_training_session,
             replay_training_log,
             watch_training_log,
-            list_run_jsonl_files,
+            list_run_folders,
             parse_run_jsonl,
             parse_tensorboard_run,
         ])

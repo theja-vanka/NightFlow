@@ -21,7 +21,9 @@ export function ChartsView() {
     }
     setLoadingTb(true);
     Promise.all(
-      tbRuns.map((r) => loadRunScalars(r).then((s) => ({ run: r, scalars: s })))
+      tbRuns.map((r) =>
+        loadRunScalars(r).then((s) => ({ run: r, scalars: s })),
+      ),
     )
       .then((results) => {
         const map = {};
@@ -41,7 +43,10 @@ export function ChartsView() {
       if (!tagMap[tag]) tagMap[tag] = [];
       tagMap[tag].push({
         label: run.name || run.id,
-        data: points.slice().sort((a, b) => a.step - b.step).map((p) => p.value),
+        data: points
+          .slice()
+          .sort((a, b) => a.step - b.step)
+          .map((p) => p.value),
       });
     }
   }
@@ -53,7 +58,10 @@ export function ChartsView() {
       <div class="charts-view">
         <div class="charts-empty">
           <p class="charts-empty-text">No completed runs yet</p>
-          <p class="charts-empty-hint">Charts will appear here once training runs complete or TensorBoard logs are found during sync.</p>
+          <p class="charts-empty-hint">
+            Charts will appear here once training runs complete or TensorBoard
+            logs are found during sync.
+          </p>
         </div>
       </div>
     );
@@ -67,8 +75,12 @@ export function ChartsView() {
   const modelRuns = Object.values(byModel).slice(0, 4);
 
   // Top runs by best accuracy / lowest loss
-  const topAcc = [...completed].sort((a, b) => (b.bestAcc ?? 0) - (a.bestAcc ?? 0)).slice(0, 3);
-  const topLoss = [...completed].sort((a, b) => (a.valLoss ?? 9) - (b.valLoss ?? 9)).slice(0, 3);
+  const topAcc = [...completed]
+    .sort((a, b) => (b.bestAcc ?? 0) - (a.bestAcc ?? 0))
+    .slice(0, 3);
+  const topLoss = [...completed]
+    .sort((a, b) => (a.valLoss ?? 9) - (b.valLoss ?? 9))
+    .slice(0, 3);
 
   return (
     <div class="charts-view">
@@ -76,7 +88,10 @@ export function ChartsView() {
         {modelRuns.length > 0 && (
           <ChartPanel title="Loss by Model">
             <LineChart
-              series={modelRuns.map((r) => ({ label: r.model, data: r.lossCurve }))}
+              series={modelRuns.map((r) => ({
+                label: r.model,
+                data: r.lossCurve,
+              }))}
               yLabel="Loss"
             />
           </ChartPanel>
@@ -84,7 +99,10 @@ export function ChartsView() {
         {modelRuns.length > 0 && (
           <ChartPanel title="Accuracy by Model">
             <LineChart
-              series={modelRuns.map((r) => ({ label: r.model, data: r.accCurve }))}
+              series={modelRuns.map((r) => ({
+                label: r.model,
+                data: r.accCurve,
+              }))}
               yLabel="Acc"
             />
           </ChartPanel>
@@ -92,7 +110,10 @@ export function ChartsView() {
         {topAcc.length > 0 && (
           <ChartPanel title="Top Accuracy Runs">
             <LineChart
-              series={topAcc.map((r) => ({ label: r.name || r.id, data: r.accCurve }))}
+              series={topAcc.map((r) => ({
+                label: r.name || r.id,
+                data: r.accCurve,
+              }))}
               yLabel="Acc"
             />
           </ChartPanel>
@@ -100,7 +121,10 @@ export function ChartsView() {
         {topLoss.length > 0 && (
           <ChartPanel title="Lowest Loss Runs">
             <LineChart
-              series={topLoss.map((r) => ({ label: r.name || r.id, data: r.lossCurve }))}
+              series={topLoss.map((r) => ({
+                label: r.name || r.id,
+                data: r.lossCurve,
+              }))}
               yLabel="Loss"
             />
           </ChartPanel>
@@ -116,11 +140,7 @@ export function ChartsView() {
             <div class="run-detail-group-charts">
               {allTags.map((tag) => (
                 <ChartPanel key={tag} title={tag}>
-                  <LineChart
-                    series={tagMap[tag]}
-                    yLabel=""
-                    xLabel="Step"
-                  />
+                  <LineChart series={tagMap[tag]} yLabel="" xLabel="Step" />
                 </ChartPanel>
               ))}
             </div>

@@ -17,7 +17,12 @@ export function Sparkline({ data, width = 80, height = 24 }) {
     .join(" ");
 
   return (
-    <svg class="sparkline" width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+    <svg
+      class="sparkline"
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+    >
       <polyline
         fill="none"
         stroke="var(--text-secondary)"
