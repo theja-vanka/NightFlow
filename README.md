@@ -1,177 +1,136 @@
 <div align="center">
 
-<img src="assets/night_flow.png" width="140" alt="NightFlow logo" />
+<img src="assets/night_flow.png" width="160" alt="NightFlow Logo" />
 
-**A native desktop application for managing, running, and analyzing deep-learning experiments.**
+# 🌌 NightFlow
 
-[![CI](https://img.shields.io/github/actions/workflow/status/your-org/NightFlow/ci.yml?branch=dev&label=CI&style=flat-square)](../../actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/your-org/NightFlow?style=flat-square&color=blue)](../../releases/latest)
-[![License](https://img.shields.io/badge/license-Apache%202.0-green?style=flat-square)](LICENSE)
+**A premium, native desktop application for professional deep-learning experiment management.**
 
-[Features](#-features) · [Download](#-download) · [Development](#-development) · [Tech Stack](#-tech-stack) · [License](#-license)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=for-the-badge&logo=apache)](LICENSE)
+[![Tauri](https://img.shields.io/badge/built%20with-Tauri%20v2-orange?style=for-the-badge&logo=tauri)](https://v2.tauri.app/)
+[![Rust](https://img.shields.io/badge/backend-Rust-black?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
+[![Preact](https://img.shields.io/badge/frontend-Preact-9437ff?style=for-the-badge&logo=preact)](https://preactjs.com/)
+
+[✨ Features](#-features) • [🚀 Quick Start](#-quick-start) • [🏗️ Architecture](#️-architecture) • [📦 Download](#-download)
+
+---
 
 </div>
 
-<br />
+## 💡 Why NightFlow?
+
+Deep learning research should be fluid and focused. **NightFlow** brings order to the chaos of local and remote experiment management with a beautiful, high-performance native interface.
+
+- **Private by Design**: Your datasets and weights never leave your hardware. No cloud accounts, no telemetry.
+- **Native Performance**: Built with Rust and Tauri for a lightweight, snappy experience—no Electron bloat.
+- **Unified Workflow**: Manage projects, track metrics, and run remote training via SSH, all in one place.
 
 ## ✨ Features
 
-<table>
+<table width="100%">
 <tr>
-<td width="50%">
+<td width="50%" valign="top">
 
-### Organize & Track
-
-- **Project Management** — Create and organize ML projects with dataset, model, and training configurations
-- **Experiment Tracking** — View runs, metrics, and training history in a structured table
-- **Dashboard** — At-a-glance summary cards showing project health and run status
+### 📋 Organize & Track
+- **Project Hub**: Create structured ML projects with dedicated configs.
+- **Experiment Tracking**: Real-time metric logs and run history.
+- **Project Dashboard**: Instant health overview and status cards.
 
 </td>
-<td width="50%">
+<td width="50%" valign="top">
 
-### Visualize & Analyze
-
-- **Charts** — Interactive loss curves, accuracy plots, and custom metrics
-- **Model Interpretation** — Built-in tools for interpretability analysis
-- **Netron Integration** — Visualize neural network architectures directly in-app
+### 📊 Visualize & Analyze
+- **Interactive Charts**: High-fidelity loss and accuracy plots.
+- **Deep Interpretation**: Integrated model analysis tools.
+- **Netron Inside**: Visual architecture inspector built-in.
 
 </td>
 </tr>
 <tr>
-<td width="50%">
+<td width="50%" valign="top">
 
-### Connect & Run
-
-- **Integrated Terminal** — Full PTY terminal with SSH support for remote training servers
-- **SSH Management** — One-click connection to remote machines
-
-</td>
-<td width="50%">
-
-### Cross-Platform
-
-- 🍎 **macOS** — Native `.app` bundle (Intel & Apple Silicon)
-- 🪟 **Windows** — NSIS installer
-- 🐧 **Linux** — AppImage & `.deb` packages
+### 🖥️ Connect & Run
+- **Pro Terminal**: Full xterm.js PTY with WebGL acceleration.
+- **SSH Mastery**: One-click remote server management.
+- **Native Tooling**: Direct filesystem and process interaction.
 
 </td>
-</tr>
-<tr>
-<td width="50%">
+<td width="50%" valign="top">
 
-### Privacy & Trust
-
-- **100% Offline** — Works entirely without an internet connection
-- **No Telemetry** — Zero tracking, zero analytics, zero phone-home
-- **Your Data Stays Yours** — All data is stored locally on your machine using IndexedDB — nothing leaves your device
-- **No Account Required** — No sign-up, no login, no cloud dependency
-
-</td>
-<td width="50%">
-
-### Built Right
-
-- **Open Source** — Apache 2.0 licensed, fully auditable code
-- **Lightweight** — Small binary size thanks to Tauri (no Electron bloat)
-- **Fast** — Native Rust backend with Preact frontend for snappy performance
-- **No Ads, No Upsells** — Clean, distraction-free experience
+### 🔒 Built with Trust
+- **100% Offline**: Zero internet dependency.
+- **No Telemetry**: We don't track you. Ever.
+- **Local Storage**: Data persists in IndexedDB on your device.
 
 </td>
 </tr>
 </table>
 
-<br />
+## 🏗️ Architecture
 
-## 📦 Download
+NightFlow leverages a modern, dual-layer architecture for maximum efficiency and safety.
 
-Grab the latest build from the **[Releases](../../releases/latest)** page.
+```mermaid
+graph TD
+    subgraph "Frontend (Preact + Signals)"
+        UI[User Interface] --> State[Reactive State]
+        State --> DB[(IndexedDB)]
+        UI --> Terminal[xterm.js]
+    end
 
-| Platform | Architecture | Format |
-| :---: | :---: | :---: |
-| macOS | ARM64 / x64 | `.dmg` |
-| Windows | x64 | `.exe` |
-| Linux | x64 | `.AppImage` · `.deb` |
+    subgraph "Backend (Rust + Tauri v2)"
+        Tauri[Tauri Core] --> PTY[Portable PTY]
+        Tauri --> FS[File System]
+        Tauri --> SSH[SSH / Tokio]
+    end
 
-<br />
+    UI <== "IPC (Inter-Process Communication)" ==> Tauri
+```
 
-## 🛠 Development
+## 🚀 Quick Start
 
 ### Prerequisites
 
-| Tool | Version |
-| :--- | :--- |
-| [Node.js](https://nodejs.org/) | 22+ |
-| [Bun](https://bun.sh/) | latest |
-| [Rust](https://rustup.rs/) | stable |
+| Node.js | Bun | Rust |
+| :---: | :---: | :---: |
+| 22+ | Latest | Stable |
 
-> **Note:** You also need platform-specific dependencies for Tauri — see the [Tauri v2 prerequisites](https://v2.tauri.app/start/prerequisites/).
-
-### Quick Start
+### Setup
 
 ```bash
-# Clone
-git clone https://github.com/<your-org>/NightFlow.git && cd NightFlow
+# Clone the repository
+git clone https://github.com/theja-vanka/NightFlow.git && cd NightFlow
 
 # Install dependencies
 npm install --legacy-peer-deps
 
-# Launch in dev mode
+# Launch in developer mode
 npx tauri dev
 ```
 
-### Available Scripts
+## 📦 Download
 
+| Platform | Arch | Format |
+| :--- | :--- | :--- |
+| **macOS** | ARM64 / x64 | `.dmg` |
+| **Windows** | x64 | `.exe` |
+| **Linux** | x64 | `.AppImage` |
+
+> [!TIP]
+> Get the latest builds from the **[Releases](../../releases/latest)** page.
+
+## 🛠️ Development Scripts
+
+```bash
+npm run dev        # Start Vite dev server
+npm run build      # Build frontend
+npx tauri dev      # Launch app in dev mode
+npx tauri build    # Build distributable apps
 ```
-npm run dev          →  Start Vite dev server
-npm run build        →  Build frontend for production
-npm run lint         →  Lint frontend with ESLint
-npx tauri dev        →  Launch app in development mode
-npx tauri build      →  Build distributable bundles
-```
-
-### Project Structure
-
-```
-NightFlow/
-│
-├─ src/                       # Frontend (Preact + Signals)
-│  ├─ components/             #   Reusable UI components
-│  ├─ views/                  #   Page-level views
-│  ├─ state/                  #   Reactive state (Preact Signals)
-│  ├─ db/                     #   IndexedDB persistence layer
-│  └─ hooks/                  #   Custom hooks (terminal, etc.)
-│
-├─ src-tauri/                 # Rust backend (Tauri v2)
-│  └─ src/main.rs             #   PTY management, SSH, file validation
-│
-├─ .github/workflows/
-│  ├─ ci.yml                  #   Build check on push to dev
-│  └─ release.yml             #   Build & publish on version tags
-│
-└─ package.json
-```
-
-<br />
-
-## 🧩 Tech Stack
-
-| Layer | Technology |
-| :--- | :--- |
-| **UI** | [Preact](https://preactjs.com/) · [Preact Signals](https://preactjs.com/guide/v10/signals/) |
-| **Bundler** | [Vite](https://vitejs.dev/) |
-| **Desktop** | [Tauri v2](https://v2.tauri.app/) |
-| **Terminal** | [xterm.js](https://xtermjs.org/) with WebGL rendering |
-| **Storage** | IndexedDB via [idb](https://github.com/nicolo-ribaudo/idb) |
-| **Backend** | Rust · [portable-pty](https://crates.io/crates/portable-pty) · [Tokio](https://tokio.rs/) |
-
-<br />
-
-## 📄 License
-
-Released under the [Apache License 2.0](LICENSE).
 
 ---
 
 <div align="center">
-<sub>Built with 🔥 by Krishnatheja Vanka</sub>
+    <b>Built with ❤️ by <a href="https://github.com/theja-vanka">Krishnatheja Vanka</a></b><br/>
+    <sub>Released under the Apache License 2.0</sub>
 </div>
