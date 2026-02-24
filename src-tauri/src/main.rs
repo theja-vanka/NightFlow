@@ -1873,9 +1873,8 @@ async fn watch_training_log(
         if !is_pid_alive(pid) {
             // Read any final lines
             if let Ok(mut f) = std::fs::File::open(&path)
-                && f.seek(SeekFrom::Start(offset)).is_ok()
-            {
-                let reader = std::io::BufReader::new(&mut f);
+                && f.seek(SeekFrom::Start(offset)).is_ok() {
+                let reader = std::io::BufReader::new(f);
                 for line in reader.lines().map_while(Result::ok) {
                     if let Ok(json) = serde_json::from_str::<serde_json::Value>(&line) {
                         let _ = app.emit(

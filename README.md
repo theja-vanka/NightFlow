@@ -1,23 +1,14 @@
 <div align="center">
 
-<img src="assets/night_flow.png" width="160" alt="NightFlow Logo" />
+**A premium, native desktop application for professional deep-learning in computer vision experiment management and auto training.**
 
-# 🌌 NightFlow
-
-**A premium, native desktop application for professional deep-learning experiment management.**
-
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=for-the-badge&logo=apache)](LICENSE)
-[![Tauri](https://img.shields.io/badge/built%20with-Tauri%20v2-orange?style=for-the-badge&logo=tauri)](https://v2.tauri.app/)
-[![Rust](https://img.shields.io/badge/backend-Rust-black?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
-[![Preact](https://img.shields.io/badge/frontend-Preact-9437ff?style=for-the-badge&logo=preact)](https://preactjs.com/)
-
-[✨ Features](#-features) • [🚀 Quick Start](#-quick-start) • [🏗️ Architecture](#️-architecture) • [📦 Download](#-download)
+[Features](#features) • [Quick Start](#quick-start) • [Architecture](#architecture) • [Download](#download)
 
 ---
 
 </div>
 
-## 💡 Why NightFlow?
+## Why NightFlow?
 
 Deep learning research should be fluid and focused. **NightFlow** brings order to the chaos of local and remote experiment management with a beautiful, high-performance native interface.
 
@@ -25,13 +16,15 @@ Deep learning research should be fluid and focused. **NightFlow** brings order t
 - **Native Performance**: Built with Rust and Tauri for a lightweight, snappy experience—no Electron bloat.
 - **Unified Workflow**: Manage projects, track metrics, and run remote training via SSH, all in one place.
 
-## ✨ Features
+## Features
+
+<div align="center">
 
 <table width="100%">
 <tr>
 <td width="50%" valign="top">
 
-### 📋 Organize & Track
+### Organize & Track
 - **Project Hub**: Create structured ML projects with dedicated configs.
 - **Experiment Tracking**: Real-time metric logs and run history.
 - **Project Dashboard**: Instant health overview and status cards.
@@ -39,7 +32,7 @@ Deep learning research should be fluid and focused. **NightFlow** brings order t
 </td>
 <td width="50%" valign="top">
 
-### 📊 Visualize & Analyze
+### Visualize & Analyze
 - **Interactive Charts**: High-fidelity loss and accuracy plots.
 - **Deep Interpretation**: Integrated model analysis tools.
 - **Netron Inside**: Visual architecture inspector built-in.
@@ -49,7 +42,7 @@ Deep learning research should be fluid and focused. **NightFlow** brings order t
 <tr>
 <td width="50%" valign="top">
 
-### 🖥️ Connect & Run
+### Connect & Run
 - **Pro Terminal**: Full xterm.js PTY with WebGL acceleration.
 - **SSH Mastery**: One-click remote server management.
 - **Native Tooling**: Direct filesystem and process interaction.
@@ -57,7 +50,7 @@ Deep learning research should be fluid and focused. **NightFlow** brings order t
 </td>
 <td width="50%" valign="top">
 
-### 🔒 Built with Trust
+### Built with Trust
 - **100% Offline**: Zero internet dependency.
 - **No Telemetry**: We don't track you. Ever.
 - **Local Storage**: Data persists in IndexedDB on your device.
@@ -66,7 +59,9 @@ Deep learning research should be fluid and focused. **NightFlow** brings order t
 </tr>
 </table>
 
-## 🏗️ Architecture
+</div>
+
+## Architecture
 
 NightFlow leverages a modern, dual-layer architecture for maximum efficiency and safety.
 
@@ -87,7 +82,7 @@ graph TD
     UI <== "IPC (Inter-Process Communication)" ==> Tauri
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -108,7 +103,7 @@ npm install --legacy-peer-deps
 npx tauri dev
 ```
 
-## 📦 Download
+## Download
 
 | Platform | Arch | Format |
 | :--- | :--- | :--- |
@@ -119,7 +114,7 @@ npx tauri dev
 > [!TIP]
 > Get the latest builds from the **[Releases](../../releases/latest)** page.
 
-## 🛠️ Development Scripts
+## Development Scripts
 
 ```bash
 npm run dev        # Start Vite dev server
@@ -131,6 +126,6 @@ npx tauri build    # Build distributable apps
 ---
 
 <div align="center">
-    <b>Built with ❤️ by <a href="https://github.com/theja-vanka">Krishnatheja Vanka</a></b><br/>
+    <b>Built with love by <a href="https://github.com/theja-vanka">Krishnatheja Vanka</a></b><br/>
     <sub>Released under the Apache License 2.0</sub>
 </div>
