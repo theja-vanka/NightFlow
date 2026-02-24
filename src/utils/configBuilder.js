@@ -14,7 +14,7 @@ const TASK_CLASS_PATHS = {
 /**
  * Build an AutoTimm YAML config string from a NightFlow project object.
  */
-export function buildConfigYaml(project) {
+export function buildConfigYaml(project, runId = "default") {
   const task = project.taskType || "Classification";
   const paths = TASK_CLASS_PATHS[task] || TASK_CLASS_PATHS["Classification"];
   const category = project.modelCategory || "Edge";
@@ -66,7 +66,7 @@ export function buildConfigYaml(project) {
 
   // Classification metrics
   if ((task === "Classification" || task === "Multi-Label Classification") &&
-      project.numClasses !== "" && project.numClasses !== undefined) {
+    project.numClasses !== "" && project.numClasses !== undefined) {
     const tmTask = task === "Multi-Label Classification" ? "multilabel" : "multiclass";
     const ncKey = task === "Multi-Label Classification" ? "num_labels" : "num_classes";
     const nc = project.numClasses;
@@ -155,6 +155,16 @@ export function buildConfigYaml(project) {
     lines.push(`        patience: ${patience}`);
     lines.push(`        mode: ${mode}`);
   }
+
+  // Logger section
+  lines.push("  logger:");
+  lines.push("    - class_path: autotimm.loggers.LoggerConfig");
+  lines.push("      init_args:");
+  lines.push("        backend: tensorboard");
+  lines.push("        params:");
+  lines.push("          save_dir: logs");
+  lines.push(`          name: ${runId}`);
+  lines.push('          version: ""');
 
   lines.push("");
   return lines.join("\n");

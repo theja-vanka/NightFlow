@@ -22,9 +22,8 @@ function SshStatusBanner() {
     ? `${Math.floor(elapsed / 60)}h ${elapsed % 60}m`
     : `${elapsed}m`;
 
-  const bannerClass = `ssh-status-banner ${
-    connecting ? "ssh-connecting" : info.connected ? "ssh-connected" : "ssh-disconnected"
-  }`;
+  const bannerClass = `ssh-status-banner ${connecting ? "ssh-connecting" : info.connected ? "ssh-connected" : "ssh-disconnected"
+    }`;
   const statusLabel = connecting ? "Connecting..." : info.connected ? "Connected" : "Disconnected";
   const buttonLabel = connecting ? "Connecting..." : info.connected ? "Disconnect" : "Connect";
 
@@ -49,7 +48,7 @@ function SshStatusBanner() {
       >
         {connecting && (
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="ssh-btn-spinner">
-            <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
           </svg>
         )}
         {buttonLabel}
@@ -76,17 +75,17 @@ function SshErrorModal() {
           <h3 class="modal-title">SSH Connection Failed</h3>
           <button class="modal-close-btn" onClick={() => clearSshConnectionError()}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"/>
-              <line x1="6" y1="6" x2="18" y2="18"/>
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
         </div>
         <div class="modal-body">
           <div class="ssh-error-icon">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="12" y1="8" x2="12" y2="12"/>
-              <line x1="12" y1="16" x2="12.01" y2="16"/>
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
           </div>
           <p class="ssh-error-message">{error.message}</p>
@@ -122,7 +121,7 @@ function DatasetStatusBanner() {
     <div class="dataset-status-banner">
       <div class="dataset-status-header">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
         </svg>
         <span>Dataset Paths</span>
       </div>
@@ -160,7 +159,7 @@ function EnvStatusBanner() {
     <div class="dataset-status-banner">
       <div class="dataset-status-header">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
         </svg>
         <span>Python Environment</span>
       </div>
@@ -210,7 +209,7 @@ function EnvStatusBanner() {
 function ProgressCircle({ percentage }) {
   const circumference = 2 * Math.PI * 45; // radius = 45
   const dashOffset = circumference - (percentage / 100) * circumference;
-  
+
   return (
     <div class="progress-circle-container">
       <svg width="80" height="80" viewBox="0 0 100 100" class="progress-circle-svg">
@@ -244,15 +243,15 @@ function SyncScreen() {
   const syncing = dashboardSyncing.value;
   const progress = syncProgress.value;
   const showingCompletion = syncShowingCompletion.value;
-  
+
   return (
     <div class="dashboard-sync-screen">
       <div class="dashboard-sync-card">
         <div class={`dashboard-sync-icon${syncing ? " dashboard-sync-icon--spinning" : ""}`}>
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M23 4v6h-6"/>
-            <path d="M1 20v-6h6"/>
-            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+            <path d="M23 4v6h-6" />
+            <path d="M1 20v-6h6" />
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
           </svg>
         </div>
         <h2 class="dashboard-sync-title">Sync Project Data</h2>
@@ -279,9 +278,9 @@ function ResyncButton() {
       title="Re-sync project data"
     >
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M23 4v6h-6"/>
-        <path d="M1 20v-6h6"/>
-        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+        <path d="M23 4v6h-6" />
+        <path d="M1 20v-6h6" />
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
       </svg>
     </button>
   );
@@ -306,8 +305,9 @@ function StartTrainingButton() {
   const command = buildTrainingCommand(project);
 
   const handleClick = async () => {
-    await syncConfig(project, project.id);
-    startTraining(command, project.projectPath);
+    const runId = crypto.randomUUID();
+    await syncConfig(project, project.id, runId);
+    startTraining(command, project.projectPath, runId);
   };
 
   return (
@@ -327,8 +327,8 @@ function StartTrainingButton() {
       {project.powerUserMode && (
         <div class="start-training-cmd-preview">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="start-training-cmd-icon">
-            <polyline points="4 17 10 11 4 5"/>
-            <line x1="12" y1="19" x2="20" y2="19"/>
+            <polyline points="4 17 10 11 4 5" />
+            <line x1="12" y1="19" x2="20" y2="19" />
           </svg>
           <span>{command}</span>
         </div>
@@ -339,7 +339,7 @@ function StartTrainingButton() {
         disabled={active}
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polygon points="5 3 19 12 5 21 5 3"/>
+          <polygon points="5 3 19 12 5 21 5 3" />
         </svg>
         Start Training
       </button>

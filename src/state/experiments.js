@@ -119,16 +119,30 @@ export async function deleteRun(id) {
   }
 }
 
-// Load scalars from a run's JSONL file on disk and persist to IndexedDB
+// Load scalars from a run's JSONL file or TensorBoard logs on disk and persist to IndexedDB
 export async function loadRunScalarsFromJsonl(run) {
-  if (!run?.name) return null;
+  if (!run?.id) return null;
   const project = projectList.value.find((p) => p.id === run.projectId);
   if (!project?.projectPath) return null;
+
   try {
-    const scalars = await invoke("parse_run_jsonl", {
+    // 1. Try parsing JSONL first (it's faster and our preferred source)
+    let scalars = await invoke("parse_run_jsonl", {
       projectPath: project.projectPath,
       runId: run.id,
-    });
+    }).catch(() => null);
+
+    // 2. If JSONL is missing or empty, try TensorBoard parser
+    if (!scalars || Object.keys(scalars).length === 0) {
+      scalars = await invoke("parse_tensorboard_run", {
+        projectPath: project.projectPath,
+        runId: run.id,
+      }).catch((err) => {
+        console.warn(`TensorBoard parsing failed for run ${run.id}:`, err);
+        return null;
+      });
+    }
+
     if (scalars && Object.keys(scalars).length > 0) {
       // Persist to the run so future opens are instant
       await updateRun(run.id, { scalars });
@@ -136,7 +150,7 @@ export async function loadRunScalarsFromJsonl(run) {
     }
     return null;
   } catch (err) {
-    console.error("Failed to load run scalars from JSONL:", err);
+    console.error("Failed to load run scalars:", err);
     return null;
   }
 }

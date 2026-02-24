@@ -553,10 +553,10 @@ async function doSync(projectId, abortController) {
 
 // ── Config YAML generation ─────────────────────────────────────────────────
 
-export async function syncConfig(project = currentProject.value, projectId = currentProjectId.value) {
+export async function syncConfig(project = currentProject.value, projectId = currentProjectId.value, runId = "default") {
   if (!project || !project.projectPath) return;
 
-  const yaml = buildConfigYaml(project);
+  const yaml = buildConfigYaml(project, runId);
   const pp = project.projectPath.endsWith("/") ? project.projectPath.slice(0, -1) : project.projectPath;
   const configPath = `${pp}/config.yaml`;
 

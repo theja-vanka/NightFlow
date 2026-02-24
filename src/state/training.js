@@ -62,12 +62,12 @@ export const trainingProgress = computed(() => {
 
 // ── Start / stop training ────────────────────────────────────────────────────
 
-export async function startTraining(command, cwd) {
+export async function startTraining(command, cwd, passedRunId) {
   const projectId = currentProjectId.value;
   if (!projectId) return;
 
   const project = currentProject.value;
-  const runId = crypto.randomUUID();
+  const runId = passedRunId || crypto.randomUUID();
   const runName = generateRunName();
 
   // Collect hyperparameters from the project

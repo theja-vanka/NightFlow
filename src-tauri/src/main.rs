@@ -1277,12 +1277,15 @@ async fn start_training(
 
     // Inject --trainer.json_progress=true and --trainer.json_progress_log_file
     // into the command if not already present, so Python writes durable events.
+    // We now place the JSONL log inside the TensorBoard run folder: logs/{run_id}/{run_id}.jsonl
     let mut final_parts = parts.clone();
     if !final_parts.iter().any(|a| a.contains("json_progress=")) {
         final_parts.push("--trainer.json_progress=true".into());
     }
-    if !final_parts.iter().any(|a| a.contains("json_progress_log_file")) {
-        final_parts.push(format!("--trainer.json_progress_log_file={}", log_file_str));
+    
+    let tb_jsonl_path = format!("logs/{}/{}.jsonl", run_id, run_id);
+    if !final_parts.iter().any(|a| a.contains("--trainer.json_progress_log_file")) {
+        final_parts.push(format!("--trainer.json_progress_log_file={}", tb_jsonl_path));
     }
 
     // Resolve "conda" to the full path (GUI apps may not have it in PATH)
@@ -1741,23 +1744,27 @@ fn validate_file_path(path: String, expected_extension: Option<String>) -> PathV
 
 // ── Run JSONL scanning & parsing ──────────────────────────────────────────────
 
-/// List all .jsonl files in the project directory, returning their stem names
-/// (e.g. "bold-falcon-742" for "bold-falcon-742.jsonl").
+/// List all discovered runs by scanning logs/ directory for subfolders containing .jsonl files.
 #[command]
 fn list_run_jsonl_files(project_path: String) -> Result<Vec<String>, String> {
     let expanded = expand_tilde(&project_path);
-    let dir = std::path::PathBuf::from(&expanded);
-    let entries = std::fs::read_dir(&dir)
-        .map_err(|e| format!("Failed to read directory {}: {}", dir.display(), e))?;
+    let logs_dir = std::path::PathBuf::from(&expanded).join("logs");
+    
+    if !logs_dir.exists() {
+        return Ok(Vec::new());
+    }
+
+    let entries = std::fs::read_dir(&logs_dir)
+        .map_err(|e| format!("Failed to read logs directory {}: {}", logs_dir.display(), e))?;
+    
     let mut names = Vec::new();
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.is_file() {
-            if let Some(ext) = path.extension() {
-                if ext == "jsonl" {
-                    if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                        names.push(stem.to_string());
-                    }
+        if path.is_dir() {
+            if let Some(run_id) = path.file_name().and_then(|s| s.to_str()) {
+                let jsonl_file = path.join(format!("{}.jsonl", run_id));
+                if jsonl_file.exists() && jsonl_file.is_file() {
+                    names.push(run_id.to_string());
                 }
             }
         }
@@ -1774,7 +1781,11 @@ fn parse_run_jsonl(
     run_id: String,
 ) -> Result<HashMap<String, Vec<serde_json::Value>>, String> {
     let expanded = expand_tilde(&project_path);
-    let file_path = std::path::PathBuf::from(&expanded).join(format!("{}.jsonl", run_id));
+    // Path: logs/{run_id}/{run_id}.jsonl
+    let file_path = std::path::PathBuf::from(&expanded)
+        .join("logs")
+        .join(&run_id)
+        .join(format!("{}.jsonl", run_id));
 
     let content = std::fs::read_to_string(&file_path)
         .map_err(|e| format!("Failed to read {}: {}", file_path.display(), e))?;
@@ -1814,6 +1825,89 @@ fn parse_run_jsonl(
             sa.cmp(&sb)
         });
     }
+
+    Ok(scalars)
+}
+
+#[command]
+async fn parse_tensorboard_run(
+    project_path: String,
+    run_id: String,
+) -> Result<HashMap<String, Vec<serde_json::Value>>, String> {
+    let expanded = expand_tilde(&project_path);
+    let log_dir = std::path::PathBuf::from(&expanded)
+        .join("logs")
+        .join(&run_id);
+
+    if !log_dir.exists() {
+        return Err(format!("TensorBoard log directory not found: {}", log_dir.display()));
+    }
+
+    // Since parsing tfevents in Rust is complex, we use a small Python script.
+    // We try to find the project's venv python, otherwise fall back to system python.
+    let pp = project_path.replace("~", &std::env::var("HOME").unwrap_or_default());
+    let venv_python = std::path::PathBuf::from(&pp).join(".venv/bin/python");
+    let python_exe = if venv_python.exists() {
+        venv_python.to_string_lossy().to_string()
+    } else {
+        "python3".to_string()
+    };
+
+    let python_script = r#"
+import sys
+import json
+import os
+
+try:
+    from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
+except ImportError:
+    print(json.dumps({"error": "tensorboard package not found"}))
+    sys.exit(1)
+
+def parse_tb(log_dir):
+    try:
+        # Find the most recent tfevents file or just use the directory
+        ea = EventAccumulator(log_dir, size_guidance={'scalars': 0})
+        ea.Reload()
+        tags = ea.Tags().get('scalars', [])
+        data = {}
+        for tag in tags:
+            events = ea.Scalars(tag)
+            data[tag] = [{"step": e.step, "value": e.value} for e in events]
+        return data
+    except Exception as e:
+        return {"error": str(e)}
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        sys.exit(1)
+    log_dir = sys.argv[1]
+    result = parse_tb(log_dir)
+    print(json.dumps(result))
+"#;
+
+    let output = std::process::Command::new(python_exe)
+        .arg("-c")
+        .arg(python_script)
+        .arg(log_dir.to_string_lossy().to_string())
+        .output()
+        .map_err(|e| format!("Failed to run Python: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Python script failed: {}", stderr));
+    }
+
+    let stdout_str = String::from_utf8_lossy(&output.stdout);
+    let result: serde_json::Value = serde_json::from_str(&stdout_str)
+        .map_err(|e| format!("Failed to parse Python output: {}. Output was: {}", e, stdout_str))?;
+
+    if let Some(err) = result.get("error") {
+        return Err(format!("TensorBoard parsing error: {}", err));
+    }
+
+    let scalars: HashMap<String, Vec<serde_json::Value>> = serde_json::from_value(result)
+        .map_err(|e| format!("Failed to convert TensorBoard data: {}", e))?;
 
     Ok(scalars)
 }
@@ -1867,6 +1961,7 @@ fn main() {
             watch_training_log,
             list_run_jsonl_files,
             parse_run_jsonl,
+            parse_tensorboard_run,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
