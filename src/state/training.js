@@ -23,6 +23,7 @@ const _defaultTraining = () => ({
   fastDevRun: false,
   lossCurve: [],
   accCurve: [],
+  scalars: {},   // { [tag]: [{ step, value }] } — all metrics accumulated per epoch
 });
 
 function _get(projectId) {
@@ -67,6 +68,7 @@ export async function startTraining(command, cwd) {
 
   const project = currentProject.value;
   const runId = `run-${Date.now()}`;
+  const runName = generateRunName();
 
   // Collect hyperparameters from the project
   const hyperparameters = {};
@@ -87,7 +89,7 @@ export async function startTraining(command, cwd) {
   // Create a run record in experiments
   await addRun({
     id: runId,
-    name: generateRunName(),
+    name: runName,
     projectId,
     status: "running",
     model: project?.modelCategory ?? "unknown",
@@ -113,6 +115,7 @@ export async function startTraining(command, cwd) {
     await invoke("start_training", {
       sessionId: projectId,
       runId,
+      runName,
       command,
       cwd: cwd || project?.projectPath || null,
     });
@@ -186,23 +189,34 @@ function _processEvent(session_id, data) {
 
     case "epoch_end": {
       const metrics = data.metrics ?? {};
+      const epoch = data.epoch ?? state.epoch;
       const loss = metrics["train/loss"] ?? metrics["loss"] ?? state.loss;
       const lossCurve = [..._get(session_id).lossCurve];
       if (loss != null) lossCurve.push(loss);
 
+      // Accumulate all metrics into scalars
+      const prevScalars = { ..._get(session_id).scalars };
+      for (const [tag, value] of Object.entries(metrics)) {
+        if (value == null) continue;
+        if (!prevScalars[tag]) prevScalars[tag] = [];
+        prevScalars[tag] = [...prevScalars[tag], { step: epoch, value }];
+      }
+
       _set(session_id, {
         event: "epoch_end",
-        epoch: data.epoch ?? state.epoch,
+        epoch,
         metrics,
         loss,
         lossCurve,
+        scalars: prevScalars,
       });
 
       if (state.runId) {
         updateRun(state.runId, {
-          epochs: (data.epoch ?? state.epoch) + 1,
+          epochs: epoch + 1,
           valLoss: metrics["val/loss"] ?? null,
           lossCurve,
+          scalars: prevScalars,
         });
       }
       break;
@@ -210,16 +224,26 @@ function _processEvent(session_id, data) {
 
     case "validation_end": {
       const metrics = data.metrics ?? {};
+      const epoch = data.epoch ?? state.epoch;
       const acc = metrics["val/accuracy"] ?? metrics["val/acc"] ?? null;
       const accCurve = [..._get(session_id).accCurve];
       if (acc != null) accCurve.push(acc);
 
       const bestAcc = accCurve.length > 0 ? Math.max(...accCurve) : null;
 
+      // Accumulate all validation metrics into scalars
+      const prevScalars = { ..._get(session_id).scalars };
+      for (const [tag, value] of Object.entries(metrics)) {
+        if (value == null) continue;
+        if (!prevScalars[tag]) prevScalars[tag] = [];
+        prevScalars[tag] = [...prevScalars[tag], { step: epoch, value }];
+      }
+
       _set(session_id, {
         event: "validation_end",
         metrics: { ..._get(session_id).metrics, ...metrics },
         accCurve,
+        scalars: prevScalars,
       });
 
       if (state.runId) {
@@ -227,6 +251,7 @@ function _processEvent(session_id, data) {
           bestAcc,
           valLoss: metrics["val/loss"] ?? null,
           accCurve,
+          scalars: prevScalars,
         });
       }
       break;

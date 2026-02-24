@@ -11,7 +11,11 @@ import {
   SEG_HEAD_TYPES,
 } from "../state/projects.js";
 import { sshConnected, syncConfig } from "../state/dashboard.js";
+import { allRuns } from "../state/experiments.js";
 import { DeleteProjectDialog } from "../components/DeleteProjectDialog.jsx";
+import { clearAllData } from "../db/database.js";
+import { projectList } from "../state/projects.js";
+import { navigate } from "../state/router.js";
 
 const EDITABLE_KEYS = [
   "name", "connectionType", "sshCommand", "projectPath", "modelCategory",
@@ -55,6 +59,61 @@ const moonIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" st
 const trashIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
 const checkIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
 const lockIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+
+function ClearAllDataRow() {
+  const [confirming, setConfirming] = useState(false);
+  const [clearing, setClearing] = useState(false);
+
+  async function handleClear() {
+    setClearing(true);
+    try {
+      await clearAllData();
+      projectList.value = [];
+      allRuns.value = [];
+      navigate("dashboard");
+      // Force reload to get a completely clean state
+      window.location.reload();
+    } catch (err) {
+      console.error("Failed to clear data:", err);
+      setClearing(false);
+      setConfirming(false);
+    }
+  }
+
+  return (
+    <div class="settings-card-row settings-row-between" style="margin-top: 12px;">
+      <div>
+        <div class="settings-label">Clear all data</div>
+        <div class="settings-desc">
+          Wipe all projects, runs, and metrics from the app. This cannot be undone.
+        </div>
+      </div>
+      {!confirming ? (
+        <button class="settings-danger-btn" onClick={() => setConfirming(true)}>
+          <span dangerouslySetInnerHTML={{ __html: trashIcon }} />
+          Clear All Data
+        </button>
+      ) : (
+        <div style="display: flex; gap: 8px;">
+          <button
+            class="settings-danger-btn"
+            disabled={clearing}
+            onClick={handleClear}
+          >
+            {clearing ? "Clearing..." : "Yes, delete everything"}
+          </button>
+          <button
+            class="settings-btn"
+            disabled={clearing}
+            onClick={() => setConfirming(false)}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function SettingsView() {
   const proj = currentProject.value;
@@ -557,6 +616,7 @@ export function SettingsView() {
               Delete Project
             </button>
           </div>
+          <ClearAllDataRow />
         </div>
       </section>
 

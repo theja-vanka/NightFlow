@@ -1,7 +1,7 @@
 const styles = {
-  completed: "badge-filled",
-  running: "badge-outline badge-pulse",
-  failed: "badge-outline badge-dim",
+  completed: "badge-completed",
+  running: "badge-running badge-pulse",
+  failed: "badge-failed",
   queued: "badge-ghost",
 };
 

@@ -845,7 +845,7 @@ async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, String
         if autotimm_version.is_none() {
             let uv_bin = find_uv().unwrap_or_else(|| "uv".to_string());
             let _ = tokio::process::Command::new(&uv_bin)
-                .args(["pip", "install", "autotimm[tensorboard]", "--python", ".venv/bin/python"])
+                .args(["pip", "install", "autotimm", "--python", ".venv/bin/python"])
                 .current_dir(&expanded)
                 .output()
                 .await;
@@ -923,7 +923,7 @@ async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, String
 
         // Install autotimm using conda run + pip
         let install_output = tokio::process::Command::new(&conda_bin)
-            .args(["run", "-p", ".venv", "pip", "install", "autotimm[tensorboard]"])
+            .args(["run", "-p", ".venv", "pip", "install", "autotimm"])
             .stdin(std::process::Stdio::null())
             .current_dir(&expanded)
             .output()
@@ -984,9 +984,9 @@ async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, String
         });
     }
 
-    // Install autotimm[tensorboard] using uv pip
+    // Install autotimm using uv pip
     let install_output = tokio::process::Command::new(&uv_bin)
-        .args(["pip", "install", "autotimm[tensorboard]", "--python", ".venv/bin/python"])
+        .args(["pip", "install", "autotimm", "--python", ".venv/bin/python"])
         .current_dir(&expanded)
         .output()
         .await
@@ -1068,9 +1068,9 @@ if [ -d .venv ]; then
   AV=$(.venv/bin/python -c "import autotimm; print(autotimm.__version__)" 2>/dev/null)
   if [ -z "$AV" ]; then
     if [ -n "$CONDA_BIN" ]; then
-      "$CONDA_BIN" run -p .venv pip install 'autotimm[tensorboard]' </dev/null >/dev/null 2>&1
+      "$CONDA_BIN" run -p .venv pip install 'autotimm' </dev/null >/dev/null 2>&1
     else
-      uv pip install 'autotimm[tensorboard]' --python .venv/bin/python >/dev/null 2>&1
+      uv pip install 'autotimm' --python .venv/bin/python >/dev/null 2>&1
     fi
     AV=$(.venv/bin/python -c "import autotimm; print(autotimm.__version__)" 2>/dev/null)
   fi
@@ -1087,7 +1087,7 @@ else
       jout error "Failed to create conda env: $CONDA_ERR" "" ""
       exit 0
     fi
-    PIP_ERR=$("$CONDA_BIN" run -p .venv pip install 'autotimm[tensorboard]' </dev/null 2>&1)
+    PIP_ERR=$("$CONDA_BIN" run -p .venv pip install 'autotimm' </dev/null 2>&1)
     if [ $? -ne 0 ]; then
       jout error "Failed to install dependencies (conda): $PIP_ERR" "" ""
       exit 0
@@ -1103,7 +1103,7 @@ else
       jout error "Failed to create venv: $VENV_ERR" "" ""
       exit 0
     fi
-    PIP_ERR=$(uv pip install 'autotimm[tensorboard]' --python .venv/bin/python 2>&1)
+    PIP_ERR=$(uv pip install 'autotimm' --python .venv/bin/python 2>&1)
     if [ $? -ne 0 ]; then
       jout error "Failed to install dependencies: $PIP_ERR" "" ""
       exit 0
@@ -1155,7 +1155,7 @@ fi"#,
 // ── Training subprocess ──────────────────────────────────────────────────────
 
 const TRAINING_META_FILE: &str = ".nightflow_training.json";
-const TRAINING_LOG_FILE: &str = "training_events.jsonl";
+const TRAINING_LOG_FILE_DEFAULT: &str = "training_events.jsonl";
 
 /// Managed state for training processes (keyed by project/session id).
 struct TrainingState {
@@ -1209,8 +1209,12 @@ fn meta_path(project_dir: &str) -> std::path::PathBuf {
     std::path::PathBuf::from(expand_tilde(project_dir)).join(TRAINING_META_FILE)
 }
 
-fn log_path(project_dir: &str) -> std::path::PathBuf {
-    std::path::PathBuf::from(expand_tilde(project_dir)).join(TRAINING_LOG_FILE)
+fn log_path(project_dir: &str, run_name: Option<&str>) -> std::path::PathBuf {
+    let filename = match run_name {
+        Some(name) if !name.is_empty() => format!("{}.jsonl", name),
+        _ => TRAINING_LOG_FILE_DEFAULT.to_string(),
+    };
+    std::path::PathBuf::from(expand_tilde(project_dir)).join(filename)
 }
 
 fn write_training_meta(project_dir: &str, meta: &TrainingMeta) -> Result<(), String> {
@@ -1241,6 +1245,7 @@ async fn start_training(
     state: State<'_, TrainingState>,
     session_id: String,
     run_id: String,
+    run_name: Option<String>,
     command: String,
     cwd: Option<String>,
 ) -> Result<(), String> {
@@ -1267,7 +1272,7 @@ async fn start_training(
         .unwrap_or_else(|| ".".to_string());
 
     // Ensure the log file path is absolute
-    let log_file_path = log_path(&resolved_cwd);
+    let log_file_path = log_path(&resolved_cwd, run_name.as_deref());
     let log_file_str = log_file_path.to_string_lossy().to_string();
 
     // Inject --trainer.json_progress=true and --trainer.json_progress_log_file
@@ -1278,11 +1283,6 @@ async fn start_training(
     }
     if !final_parts.iter().any(|a| a.contains("json_progress_log_file")) {
         final_parts.push(format!("--trainer.json_progress_log_file={}", log_file_str));
-    }
-    // Enable TensorBoard logger so training writes tfevents files that
-    // NightFlow can scan for dashboard charts.
-    if !final_parts.iter().any(|a| a.contains("trainer.logger")) {
-        final_parts.push("--trainer.logger=true".into());
     }
 
     // Resolve "conda" to the full path (GUI apps may not have it in PATH)
@@ -1738,427 +1738,84 @@ fn validate_file_path(path: String, expected_extension: Option<String>) -> PathV
     }
 }
 
-// ── TensorBoard log scanning ──────────────────────────────────────────────────
 
-#[derive(serde::Serialize, serde::Deserialize, Clone)]
-struct TbScalar {
-    step: i64,
-    value: f32,
-    wall_time: f64,
-}
+// ── Run JSONL scanning & parsing ──────────────────────────────────────────────
 
-#[derive(serde::Serialize, serde::Deserialize, Clone)]
-struct TbRun {
-    version: String,
-    scalars: HashMap<String, Vec<TbScalar>>,
-}
-
-fn masked_crc32c(data: &[u8]) -> u32 {
-    let crc = crc32c::crc32c(data);
-    crc.rotate_right(15).wrapping_add(0xa282_ead8)
-}
-
-fn read_varint(data: &[u8], pos: &mut usize) -> Option<u64> {
-    let mut result: u64 = 0;
-    let mut shift = 0u32;
-    loop {
-        if *pos >= data.len() {
-            return None;
-        }
-        let b = data[*pos] as u64;
-        *pos += 1;
-        result |= (b & 0x7F) << shift;
-        if b & 0x80 == 0 {
-            return Some(result);
-        }
-        shift += 7;
-        if shift >= 64 {
-            return None;
-        }
-    }
-}
-
-/// Minimal protobuf parser for TensorBoard Event records.
-/// Extracts wall_time (field 1, fixed64/double), step (field 2, varint),
-/// and Summary.Value entries (tag + simple_value).
-type EventData = (f64, i64, Vec<(String, f32)>);
-
-fn parse_event(data: &[u8]) -> Option<EventData> {
-    let mut pos = 0;
-    let mut wall_time: f64 = 0.0;
-    let mut step: i64 = 0;
-    let mut summary_bytes: Option<&[u8]> = None;
-
-    while pos < data.len() {
-        let tag_wire = read_varint(data, &mut pos)?;
-        let field = (tag_wire >> 3) as u32;
-        let wire_type = (tag_wire & 0x07) as u32;
-
-        match (field, wire_type) {
-            (1, 1) => {
-                // wall_time: fixed64 (f64)
-                if pos + 8 > data.len() {
-                    return None;
-                }
-                wall_time = f64::from_le_bytes(data[pos..pos + 8].try_into().ok()?);
-                pos += 8;
-            }
-            (2, 0) => {
-                // step: varint
-                step = read_varint(data, &mut pos)? as i64;
-            }
-            (5, 2) => {
-                // summary: length-delimited
-                let len = read_varint(data, &mut pos)? as usize;
-                if pos + len > data.len() {
-                    return None;
-                }
-                summary_bytes = Some(&data[pos..pos + len]);
-                pos += len;
-            }
-            (_, 0) => {
-                read_varint(data, &mut pos)?;
-            }
-            (_, 1) => {
-                pos += 8;
-                if pos > data.len() {
-                    return None;
-                }
-            }
-            (_, 2) => {
-                let len = read_varint(data, &mut pos)? as usize;
-                pos += len;
-                if pos > data.len() {
-                    return None;
-                }
-            }
-            (_, 5) => {
-                pos += 4;
-                if pos > data.len() {
-                    return None;
-                }
-            }
-            _ => return None,
-        }
-    }
-
-    let mut values = Vec::new();
-    if let Some(summary) = summary_bytes {
-        // Parse Summary: repeated Value (field 1, length-delimited)
-        let mut sp = 0;
-        while sp < summary.len() {
-            let tw = match read_varint(summary, &mut sp) {
-                Some(v) => v,
-                None => break,
-            };
-            let f = (tw >> 3) as u32;
-            let wt = (tw & 0x07) as u32;
-            if f == 1 && wt == 2 {
-                let vlen = match read_varint(summary, &mut sp) {
-                    Some(v) => v as usize,
-                    None => break,
-                };
-                if sp + vlen > summary.len() {
-                    break;
-                }
-                let value_bytes = &summary[sp..sp + vlen];
-                sp += vlen;
-                // Parse Value: tag (field 1, string) + simple_value (field 2, fixed32/f32)
-                let mut vp = 0;
-                let mut tag = String::new();
-                let mut simple_value: Option<f32> = None;
-                while vp < value_bytes.len() {
-                    let vtw = match read_varint(value_bytes, &mut vp) {
-                        Some(v) => v,
-                        None => break,
-                    };
-                    let vf = (vtw >> 3) as u32;
-                    let vwt = (vtw & 0x07) as u32;
-                    match (vf, vwt) {
-                        (1, 2) => {
-                            let slen = match read_varint(value_bytes, &mut vp) {
-                                Some(v) => v as usize,
-                                None => break,
-                            };
-                            if vp + slen > value_bytes.len() {
-                                break;
-                            }
-                            tag = String::from_utf8_lossy(&value_bytes[vp..vp + slen])
-                                .to_string();
-                            vp += slen;
-                        }
-                        (2, 5) => {
-                            if vp + 4 > value_bytes.len() {
-                                break;
-                            }
-                            simple_value = Some(f32::from_le_bytes(
-                                value_bytes[vp..vp + 4].try_into().unwrap(),
-                            ));
-                            vp += 4;
-                        }
-                        (_, 0) => {
-                            if read_varint(value_bytes, &mut vp).is_none() {
-                                break;
-                            }
-                        }
-                        (_, 1) => {
-                            vp += 8;
-                        }
-                        (_, 2) => {
-                            let skip = match read_varint(value_bytes, &mut vp) {
-                                Some(v) => v as usize,
-                                None => break,
-                            };
-                            vp += skip;
-                        }
-                        (_, 5) => {
-                            vp += 4;
-                        }
-                        _ => break,
-                    }
-                }
-                if !tag.is_empty()
-                    && let Some(sv) = simple_value
-                {
-                    values.push((tag, sv));
-                }
-            } else {
-                // skip unknown field
-                match wt {
-                    0 => {
-                        if read_varint(summary, &mut sp).is_none() {
-                            break;
-                        }
-                    }
-                    1 => sp += 8,
-                    2 => {
-                        let skip = match read_varint(summary, &mut sp) {
-                            Some(v) => v as usize,
-                            None => break,
-                        };
-                        sp += skip;
-                    }
-                    5 => sp += 4,
-                    _ => break,
-                }
-            }
-        }
-    }
-
-    if values.is_empty() && wall_time == 0.0 {
-        return None;
-    }
-    Some((wall_time, step, values))
-}
-
-fn parse_tfevents_file(
-    path: &std::path::Path,
-) -> HashMap<String, Vec<TbScalar>> {
-    let mut scalars: HashMap<String, Vec<TbScalar>> = HashMap::new();
-    let data = match std::fs::read(path) {
-        Ok(d) => d,
-        Err(_) => return scalars,
-    };
-    let mut pos = 0;
-    while pos + 12 <= data.len() {
-        // Record framing: u64 length + u32 masked CRC of length bytes
-        let len_bytes = &data[pos..pos + 8];
-        let data_len = u64::from_le_bytes(len_bytes.try_into().unwrap()) as usize;
-        let len_crc = u32::from_le_bytes(data[pos + 8..pos + 12].try_into().unwrap());
-
-        if masked_crc32c(len_bytes) != len_crc {
-            break;
-        }
-        pos += 12;
-
-        if pos + data_len + 4 > data.len() {
-            break;
-        }
-        let record = &data[pos..pos + data_len];
-        let data_crc = u32::from_le_bytes(
-            data[pos + data_len..pos + data_len + 4].try_into().unwrap(),
-        );
-        if masked_crc32c(record) != data_crc {
-            pos += data_len + 4;
-            continue;
-        }
-        pos += data_len + 4;
-
-        if let Some((wall_time, step, values)) = parse_event(record) {
-            for (tag, value) in values {
-                scalars.entry(tag).or_default().push(TbScalar {
-                    step,
-                    value,
-                    wall_time,
-                });
-            }
-        }
-    }
-
-    // Sort each tag's scalars by step
-    for v in scalars.values_mut() {
-        v.sort_by_key(|s| s.step);
-    }
-    scalars
-}
-
-/// Scan a single version directory for tfevents files and return merged scalars.
-fn scan_version_dir(path: &std::path::Path) -> HashMap<String, Vec<TbScalar>> {
-    let mut all_scalars: HashMap<String, Vec<TbScalar>> = HashMap::new();
-    if let Ok(files) = std::fs::read_dir(path) {
-        for file in files.flatten() {
-            let fname = file.file_name();
-            let fname_str = fname.to_string_lossy();
-            if fname_str.starts_with("events.out.tfevents.") {
-                let file_scalars = parse_tfevents_file(&file.path());
-                for (tag, mut vals) in file_scalars {
-                    all_scalars.entry(tag).or_default().append(&mut vals);
-                }
-            }
-        }
-    }
-    for v in all_scalars.values_mut() {
-        v.sort_by_key(|s| s.step);
-    }
-    all_scalars
-}
-
+/// List all .jsonl files in the project directory, returning their stem names
+/// (e.g. "bold-falcon-742" for "bold-falcon-742.jsonl").
 #[command]
-fn scan_tensorboard_logs(project_path: String) -> Vec<TbRun> {
+fn list_run_jsonl_files(project_path: String) -> Result<Vec<String>, String> {
     let expanded = expand_tilde(&project_path);
-    let root = std::path::PathBuf::from(&expanded);
-    let mut runs = Vec::new();
-    let mut seen_versions = std::collections::HashSet::new();
+    let dir = std::path::PathBuf::from(&expanded);
+    let entries = std::fs::read_dir(&dir)
+        .map_err(|e| format!("Failed to read directory {}: {}", dir.display(), e))?;
+    let mut names = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_file() {
+            if let Some(ext) = path.extension() {
+                if ext == "jsonl" {
+                    if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                        names.push(stem.to_string());
+                    }
+                }
+            }
+        }
+    }
+    names.sort();
+    Ok(names)
+}
 
-    // Scan both {project}/lightning_logs/ and {project}/logs/lightning_logs/
-    let scan_dirs = [
-        root.join("lightning_logs"),
-        root.join("logs").join("lightning_logs"),
-    ];
+/// Parse a <run_name>.jsonl file and extract all scalar metrics from
+/// epoch_end and validation_end events.  Returns { tag -> [ {step, value} ] }.
+#[command]
+fn parse_run_jsonl(
+    project_path: String,
+    run_name: String,
+) -> Result<HashMap<String, Vec<serde_json::Value>>, String> {
+    let expanded = expand_tilde(&project_path);
+    let file_path = std::path::PathBuf::from(&expanded).join(format!("{}.jsonl", run_name));
 
-    for base in &scan_dirs {
-        let entries = match std::fs::read_dir(base) {
-            Ok(e) => e,
+    let content = std::fs::read_to_string(&file_path)
+        .map_err(|e| format!("Failed to read {}: {}", file_path.display(), e))?;
+
+    let mut scalars: HashMap<String, Vec<serde_json::Value>> = HashMap::new();
+
+    for line in content.lines() {
+        let json: serde_json::Value = match serde_json::from_str(line) {
+            Ok(v) => v,
             Err(_) => continue,
         };
 
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if !path.is_dir() {
-                continue;
-            }
-            let dir_name = match path.file_name().and_then(|n| n.to_str()) {
-                Some(n) if n.starts_with("version_") => n.to_string(),
-                _ => continue,
-            };
+        let event = json.get("event").and_then(|v| v.as_str()).unwrap_or("");
+        if event != "epoch_end" && event != "validation_end" {
+            continue;
+        }
 
-            if !seen_versions.insert(dir_name.clone()) {
-                continue;
-            }
+        let epoch = json.get("epoch").and_then(|v| v.as_i64()).unwrap_or(0);
+        let metrics = match json.get("metrics").and_then(|v| v.as_object()) {
+            Some(m) => m,
+            None => continue,
+        };
 
-            let all_scalars = scan_version_dir(&path);
-
-            if !all_scalars.is_empty() {
-                runs.push(TbRun {
-                    version: dir_name,
-                    scalars: all_scalars,
-                });
+        for (tag, val) in metrics {
+            if let Some(num) = val.as_f64() {
+                let entry = scalars.entry(tag.clone()).or_default();
+                entry.push(serde_json::json!({ "step": epoch, "value": num }));
             }
         }
     }
 
-    runs.sort_by(|a, b| a.version.cmp(&b.version));
-    runs
-}
-
-#[command]
-fn scan_tensorboard_run(project_path: String, version: String) -> Option<TbRun> {
-    let expanded = expand_tilde(&project_path);
-    let root = std::path::PathBuf::from(&expanded);
-
-    // Check both possible locations
-    let candidates = [
-        root.join("lightning_logs").join(&version),
-        root.join("logs").join("lightning_logs").join(&version),
-    ];
-
-    for candidate in &candidates {
-        if candidate.is_dir() {
-            let scalars = scan_version_dir(candidate);
-            if !scalars.is_empty() {
-                return Some(TbRun {
-                    version: version.clone(),
-                    scalars,
-                });
-            }
-        }
-    }
-    None
-}
-
-#[command]
-async fn ssh_scan_tensorboard_logs(
-    ssh_command: String,
-    project_path: String,
-) -> Result<Vec<TbRun>, String> {
-    let parts: Vec<String> = ssh_command
-        .split_whitespace()
-        .map(String::from)
-        .collect();
-    if parts.is_empty() {
-        return Err("Empty SSH command".to_string());
+    // Sort each tag by step
+    for points in scalars.values_mut() {
+        points.sort_by(|a, b| {
+            let sa = a.get("step").and_then(|v| v.as_i64()).unwrap_or(0);
+            let sb = b.get("step").and_then(|v| v.as_i64()).unwrap_or(0);
+            sa.cmp(&sb)
+        });
     }
 
-    let remote_path = if let Some(stripped) = project_path.strip_prefix("~/") {
-        format!("$HOME/{}", stripped)
-    } else if project_path == "~" {
-        "$HOME".to_string()
-    } else {
-        project_path.clone()
-    };
-
-    let python_script = format!(
-        r#"import json,os,glob;
-try:
- from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
-except ImportError:
- print('[]');exit()
-base=os.path.join('{}','lightning_logs')
-if not os.path.isdir(base):
- print('[]');exit()
-runs=[]
-for vd in sorted(glob.glob(os.path.join(base,'version_*'))):
- if not os.path.isdir(vd):continue
- ea=EventAccumulator(vd);ea.Reload()
- sc={{}}
- for tag in ea.Tags().get('scalars',[]):
-  sc[tag]=[{{'step':e.step,'value':e.value,'wall_time':e.wall_time}} for e in ea.Scalars(tag)]
- if sc:runs.append({{'version':os.path.basename(vd),'scalars':sc}})
-print(json.dumps(runs))"#,
-        remote_path.replace('\'', "'\\''")
-    );
-
-    let mut cmd = tokio::process::Command::new(&parts[0]);
-    cmd.args(["-o", "BatchMode=yes", "-o", "ConnectTimeout=10"]);
-    for arg in &parts[1..] {
-        cmd.arg(arg);
-    }
-    cmd.arg(format!("python3 -c '{}'", python_script.replace('\'', "'\\''")));
-    cmd.kill_on_drop(true);
-
-    match tokio::time::timeout(std::time::Duration::from_secs(30), cmd.output()).await {
-        Ok(Ok(output)) => {
-            let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if stdout.is_empty() || !output.status.success() {
-                return Ok(Vec::new());
-            }
-            serde_json::from_str::<Vec<TbRun>>(&stdout).map_err(|e| {
-                format!("Failed to parse TensorBoard scan output: {}", e)
-            })
-        }
-        Ok(Err(e)) => Err(e.to_string()),
-        Err(_) => Ok(Vec::new()), // Timeout — don't block sync
-    }
+    Ok(scalars)
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
@@ -2208,9 +1865,8 @@ fn main() {
             check_training_session,
             replay_training_log,
             watch_training_log,
-            scan_tensorboard_logs,
-            scan_tensorboard_run,
-            ssh_scan_tensorboard_logs,
+            list_run_jsonl_files,
+            parse_run_jsonl,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

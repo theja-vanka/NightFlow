@@ -119,77 +119,24 @@ export async function deleteRun(id) {
   }
 }
 
-// Import TensorBoard runs parsed by the Rust backend
-export async function importTensorboardRuns(tbRuns, projectId, project) {
-  const existingIds = new Set(allRuns.value.map((r) => r.id));
-
-  for (const run of tbRuns) {
-    const id = `tb-${run.version}`;
-    if (existingIds.has(id)) continue;
-
-    const scalars = run.scalars || {};
-
-    // Find loss curve: prefer "train/loss", fallback to "loss"
-    const lossTag = scalars["train/loss"] || scalars["loss"] || [];
-    const lossCurve = lossTag
-      .slice()
-      .sort((a, b) => a.step - b.step)
-      .map((s) => s.value);
-
-    // Find accuracy curve: prefer "val/accuracy", fallback to "val/acc"
-    const accTag = scalars["val/accuracy"] || scalars["val/acc"] || [];
-    const accCurve = accTag
-      .slice()
-      .sort((a, b) => a.step - b.step)
-      .map((s) => s.value);
-
-    // Val loss
-    const valLossTag = scalars["val/loss"] || [];
-    const valLoss =
-      valLossTag.length > 0
-        ? valLossTag.sort((a, b) => a.step - b.step).at(-1).value
-        : null;
-
-    const bestAcc = accCurve.length > 0 ? Math.max(...accCurve) : null;
-
-    const newRun = {
-      id,
-      name: generateRunName(),
-      projectId,
-      status: "completed",
-      model: project?.modelCategory || "unknown",
-      dataset: project?.datasetName || "unknown",
-      lossCurve,
-      accCurve,
-      bestAcc,
-      valLoss,
-      epochs: lossCurve.length || accCurve.length,
-      created: Date.now(),
-      source: "tensorboard",
-      tbVersion: run.version,
-    };
-
-    try {
-      await addRun(newRun);
-    } catch (err) {
-      console.error(`Failed to import TB run ${id}:`, err);
-    }
-  }
-}
-
-// Load all scalar tags for a single run on-demand via the Rust backend
-export async function loadRunScalars(run) {
-  if (!run?.tbVersion) return null;
+// Load scalars from a run's JSONL file on disk and persist to IndexedDB
+export async function loadRunScalarsFromJsonl(run) {
+  if (!run?.name) return null;
   const project = projectList.value.find((p) => p.id === run.projectId);
-  if (!project?.path) return null;
+  if (!project?.projectPath) return null;
   try {
-    const tbRun = await invoke("scan_tensorboard_run", {
-      projectPath: project.path,
-      version: run.tbVersion,
+    const scalars = await invoke("parse_run_jsonl", {
+      projectPath: project.projectPath,
+      runName: run.name,
     });
-    return tbRun?.scalars || null;
+    if (scalars && Object.keys(scalars).length > 0) {
+      // Persist to the run so future opens are instant
+      await updateRun(run.id, { scalars });
+      return scalars;
+    }
+    return null;
   } catch (err) {
-    console.error("Failed to load run scalars:", err);
+    console.error("Failed to load run scalars from JSONL:", err);
     return null;
   }
 }

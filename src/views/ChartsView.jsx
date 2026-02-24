@@ -1,10 +1,51 @@
+import { useState, useEffect } from "preact/hooks";
 import { ChartPanel } from "../components/ChartPanel.jsx";
 import { LineChart } from "../components/LineChart.jsx";
-import { projectRuns } from "../state/experiments.js";
+import { projectRuns, loadRunScalars } from "../state/experiments.js";
 
 export function ChartsView() {
   const runs = projectRuns.value;
   const completed = runs.filter((r) => r.status === "completed");
+  const tbRuns = completed.filter((r) => r.tbVersion);
+
+  const [tbScalars, setTbScalars] = useState({});
+  const [loadingTb, setLoadingTb] = useState(false);
+
+  // Stable key to detect when the set of TB runs changes
+  const tbRunKey = tbRuns.map((r) => r.id).join(",");
+
+  useEffect(() => {
+    if (tbRuns.length === 0) {
+      setTbScalars({});
+      return;
+    }
+    setLoadingTb(true);
+    Promise.all(
+      tbRuns.map((r) => loadRunScalars(r).then((s) => ({ run: r, scalars: s })))
+    )
+      .then((results) => {
+        const map = {};
+        for (const { run, scalars } of results) {
+          if (scalars) map[run.id] = { run, scalars };
+        }
+        setTbScalars(map);
+        setLoadingTb(false);
+      })
+      .catch(() => setLoadingTb(false));
+  }, [tbRunKey]);
+
+  // Build tagMap: tag -> [{ label, data: number[] }] across all loaded runs
+  const tagMap = {};
+  for (const { run, scalars } of Object.values(tbScalars)) {
+    for (const [tag, points] of Object.entries(scalars)) {
+      if (!tagMap[tag]) tagMap[tag] = [];
+      tagMap[tag].push({
+        label: run.name || run.id,
+        data: points.slice().sort((a, b) => a.step - b.step).map((p) => p.value),
+      });
+    }
+  }
+  const allTags = Object.keys(tagMap).sort();
 
   // If no completed runs, show empty state
   if (completed.length === 0) {
@@ -25,12 +66,7 @@ export function ChartsView() {
   });
   const modelRuns = Object.values(byModel).slice(0, 4);
 
-  // Group by dataset
-  const byDataset = {};
-  completed.forEach((r) => {
-    if (!byDataset[r.dataset]) byDataset[r.dataset] = r;
-  });
-  // Top runs by best accuracy
+  // Top runs by best accuracy / lowest loss
   const topAcc = [...completed].sort((a, b) => (b.bestAcc ?? 0) - (a.bestAcc ?? 0)).slice(0, 3);
   const topLoss = [...completed].sort((a, b) => (a.valLoss ?? 9) - (b.valLoss ?? 9)).slice(0, 3);
 
@@ -70,6 +106,27 @@ export function ChartsView() {
           </ChartPanel>
         )}
       </div>
+
+      {(loadingTb || allTags.length > 0) && (
+        <div class="charts-tb-section">
+          <h3 class="run-detail-group-title">TensorBoard Metrics</h3>
+          {loadingTb ? (
+            <div class="run-detail-loading">Loading TensorBoard scalars…</div>
+          ) : (
+            <div class="run-detail-group-charts">
+              {allTags.map((tag) => (
+                <ChartPanel key={tag} title={tag}>
+                  <LineChart
+                    series={tagMap[tag]}
+                    yLabel=""
+                    xLabel="Step"
+                  />
+                </ChartPanel>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

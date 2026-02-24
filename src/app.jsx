@@ -7,7 +7,6 @@ import { Sidebar } from "./components/Sidebar.jsx";
 import { Header } from "./components/Header.jsx";
 import { DashboardView } from "./views/DashboardView.jsx";
 import { ExperimentsView } from "./views/ExperimentsView.jsx";
-import { ChartsView } from "./views/ChartsView.jsx";
 import { SettingsView } from "./views/SettingsView.jsx";
 import { NetronView } from "./views/NetronView.jsx";
 import { InterpretationView } from "./views/InterpretationView.jsx";
@@ -28,8 +27,6 @@ function CurrentView() {
       return <DashboardView />;
     case "experiments":
       return <ExperimentsView />;
-    case "charts":
-      return <ChartsView />;
     case "interpretation":
       return <InterpretationView />;
     case "netron":

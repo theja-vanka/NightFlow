@@ -1,4 +1,4 @@
-import { openDB } from "idb";
+import { openDB, deleteDB } from "idb";
 
 const DB_NAME = 'nightflow-db';
 const DB_VERSION = 1;
@@ -120,10 +120,8 @@ export async function updateRun(id, updates) {
 
 export async function clearAllData() {
   const db = await initDB();
-  const tx = db.transaction(['projects', 'runs'], 'readwrite');
-  await tx.objectStore('projects').clear();
-  await tx.objectStore('runs').clear();
-  await tx.done;
+  db.close();
+  await deleteDB(DB_NAME);
 }
 
 export async function exportData() {

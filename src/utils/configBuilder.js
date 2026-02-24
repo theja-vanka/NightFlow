@@ -143,12 +143,6 @@ export function buildConfigYaml(project) {
     lines.push(`  seed: ${project.seed}`);
   }
 
-  // Default logger: TensorBoard
-  lines.push("  logger:");
-  lines.push("    - backend: tensorboard");
-  lines.push("      params:");
-  lines.push("        save_dir: logs");
-
   // Early stopping callback
   if (project.earlyStopping) {
     const monitor = project.earlyStoppingMonitor || "val/loss";

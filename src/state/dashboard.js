@@ -1,6 +1,6 @@
 import { signal, computed } from "@preact/signals";
 import { invoke } from "@tauri-apps/api/core";
-import { projectRuns, loadRuns, importTensorboardRuns } from "./experiments.js";
+import { projectRuns, loadRuns, allRuns, addRun, loadRunScalarsFromJsonl } from "./experiments.js";
 import { currentProject, currentProjectId } from "./projects.js";
 import { navigate, currentPage } from "./router.js";
 import { saveSyncMetadata, getSyncMetadata } from "../db/database.js";
@@ -98,10 +98,6 @@ function addSyncLog(projectId, message, type = "info") {
     progress = Math.max(progress, 55);
   } else if (lowerMessage.includes("checking dataset paths")) {
     progress = Math.max(progress, 60);
-  } else if (lowerMessage.includes("scanning tensorboard")) {
-    progress = Math.max(progress, 70);
-  } else if (lowerMessage.includes("tensorboard") && lowerMessage.includes("run")) {
-    progress = Math.max(progress, 80);
   } else if (lowerMessage.includes("loading runs")) {
     progress = Math.max(progress, 90);
   } else if (lowerMessage.includes("sync completed successfully") || lowerMessage.includes("imported")) {
@@ -477,41 +473,72 @@ async function doSync(projectId, abortController) {
       }
       datasetPathStatus.value = status;
 
-      // Scan TensorBoard logs and import as run records
-      if (abortController.signal.aborted) throw new Error("AbortError");
-      try {
-        addSyncLog(projectId, "Scanning TensorBoard logs...", "info");
-        let tbRuns = [];
-        const tbPromise = isSSH
-          ? invoke("ssh_scan_tensorboard_logs", {
-              sshCommand: rawSsh.trim(),
-              projectPath: project.projectPath,
-            })
-          : invoke("scan_tensorboard_logs", {
-              projectPath: project.projectPath,
-            });
-        
-        tbRuns = await Promise.race([
-          tbPromise,
-          new Promise((_, reject) => setTimeout(() => reject(new Error("TensorBoard scan timed out")), 60000))
-        ]);
-        
-        if (tbRuns && tbRuns.length > 0) {
-          addSyncLog(projectId, `Found ${tbRuns.length} TensorBoard run(s), importing...`, "info");
-          await importTensorboardRuns(tbRuns, projectId, project);
-          addSyncLog(projectId, `Imported ${tbRuns.length} run(s)`, "success");
-        } else {
-          addSyncLog(projectId, "No TensorBoard logs found", "info");
-        }
-      } catch (tbErr) {
-        console.warn("[syncDashboard] TensorBoard scan failed:", tbErr);
-        addSyncLog(projectId, `TensorBoard scan warning: ${tbErr}`, "warning");
-      }
     }
 
     if (abortController.signal.aborted) throw new Error("AbortError");
     addSyncLog(projectId, "Loading runs...", "info");
     await loadRuns();
+
+    // Discover .jsonl files on disk, create missing runs, and sync scalars
+    if (project.projectPath) {
+      try {
+        addSyncLog(projectId, "Scanning run logs...", "info");
+        const jsonlNames = await invoke("list_run_jsonl_files", {
+          projectPath: project.projectPath,
+        });
+
+        if (jsonlNames && jsonlNames.length > 0) {
+          const existingByName = new Map(
+            allRuns.value
+              .filter((r) => r.projectId === projectId && r.name)
+              .map((r) => [r.name, r])
+          );
+
+          // Create runs for JSONL files that have no matching run
+          for (const name of jsonlNames) {
+            if (!existingByName.has(name)) {
+              const newRun = {
+                id: `run-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                name,
+                projectId,
+                status: "completed",
+                model: project.modelCategory || "unknown",
+                dataset: project.datasetName || project.folderPath || "unknown",
+                bestAcc: null,
+                valLoss: null,
+                epochs: 0,
+                lossCurve: [],
+                accCurve: [],
+                created: Date.now(),
+              };
+              await addRun(newRun);
+              existingByName.set(name, newRun);
+            }
+          }
+
+          // Sync scalars from JSONL for all discovered runs (always refresh)
+          let synced = 0;
+          for (const name of jsonlNames) {
+            if (abortController.signal.aborted) throw new Error("AbortError");
+            const run = existingByName.get(name);
+            if (!run) continue;
+            try {
+              const result = await loadRunScalarsFromJsonl(run);
+              if (result) synced++;
+            } catch {
+              // file may be empty or malformed — skip
+            }
+          }
+          addSyncLog(projectId, `Synced metrics for ${synced} of ${jsonlNames.length} run(s)`, "success");
+        } else {
+          addSyncLog(projectId, "No run logs found", "info");
+        }
+      } catch (err) {
+        console.warn("[doSync] JSONL scan failed:", err);
+        addSyncLog(projectId, `Run log scan warning: ${err}`, "warning");
+      }
+    }
+
     _setState(projectId, { synced: true });
   } catch (err) {
     if (err.message === "AbortError") {

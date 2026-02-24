@@ -5,7 +5,7 @@ import {
   stats, sshInfo, toggleSshConnection, sshConnecting, sshConnected,
   sshConnectionError, clearSshConnectionError,
   dashboardSynced, dashboardSyncing, syncDashboard, syncProgress, syncShowingCompletion,
-  datasetPathStatus, condaInfo, uvInfo, envInfo,
+  datasetPathStatus, condaInfo, uvInfo, envInfo, syncConfig,
 } from "../state/dashboard.js";
 import { currentProject } from "../state/projects.js";
 import { startTraining, trainingActive } from "../state/training.js";
@@ -305,7 +305,8 @@ function StartTrainingButton() {
 
   const command = buildTrainingCommand(project);
 
-  const handleClick = () => {
+  const handleClick = async () => {
+    await syncConfig(project, project.id);
     startTraining(command, project.projectPath);
   };
 
