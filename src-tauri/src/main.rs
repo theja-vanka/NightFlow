@@ -656,6 +656,31 @@ struct CondaStatus {
     message: String,
 }
 
+/// Get the full environment from a login shell.  macOS GUI apps (launched from
+/// Finder/Spotlight) inherit a minimal environment from launchd, so conda,
+/// python, and other tools that depend on PATH / CONDA_EXE / etc. will fail.
+/// This function spawns a login shell, dumps `env`, and returns the key=value
+/// pairs as a HashMap that can be passed to `Command::envs(...)`.
+async fn get_shell_env() -> HashMap<String, String> {
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+    let output = tokio::process::Command::new(&shell)
+        .args(["-l", "-i", "-c", "env"])
+        .stderr(std::process::Stdio::null())
+        .output()
+        .await;
+
+    let mut env_map = HashMap::new();
+    if let Ok(out) = output {
+        let text = String::from_utf8_lossy(&out.stdout);
+        for line in text.lines() {
+            if let Some((key, val)) = line.split_once('=') {
+                env_map.insert(key.to_string(), val.to_string());
+            }
+        }
+    }
+    env_map
+}
+
 /// Resolve conda path asynchronously — tries find_conda() first, then falls
 /// back to asking a login shell (handles GUI-launched apps).
 async fn resolve_conda_path() -> Option<String> {
@@ -1242,28 +1267,297 @@ async fn start_training(
         }
     }
 
-    let parts: Vec<String> = command.split_whitespace().map(String::from).collect();
-    if parts.is_empty() {
-        return Err("Empty training command".into());
-    }
+    // ── Parse command ──────────────────────────────────────────────────────────
 
     let resolved_cwd = cwd
         .as_deref()
         .map(expand_tilde)
         .unwrap_or_else(|| ".".to_string());
 
-    // Ensure the log file path is absolute
+    // Ensure the log file path is absolute (used by the fit step)
     let log_file_path = log_path(&resolved_cwd, Some(&run_id));
     let log_file_str = log_file_path.to_string_lossy().to_string();
 
+    // ── Structured multi-step command ─────────────────────────────────────────
+    //
+    // Format produced by buildTrainingCommand() in DashboardView.jsx:
+    //   __STEPS__:conda:<venv_path>:<config_path>
+    //   __STEPS__:direct:<python_path>:<config_path>
+    //
+    // Steps run in order: tune → fit (with json_progress args) → test.
+    // Each step is a direct process call — no sh/shell wrapper involved.
+
+    if let Some(rest) = command.strip_prefix("__STEPS__:") {
+        // Split into exactly 3 parts: mode, env/python path, config path
+        let parts: Vec<&str> = rest.splitn(3, ':').collect();
+        if parts.len() != 3 {
+            return Err(format!(
+                "Malformed __STEPS__ command (expected mode:path:config): {}",
+                command
+            ));
+        }
+        let mode = parts[0].to_string();
+        let env_path = expand_tilde(parts[1]);
+        let config_path = expand_tilde(parts[2]);
+
+        let alive = Arc::new(AtomicBool::new(true));
+
+        // Register session IMMEDIATELY (before any async work) so the guard
+        // check at the top of this function blocks duplicate invocations.
+        {
+            let mut procs = state.processes.lock().unwrap();
+            procs.insert(
+                session_id.clone(),
+                TrainingProcess {
+                    child: None,
+                    alive: Arc::clone(&alive),
+                    _log_file: log_file_str.clone(),
+                },
+            );
+        }
+
+        // Write durable metadata (pid updated once fit spawns)
+        let meta = TrainingMeta {
+            pid: 0,
+            session_id: session_id.clone(),
+            run_id: run_id.clone(),
+            log_file: log_file_str.clone(),
+            command: command.clone(),
+            started_at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs_f64(),
+        };
+        write_training_meta(&resolved_cwd, &meta)?;
+
+        let sid = session_id.clone();
+        let app2 = app.clone();
+        let cwd2 = resolved_cwd.clone();
+        let alive2 = Arc::clone(&alive);
+
+        tokio::spawn(async move {
+            // Resolve conda path and shell env inside the spawned task so we
+            // don't block the Tauri command and the caller returns immediately.
+            let base_prefix: Vec<String> = match mode.as_str() {
+                "conda" => {
+                    let conda_bin = match resolve_conda_path().await {
+                        Some(p) => p,
+                        None => {
+                            let _ = app2.emit("training-event", TrainingEvent {
+                                session_id: sid.clone(),
+                                data: serde_json::json!({ "event": "training_error", "error": "conda not found — cannot start training" }),
+                            });
+                            alive2.store(false, Ordering::SeqCst);
+                            remove_training_meta(&cwd2);
+                            return;
+                        }
+                    };
+                    vec![
+                        conda_bin,
+                        "run".into(),
+                        "--live-stream".into(),
+                        "-p".into(),
+                        env_path.clone(),
+                        "python".into(),
+                    ]
+                }
+                "direct" => vec![env_path.clone()],
+                other => {
+                    let _ = app2.emit("training-event", TrainingEvent {
+                        session_id: sid.clone(),
+                        data: serde_json::json!({ "event": "training_error", "error": format!("Unknown __STEPS__ mode: {}", other) }),
+                    });
+                    alive2.store(false, Ordering::SeqCst);
+                    remove_training_meta(&cwd2);
+                    return;
+                }
+            };
+
+            // Build json_progress args that are injected only into the fit step
+            let tb_jsonl_path = format!("logs/{}/{}.jsonl", run_id, run_id);
+            let progress_args: Vec<String> = vec![
+                "--trainer.json_progress=true".into(),
+                format!("--trainer.json_progress_log_file={}", tb_jsonl_path),
+            ];
+
+            let make_step_args = |subcommand: &str, extra: &[String]| -> Vec<String> {
+                let mut args = base_prefix.clone();
+                args.extend(["-m".into(), "autotimm".into(), subcommand.into()]);
+                args.push("--config".into());
+                args.push(config_path.clone());
+                args.extend_from_slice(extra);
+                args
+            };
+
+            let fit_args  = make_step_args("fit",  &progress_args);
+            let test_args = make_step_args("test", &[]);
+
+            // Fetch the full login-shell environment so child processes get
+            // PATH, CONDA_EXE, etc. that macOS GUI apps normally lack.
+            let shell_env = get_shell_env().await;
+
+            // Ensure the logs directory exists so json_progress can write to it
+            let logs_dir = std::path::Path::new(&cwd2).join(format!("logs/{}", run_id));
+            let _ = std::fs::create_dir_all(&logs_dir);
+
+            // ── Step 1: fit (stream stdout as NDJSON, stderr as logs) ─────────
+            let mut fit_cmd = tokio::process::Command::new(&fit_args[0]);
+            fit_cmd.args(&fit_args[1..]);
+            fit_cmd.current_dir(&cwd2);
+            fit_cmd.stdout(std::process::Stdio::piped());
+            fit_cmd.stderr(std::process::Stdio::piped());
+            fit_cmd.kill_on_drop(false);
+            if !shell_env.is_empty() {
+                fit_cmd.env_clear();
+                fit_cmd.envs(&shell_env);
+            }
+            #[cfg(unix)]
+            unsafe { fit_cmd.pre_exec(|| { libc::setsid(); Ok(()) }); }
+
+            let mut fit_child = match fit_cmd.spawn() {
+                Ok(c) => c,
+                Err(e) => {
+                    let _ = app2.emit("training-event", TrainingEvent {
+                        session_id: sid.clone(),
+                        data: serde_json::json!({ "event": "training_error", "error": format!("fit failed to spawn: {}", e) }),
+                    });
+                    alive2.store(false, Ordering::SeqCst);
+                    remove_training_meta(&cwd2);
+                    return;
+                }
+            };
+
+            let fit_pid = fit_child.id().unwrap_or(0);
+            // Update stored metadata with real fit PID for crash recovery
+            let updated_meta = TrainingMeta {
+                pid: fit_pid,
+                session_id: sid.clone(),
+                run_id: run_id.clone(),
+                log_file: log_file_str.clone(),
+                command: command.clone(),
+                started_at: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs_f64(),
+            };
+            let _ = write_training_meta(&cwd2, &updated_meta);
+
+            if let Some(stdout) = fit_child.stdout.take() {
+                let sid_o = sid.clone();
+                let app_o = app2.clone();
+                tokio::spawn(async move {
+                    use tokio::io::{AsyncBufReadExt, BufReader};
+                    let mut lines = BufReader::new(stdout).lines();
+                    while let Ok(Some(line)) = lines.next_line().await {
+                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&line) {
+                            let _ = app_o.emit("training-event", TrainingEvent {
+                                session_id: sid_o.clone(),
+                                data: json,
+                            });
+                        }
+                    }
+                });
+            }
+
+            // Collect stderr into a shared buffer so we can include it in error messages
+            let fit_stderr_buf: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+            if let Some(stderr) = fit_child.stderr.take() {
+                let sid_e = sid.clone();
+                let app_e = app2.clone();
+                let buf = Arc::clone(&fit_stderr_buf);
+                tokio::spawn(async move {
+                    use tokio::io::{AsyncBufReadExt, BufReader};
+                    let mut lines = BufReader::new(stderr).lines();
+                    while let Ok(Some(line)) = lines.next_line().await {
+                        let _ = app_e.emit("training-log", TrainingLog {
+                            session_id: sid_e.clone(),
+                            data: line.clone(),
+                        });
+                        let mut b = buf.lock().unwrap();
+                        b.push(line);
+                        // Keep only last 20 lines to avoid unbounded growth
+                        if b.len() > 20 { b.remove(0); }
+                    }
+                });
+            }
+
+            let fit_ok = fit_child.wait().await.map(|s| s.success()).unwrap_or(false);
+
+            if !fit_ok || !alive2.load(Ordering::SeqCst) {
+                // Small delay to let stderr reader finish flushing
+                tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+                let stderr_tail = fit_stderr_buf.lock().unwrap().join("\n");
+                let error_msg = if stderr_tail.is_empty() {
+                    "fit step failed".to_string()
+                } else {
+                    format!("fit step failed:\n{}", stderr_tail)
+                };
+                let _ = app2.emit("training-event", TrainingEvent {
+                    session_id: sid.clone(),
+                    data: serde_json::json!({ "event": "training_error", "error": error_msg }),
+                });
+                alive2.store(false, Ordering::SeqCst);
+                remove_training_meta(&cwd2);
+                return;
+            }
+
+            // ── Step 2: test (run to completion, pipe stderr to logs) ─────────
+            {
+                let mut c = tokio::process::Command::new(&test_args[0]);
+                c.args(&test_args[1..]);
+                c.current_dir(&cwd2);
+                c.stdout(std::process::Stdio::null());
+                c.stderr(std::process::Stdio::piped());
+                c.kill_on_drop(false);
+                if !shell_env.is_empty() {
+                    c.env_clear();
+                    c.envs(&shell_env);
+                }
+                #[cfg(unix)]
+                unsafe { c.pre_exec(|| { libc::setsid(); Ok(()) }); }
+                if let Ok(mut child) = c.spawn() {
+                    if let Some(stderr) = child.stderr.take() {
+                        let sid_t = sid.clone();
+                        let app_t = app2.clone();
+                        tokio::spawn(async move {
+                            use tokio::io::{AsyncBufReadExt, BufReader};
+                            let mut lines = BufReader::new(stderr).lines();
+                            while let Ok(Some(line)) = lines.next_line().await {
+                                let _ = app_t.emit("training-log", TrainingLog {
+                                    session_id: sid_t.clone(),
+                                    data: format!("[test] {}", line),
+                                });
+                            }
+                        });
+                    }
+                    let _ = child.wait().await;
+                }
+            }
+
+            let _ = app2.emit("training-event", TrainingEvent {
+                session_id: sid.clone(),
+                data: serde_json::json!({ "event": "training_complete" }),
+            });
+            alive2.store(false, Ordering::SeqCst);
+            remove_training_meta(&cwd2);
+        });
+
+        return Ok(());
+    }
+
+    // ── Legacy fallback: raw command string (split_whitespace) ────────────────
+    // Kept for backwards compatibility with any stored commands or custom flows.
+
+    let parts: Vec<String> = command.split_whitespace().map(String::from).collect();
+    if parts.is_empty() {
+        return Err("Empty training command".into());
+    }
+
     // Inject --trainer.json_progress=true and --trainer.json_progress_log_file
-    // into the command if not already present, so Python writes durable events.
-    // We now place the JSONL log inside the TensorBoard run folder: logs/{run_id}/{run_id}.jsonl
     let mut final_parts = parts.clone();
     if !final_parts.iter().any(|a| a.contains("json_progress=")) {
         final_parts.push("--trainer.json_progress=true".into());
     }
-
     let tb_jsonl_path = format!("logs/{}/{}.jsonl", run_id, run_id);
     if !final_parts
         .iter()
@@ -1289,11 +1583,8 @@ async fn start_training(
     cmd.current_dir(&resolved_cwd);
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
-    // Do NOT kill_on_drop — let training survive app restarts
     cmd.kill_on_drop(false);
 
-    // On Unix, start in a new process group so it isn't killed when the
-    // parent (Tauri) exits.
     #[cfg(unix)]
     unsafe {
         cmd.pre_exec(|| {
@@ -1304,13 +1595,10 @@ async fn start_training(
 
     let mut child = cmd.spawn().map_err(|e| e.to_string())?;
     let pid = child.id().unwrap_or(0);
-
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
-
     let alive = Arc::new(AtomicBool::new(true));
 
-    // Write durable metadata so we can reconnect after a crash
     let meta = TrainingMeta {
         pid,
         session_id: session_id.clone(),
@@ -1336,7 +1624,6 @@ async fn start_training(
         );
     }
 
-    // Stdout reader — parse NDJSON lines → training-event
     let sid_out = session_id.clone();
     let alive_out = Arc::clone(&alive);
     let app_out = app.clone();
@@ -1356,11 +1643,9 @@ async fn start_training(
             }
         }
         alive_out.store(false, Ordering::SeqCst);
-        // Clean up meta file when training finishes normally
         remove_training_meta(&cwd_out);
     });
 
-    // Stderr reader — forward log lines → training-log
     let sid_err = session_id.clone();
     let app_err = app.clone();
     tokio::spawn(async move {
@@ -1485,6 +1770,22 @@ async fn replay_training_log(
         }
     }
     Ok(replayed)
+}
+
+/// Read the NDJSON log file and return all parsed events as a list.
+/// Used by the frontend to synchronously rebuild training state on reconnect.
+#[command]
+fn read_training_log(log_file: String) -> Result<Vec<serde_json::Value>, String> {
+    let expanded = expand_tilde(&log_file);
+    let content = std::fs::read_to_string(&expanded)
+        .map_err(|e| format!("Failed to read log file: {}", e))?;
+    let mut events = Vec::new();
+    for line in content.lines() {
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
+            events.push(json);
+        }
+    }
+    Ok(events)
 }
 
 /// Poll the NDJSON log file for new lines, emitting them as training events.
@@ -1953,6 +2254,7 @@ fn main() {
             is_training_alive,
             check_training_session,
             replay_training_log,
+            read_training_log,
             watch_training_log,
             list_run_folders,
             parse_run_jsonl,

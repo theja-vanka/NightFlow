@@ -12,6 +12,7 @@ import { NetronView } from "./views/NetronView.jsx";
 import { InterpretationView } from "./views/InterpretationView.jsx";
 import { TerminalView } from "./views/TerminalView.jsx";
 import { RunDetailView } from "./views/RunDetailView.jsx";
+import { CompareRunsView } from "./views/CompareRunsView.jsx";
 
 // Ensure state modules initialize
 import "./state/theme.js";
@@ -40,6 +41,8 @@ function CurrentView() {
       return <SettingsView />;
     case "run-detail":
       return <RunDetailView />;
+    case "compare-runs":
+      return <CompareRunsView />;
     default:
       return <DashboardView />;
   }

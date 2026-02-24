@@ -398,12 +398,15 @@ export async function recoverOrphanedSessions() {
         runId,
       });
 
-      // Replay all events from the log file to rebuild state
-      await invoke("replay_training_log", {
-        sessionId: projectId,
+      // Read all events from the log file and process synchronously
+      // (Using read_training_log instead of replay_training_log to avoid
+      //  async event delivery race where state isn't updated before we read it)
+      const events = await invoke("read_training_log", {
         logFile: meta.log_file,
-        afterTimestamp: 0, // replay everything
       });
+      for (const data of events) {
+        _processEvent(projectId, data);
+      }
 
       // Check final state after replay
       const stateAfterReplay = _get(projectId);

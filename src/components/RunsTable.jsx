@@ -66,13 +66,21 @@ export function RunsTable() {
   return (
     <div class="runs-table-wrapper">
       <div class="runs-filters">
-        <input
-          type="text"
-          class="filter-input"
-          placeholder="Filter by ID, model, dataset..."
-          value={filterText}
-          onInput={(e) => (filterText.value = e.currentTarget.value)}
-        />
+        <div class="filter-input-wrap">
+          <span class="filter-input-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+          </span>
+          <input
+            type="text"
+            class="filter-input"
+            placeholder="Filter by ID, model, dataset..."
+            value={filterText}
+            onInput={(e) => (filterText.value = e.currentTarget.value)}
+          />
+        </div>
         <select
           class="filter-select"
           value={filterStatus}
@@ -85,9 +93,31 @@ export function RunsTable() {
           <option value="queued">Queued</option>
         </select>
         {someChecked && (
-          <button class="runs-delete-selected" onClick={deleteSelected}>
-            Delete {selectedRunIds.value.size} selected
-          </button>
+          <>
+            {selectedRunIds.value.size >= 2 && (
+              <button
+                class="runs-compare-selected"
+                onClick={() =>
+                  navigate("compare-runs", { runIds: [...selectedRunIds.value] })
+                }
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 3v18h18" />
+                  <path d="m19 9-5 5-4-4-3 3" />
+                </svg>
+                Compare {selectedRunIds.value.size} selected
+              </button>
+            )}
+            <button class="runs-delete-selected" onClick={deleteSelected}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6l-1 14H6L5 6" />
+                <path d="M10 11v6M14 11v6" />
+                <path d="M9 6V4h6v2" />
+              </svg>
+              Delete {selectedRunIds.value.size} selected
+            </button>
+          </>
         )}
       </div>
       <div class="table-scroll">
@@ -131,7 +161,7 @@ export function RunsTable() {
                   <input
                     type="checkbox"
                     checked={selectedRunIds.value.has(run.id)}
-                    onChange={() => {}}
+                    onChange={() => { }}
                   />
                 </td>
                 <td class="mono">{run.name || run.id}</td>

@@ -37,10 +37,10 @@ function SshStatusBanner() {
       : `${elapsed}m`;
 
   const bannerClass = `ssh-status-banner ${connecting
-      ? "ssh-connecting"
-      : info.connected
-        ? "ssh-connected"
-        : "ssh-disconnected"
+    ? "ssh-connecting"
+    : info.connected
+      ? "ssh-connected"
+      : "ssh-disconnected"
     }`;
   const statusLabel = connecting
     ? "Connecting..."
@@ -464,12 +464,42 @@ function buildTrainingCommand(project) {
     ? project.projectPath.slice(0, -1)
     : project.projectPath;
 
-  const baseCmd = useVenv ? `${pp}/.venv/bin/python` : "python3";
+  const cfg = `${pp}/config.yaml`;
 
   if (isConda) {
-    return `sh -c "conda run --live-stream -p ${pp}/.venv python -m autotimm tune --config ${pp}/config.yaml && conda run --live-stream -p ${pp}/.venv python -m autotimm fit --config ${pp}/config.yaml && conda run --live-stream -p ${pp}/.venv python -m autotimm test --config ${pp}/config.yaml"`;
+    // Structured sentinel: Rust resolves conda and runs each step directly.
+    // Format: __STEPS__:conda:<venv_path>:<config_path>
+    return `__STEPS__:conda:${pp}/.venv:${cfg}`;
   } else {
-    return `sh -c "${baseCmd} -m autotimm tune --config ${pp}/config.yaml && ${baseCmd} -m autotimm fit --config ${pp}/config.yaml && ${baseCmd} -m autotimm test --config ${pp}/config.yaml"`;
+    const python = useVenv ? `${pp}/.venv/bin/python` : "python3";
+    // Format: __STEPS__:direct:<python_path>:<config_path>
+    return `__STEPS__:direct:${python}:${cfg}`;
+  }
+}
+
+// Human-readable version shown in the Power User command preview.
+function buildCommandDisplay(project) {
+  const env = envInfo.value;
+  const useVenv = env && (env.status === "exists" || env.status === "created");
+  const isConda = useVenv && env.envType === "conda";
+  const pp = project.projectPath.endsWith("/")
+    ? project.projectPath.slice(0, -1)
+    : project.projectPath;
+
+  const cfg = `${pp}/config.yaml`;
+
+  if (isConda) {
+    const run = `conda run --live-stream -p ${pp}/.venv python -m autotimm`;
+    return [
+      `${run} fit  --config ${cfg}`,
+      `${run} test --config ${cfg}`,
+    ].join(" &&\n");
+  } else {
+    const py = useVenv ? `${pp}/.venv/bin/python` : "python3";
+    return [
+      `${py} -m autotimm fit  --config ${cfg}`,
+      `${py} -m autotimm test --config ${cfg}`,
+    ].join(" &&\n");
   }
 }
 
@@ -479,6 +509,7 @@ function StartTrainingButton() {
   if (!project) return null;
 
   const command = buildTrainingCommand(project);
+  const commandDisplay = buildCommandDisplay(project);
 
   const handleClick = async () => {
     const runId = crypto.randomUUID();
@@ -544,7 +575,7 @@ function StartTrainingButton() {
             <polyline points="4 17 10 11 4 5" />
             <line x1="12" y1="19" x2="20" y2="19" />
           </svg>
-          <span>{command}</span>
+          <span style="white-space: pre-wrap; word-break: break-word; min-width: 0;">{commandDisplay}</span>
         </div>
       )}
       <button

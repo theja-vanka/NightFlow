@@ -189,11 +189,15 @@ export const stats = computed(() => {
 // ── SSH state setters ─────────────────────────────────────────────────────────
 
 export function setSshConnected(connected, projectId = currentProjectId.value) {
+  const current = _getState(projectId);
+  // Only reset synced when transitioning to a NEW connection (was not connected before).
+  // If we're re-setting connected=true on an already-connected project (e.g. from
+  // useTerminal._initSession), preserve the synced state to avoid sidebar collapse.
+  const shouldResetSynced = connected ? !current.connected : true;
   _setState(projectId, {
     connected,
     connectedAt: connected ? new Date().toISOString() : null,
-    // Always reset synced so the sync screen appears on new connections
-    synced: false,
+    ...(shouldResetSynced ? { synced: false } : {}),
   });
   // Navigate away from terminal if the active project disconnects
   if (
