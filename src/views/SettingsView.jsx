@@ -6,6 +6,9 @@ import {
   openDeleteDialog,
   TASK_TYPES,
   MODEL_CATEGORIES,
+  YOLOX_MODEL_CATEGORIES,
+  DETECTION_MODEL_CATEGORIES,
+  SEGMENTATION_MODEL_CATEGORIES,
   DATASET_FORMATS,
   DETECTION_ARCHS,
   SEG_HEAD_TYPES,
@@ -87,24 +90,7 @@ const checkIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" s
 const lockIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
 
 function ClearAllDataRow() {
-  const [confirming, setConfirming] = useState(false);
-  const [clearing, setClearing] = useState(false);
-
-  async function handleClear() {
-    setClearing(true);
-    try {
-      await clearAllData();
-      projectList.value = [];
-      allRuns.value = [];
-      navigate("dashboard");
-      // Force reload to get a completely clean state
-      window.location.reload();
-    } catch (err) {
-      console.error("Failed to clear data:", err);
-      setClearing(false);
-      setConfirming(false);
-    }
-  }
+  const [showDialog, setShowDialog] = useState(false);
 
   return (
     <div
@@ -118,29 +104,84 @@ function ClearAllDataRow() {
           undone.
         </div>
       </div>
-      {!confirming ? (
-        <button class="settings-danger-btn" onClick={() => setConfirming(true)}>
-          <span dangerouslySetInnerHTML={{ __html: trashIcon }} />
-          Clear All Data
-        </button>
-      ) : (
-        <div style="display: flex; gap: 8px;">
-          <button
-            class="settings-danger-btn"
-            disabled={clearing}
-            onClick={handleClear}
-          >
-            {clearing ? "Clearing..." : "Yes, delete everything"}
-          </button>
-          <button
-            class="settings-btn"
-            disabled={clearing}
-            onClick={() => setConfirming(false)}
-          >
-            Cancel
+      <button class="settings-danger-btn" onClick={() => setShowDialog(true)}>
+        <span dangerouslySetInnerHTML={{ __html: trashIcon }} />
+        Clear All Data
+      </button>
+      {showDialog && (
+        <ClearAllDataDialog onClose={() => setShowDialog(false)} />
+      )}
+    </div>
+  );
+}
+
+function ClearAllDataDialog({ onClose }) {
+  const [confirmText, setConfirmText] = useState("");
+  const [clearing, setClearing] = useState(false);
+  const confirmed = confirmText.toLowerCase() === "permanently delete";
+
+  async function handleClear() {
+    if (!confirmed) return;
+    setClearing(true);
+    try {
+      await clearAllData();
+      projectList.value = [];
+      allRuns.value = [];
+      navigate("dashboard");
+      window.location.reload();
+    } catch (err) {
+      console.error("Failed to clear data:", err);
+      setClearing(false);
+    }
+  }
+
+  return (
+    <div
+      class="wizard-overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div class="delete-dialog">
+        <div class="delete-dialog-header">
+          <h2>Clear All Data</h2>
+          <button class="wizard-close-btn" onClick={onClose}>
+            &times;
           </button>
         </div>
-      )}
+        <div class="delete-dialog-body">
+          <p class="delete-dialog-warning">
+            This will permanently delete <strong>all projects</strong>, runs,
+            and metrics from the app. This action cannot be undone.
+          </p>
+          <p class="delete-dialog-prompt">
+            Type <strong>permanently delete</strong> to confirm:
+          </p>
+          <input
+            class="wizard-input delete-dialog-input"
+            type="text"
+            placeholder="Type permanently delete to confirm"
+            value={confirmText}
+            onInput={(e) => setConfirmText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && confirmed) handleClear();
+            }}
+            autoFocus
+          />
+        </div>
+        <div class="wizard-footer">
+          <button class="wizard-btn wizard-btn-secondary" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            class="wizard-btn wizard-btn-danger"
+            disabled={!confirmed || clearing}
+            onClick={handleClear}
+          >
+            {clearing ? "Clearing..." : "Delete Everything"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -248,8 +289,16 @@ export function SettingsView() {
     draft.taskType === "Semantic Segmentation" ||
     draft.taskType === "Instance Segmentation";
   const datasetFormats = DATASET_FORMATS[draft.taskType] || [];
+  const modelCatSource =
+    isDetection && draft.detectionArch === "yolox"
+      ? YOLOX_MODEL_CATEGORIES
+      : isDetection
+        ? DETECTION_MODEL_CATEGORIES
+        : isSegmentation
+          ? SEGMENTATION_MODEL_CATEGORIES
+          : MODEL_CATEGORIES;
   const modelCatDesc = draft.modelCategory
-    ? MODEL_CATEGORIES[draft.modelCategory]?.desc
+    ? modelCatSource[draft.modelCategory]?.desc
     : null;
 
   const derivedProjectPath = draft.name
@@ -429,7 +478,7 @@ export function SettingsView() {
                       onChange={(e) => set("modelCategory", e.target.value)}
                     >
                       <option value="">Select category</option>
-                      {Object.keys(MODEL_CATEGORIES).map((k) => (
+                      {Object.keys(modelCatSource).map((k) => (
                         <option key={k} value={k}>
                           {k}
                         </option>

@@ -98,7 +98,7 @@ const icons = {
   total: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>`,
   running: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>`,
   accuracy: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>`,
-  loss: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+  testAccuracy: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
 };
 
 function SshErrorModal() {
@@ -522,41 +522,74 @@ function StartTrainingButton() {
     <div class="start-training-section">
       <div class="start-training-illustration">
         <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-          <rect
-            x="8"
-            y="48"
-            width="48"
-            height="4"
-            rx="2"
-            fill="var(--border-color)"
-          />
-          <path d="M32 8L22 44h20L32 8z" fill="var(--btn-bg)" opacity="0.15" />
+          {/* Exhaust glow */}
+          <ellipse cx="32" cy="56" rx="8" ry="4" fill="var(--btn-bg)" opacity="0.08" />
+          {/* Exhaust flames */}
           <path
-            d="M32 8L22 44h20L32 8z"
+            d="M29 46c-1 4-3 8-4 10"
+            stroke="var(--text-muted)"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            opacity="0.5"
+          />
+          <path
+            d="M32 46c0 4 0 9 0 12"
+            stroke="var(--text-muted)"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            opacity="0.6"
+          />
+          <path
+            d="M35 46c1 4 3 8 4 10"
+            stroke="var(--text-muted)"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            opacity="0.5"
+          />
+          {/* Fins */}
+          <path
+            d="M24 40l-6 6h6z"
+            fill="var(--btn-bg)"
+            opacity="0.2"
             stroke="var(--btn-bg)"
-            stroke-width="2"
+            stroke-width="1"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M40 40l6 6h-6z"
+            fill="var(--btn-bg)"
+            opacity="0.2"
+            stroke="var(--btn-bg)"
+            stroke-width="1"
+            stroke-linejoin="round"
+          />
+          {/* Rocket body */}
+          <path
+            d="M32 6c-4 6-8 16-8 28v8h16v-8c0-12-4-22-8-28z"
+            fill="var(--btn-bg)"
+            opacity="0.1"
+          />
+          <path
+            d="M32 6c-4 6-8 16-8 28v8h16v-8c0-12-4-22-8-28z"
+            stroke="var(--btn-bg)"
+            stroke-width="1.5"
             stroke-linejoin="round"
             fill="none"
           />
+          {/* Nose highlight */}
           <path
-            d="M28 44l-4 8"
-            stroke="var(--text-muted)"
-            stroke-width="2"
+            d="M32 10c-2 4-4.5 10-5.5 18"
+            stroke="var(--btn-bg)"
+            stroke-width="0.75"
             stroke-linecap="round"
+            opacity="0.3"
           />
-          <path
-            d="M36 44l4 8"
-            stroke="var(--text-muted)"
-            stroke-width="2"
-            stroke-linecap="round"
-          />
-          <path
-            d="M32 44v8"
-            stroke="var(--text-muted)"
-            stroke-width="2"
-            stroke-linecap="round"
-          />
-          <circle cx="32" cy="28" r="4" fill="var(--btn-bg)" opacity="0.5" />
+          {/* Window */}
+          <circle cx="32" cy="26" r="4" stroke="var(--btn-bg)" stroke-width="1.5" fill="none" />
+          <circle cx="32" cy="26" r="2.5" fill="var(--btn-bg)" opacity="0.15" />
+          {/* Body stripe */}
+          <line x1="24.5" y1="36" x2="39.5" y2="36" stroke="var(--btn-bg)" stroke-width="1" opacity="0.25" />
+          <line x1="24" y1="38" x2="40" y2="38" stroke="var(--btn-bg)" stroke-width="1" opacity="0.25" />
         </svg>
       </div>
       <div class="start-training-label">Launch Experiment</div>
@@ -630,16 +663,18 @@ export function DashboardView() {
               icon={icons.running}
             />
             <SummaryCard
-              label="Best Accuracy"
+              label="Best Val Acc"
               value={
                 s.bestAcc != null ? (s.bestAcc * 100).toFixed(1) + "%" : "—"
               }
               icon={icons.accuracy}
             />
             <SummaryCard
-              label="Avg Val Loss"
-              value={s.avgLoss != null ? s.avgLoss.toFixed(4) : "—"}
-              icon={icons.loss}
+              label="Best Test Acc"
+              value={
+                s.bestTestAcc != null ? (s.bestTestAcc * 100).toFixed(1) + "%" : "—"
+              }
+              icon={icons.testAccuracy}
             />
           </div>
           <div class="status-metrics-row">

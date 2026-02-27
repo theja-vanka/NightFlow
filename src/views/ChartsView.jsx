@@ -82,6 +82,12 @@ export function ChartsView() {
     .sort((a, b) => (a.valLoss ?? 9) - (b.valLoss ?? 9))
     .slice(0, 3);
 
+  // Runs with test accuracy for comparison
+  const runsWithTestAcc = completed.filter((r) => r.testAcc != null);
+  const topTestAcc = [...runsWithTestAcc]
+    .sort((a, b) => (b.testAcc ?? 0) - (a.testAcc ?? 0))
+    .slice(0, 5);
+
   return (
     <div class="charts-view">
       <div class="chart-grid-2x2">
@@ -130,6 +136,47 @@ export function ChartsView() {
           </ChartPanel>
         )}
       </div>
+
+      {topTestAcc.length > 0 && (
+        <div class="charts-test-section">
+          <h3 class="run-detail-group-title">Test Results</h3>
+          <div class="test-accuracy-grid">
+            {topTestAcc.map((r) => (
+              <div class="test-accuracy-card" key={r.id}>
+                <div class="test-accuracy-name">{r.name || r.id}</div>
+                <div class="test-accuracy-values">
+                  <div class="test-accuracy-item">
+                    <span class="test-accuracy-label">Test Acc</span>
+                    <span class="test-accuracy-value test-accuracy-primary">
+                      {(r.testAcc * 100).toFixed(2)}%
+                    </span>
+                  </div>
+                  {r.bestAcc != null && (
+                    <div class="test-accuracy-item">
+                      <span class="test-accuracy-label">Val Acc</span>
+                      <span class="test-accuracy-value">
+                        {(r.bestAcc * 100).toFixed(2)}%
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div class="test-accuracy-bar-track">
+                  <div
+                    class="test-accuracy-bar-fill test-bar"
+                    style={{ width: `${Math.min(r.testAcc * 100, 100)}%` }}
+                  />
+                  {r.bestAcc != null && (
+                    <div
+                      class="test-accuracy-bar-fill val-bar"
+                      style={{ width: `${Math.min(r.bestAcc * 100, 100)}%` }}
+                    />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {(loadingTb || allTags.length > 0) && (
         <div class="charts-tb-section">

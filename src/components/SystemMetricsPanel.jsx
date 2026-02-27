@@ -3,11 +3,31 @@ import { invoke } from "@tauri-apps/api/core";
 import { currentProject } from "../state/projects.js";
 import { sshConnected } from "../state/dashboard.js";
 
-function ProgressBar({ label, valueStr, percentage, colorPrimary }) {
+// Returns a color that transitions from the base color through amber to red
+// based on usage percentage thresholds
+function getUsageColor(percentage, baseColor) {
+    if (percentage >= 90) return "#ef4444"; // red — critical
+    if (percentage >= 75) return "#f97316"; // orange — high
+    if (percentage >= 60) return "#f59e0b"; // amber — elevated
+    return baseColor;
+}
+
+// Distinct base color per metric type
+const METRIC_COLORS = {
+    cpu: "#3b82f6",      // blue
+    memory: "#8b5cf6",   // violet
+    disk: "#f59e0b",     // amber
+    gpuCompute: "#10b981", // emerald
+    gpuVram: "#06b6d4",  // cyan
+    gpuTemp: "#ef4444",  // red
+};
+
+function ProgressBar({ label, valueStr, percentage, colorPrimary, dynamic = false }) {
+    const color = dynamic ? getUsageColor(percentage, colorPrimary) : colorPrimary;
     return (
         <div class="metrics-progress-item">
             <div class="metrics-progress-header">
-                <span class="metrics-progress-label">{label}</span>
+                <span class="metrics-progress-label" style={{ color }}>{label}</span>
                 <span class="metrics-progress-value">{valueStr}</span>
             </div>
             <div class="metrics-progress-track">
@@ -15,7 +35,7 @@ function ProgressBar({ label, valueStr, percentage, colorPrimary }) {
                     class="metrics-progress-fill"
                     style={{
                         width: `${Math.max(0, Math.min(100, percentage))}%`,
-                        backgroundColor: colorPrimary
+                        backgroundColor: color
                     }}
                 />
             </div>
@@ -145,9 +165,9 @@ export function SystemMetricsPanel() {
 
             <div class="metrics-grid">
                 <div class="metrics-main">
-                    <ProgressBar label="CPU" valueStr={cpuStr} percentage={cpuPct} colorPrimary="#3b82f6" />
-                    <ProgressBar label="Memory" valueStr={memStr} percentage={memPct} colorPrimary="#3b82f6" />
-                    <ProgressBar label="Disk (Root)" valueStr={diskStr} percentage={diskPct} colorPrimary="#3b82f6" />
+                    <ProgressBar label="CPU" valueStr={cpuStr} percentage={cpuPct} colorPrimary={METRIC_COLORS.cpu} dynamic />
+                    <ProgressBar label="Memory" valueStr={memStr} percentage={memPct} colorPrimary={METRIC_COLORS.memory} dynamic />
+                    <ProgressBar label="Disk (Root)" valueStr={diskStr} percentage={diskPct} colorPrimary={METRIC_COLORS.disk} dynamic />
                 </div>
 
                 {metrics.gpus && metrics.gpus.length > 0 && (
@@ -156,19 +176,26 @@ export function SystemMetricsPanel() {
                             <div class="metrics-gpu-card" key={gpu.index}>
                                 <div class="metrics-gpu-header">
                                     <span class="metrics-gpu-name">GPU {gpu.index}: {gpu.name}</span>
-                                    <span class="metrics-gpu-temp">{gpu.temperature}°C</span>
+                                    <span class="metrics-gpu-temp" style={{
+                                        color: gpu.temperature >= 85 ? "#ef4444"
+                                            : gpu.temperature >= 70 ? "#f97316"
+                                            : gpu.temperature >= 55 ? "#f59e0b"
+                                            : "var(--text-muted)"
+                                    }}>{gpu.temperature}°C</span>
                                 </div>
                                 <ProgressBar
                                     label="Compute"
                                     valueStr={formatPct(gpu.utilization)}
                                     percentage={gpu.utilization}
-                                    colorPrimary="#10B981"
+                                    colorPrimary={METRIC_COLORS.gpuCompute}
+                                    dynamic
                                 />
                                 <ProgressBar
                                     label="VRAM"
                                     valueStr={`${(gpu.mem_used / 1024).toFixed(1)} / ${(gpu.mem_total / 1024).toFixed(1)} GB`}
                                     percentage={(gpu.mem_used / gpu.mem_total) * 100}
-                                    colorPrimary="#8B5CF6"
+                                    colorPrimary={METRIC_COLORS.gpuVram}
+                                    dynamic
                                 />
                             </div>
                         ))}

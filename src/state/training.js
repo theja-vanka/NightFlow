@@ -19,6 +19,7 @@ const _defaultTraining = () => ({
   totalSteps: 0,
   loss: null,
   metrics: {},
+  testMetrics: {}, // metrics from autotimm test step
   error: null,
   fastDevRun: false,
   lossCurve: [],
@@ -68,6 +69,9 @@ export const trainingLossCurve = computed(
 );
 export const trainingAccCurve = computed(
   () => _get(currentProjectId.value).accCurve,
+);
+export const trainingTestMetrics = computed(
+  () => _get(currentProjectId.value).testMetrics,
 );
 
 export const trainingProgress = computed(() => {
@@ -205,12 +209,26 @@ function _processEvent(session_id, data) {
       break;
 
     case "testing_started":
-      _set(session_id, { event: "testing_started" });
+      _set(session_id, { event: "testing_started", testMetrics: {} });
       break;
 
-    case "testing_complete":
-      _set(session_id, { event: "testing_complete" });
+    case "testing_complete": {
+      const testMetrics = data.metrics ?? {};
+      const testAcc =
+        testMetrics["test/accuracy"] ??
+        testMetrics["test/acc"] ??
+        testMetrics["test/MulticlassAccuracy"] ??
+        null;
+
+      _set(session_id, { event: "testing_complete", testMetrics });
+
+      if (state.runId) {
+        const updates = { testMetrics };
+        if (testAcc != null) updates.testAcc = testAcc;
+        updateRun(state.runId, updates);
+      }
       break;
+    }
 
     case "epoch_started":
       _set(session_id, {

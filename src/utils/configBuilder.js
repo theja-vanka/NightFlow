@@ -1,4 +1,4 @@
-import { MODEL_CATEGORIES } from "../state/projects.js";
+import { MODEL_CATEGORIES, YOLOX_MODEL_CATEGORIES, DETECTION_MODEL_CATEGORIES, SEGMENTATION_MODEL_CATEGORIES } from "../state/projects.js";
 
 /** Strip trailing slash from a path so concatenation doesn't double up. */
 const trimSlash = (p) => (p && p.endsWith("/") ? p.slice(0, -1) : p);
@@ -16,6 +16,10 @@ const TASK_CLASS_PATHS = {
     model: "autotimm.ObjectDetector",
     data: "autotimm.DetectionDataModule",
   },
+  "Object Detection::yolox": {
+    model: "autotimm.YOLOXDetector",
+    data: "autotimm.DetectionDataModule",
+  },
   "Semantic Segmentation": {
     model: "autotimm.SemanticSegmentor",
     data: "autotimm.SegmentationDataModule",
@@ -31,9 +35,20 @@ const TASK_CLASS_PATHS = {
  */
 export function buildConfigYaml(project, runId = "default") {
   const task = project.taskType || "Classification";
-  const paths = TASK_CLASS_PATHS[task] || TASK_CLASS_PATHS["Classification"];
+  const isYolox = task === "Object Detection" && project.detectionArch === "yolox";
+  const isFcosDetection = task === "Object Detection" && !isYolox;
+  const isSeg = task === "Semantic Segmentation" || task === "Instance Segmentation";
+  const pathKey = isYolox ? "Object Detection::yolox" : task;
+  const paths = TASK_CLASS_PATHS[pathKey] || TASK_CLASS_PATHS[task] || TASK_CLASS_PATHS["Classification"];
   const category = project.modelCategory || "Edge";
-  const backbone = MODEL_CATEGORIES[category]?.models?.[0] || "efficientnet_b0";
+  const modelSource = isYolox
+    ? YOLOX_MODEL_CATEGORIES
+    : isFcosDetection
+      ? DETECTION_MODEL_CATEGORIES
+      : isSeg
+        ? SEGMENTATION_MODEL_CATEGORIES
+        : MODEL_CATEGORIES;
+  const backbone = modelSource[category]?.models?.[0] || (isYolox ? "yolox-s" : "efficientnet_b0");
 
   const lines = [];
 
@@ -41,7 +56,7 @@ export function buildConfigYaml(project, runId = "default") {
   lines.push("model:");
   lines.push(`  class_path: ${paths.model}`);
   lines.push("  init_args:");
-  lines.push(`    backbone: ${backbone}`);
+  lines.push(`    ${isYolox ? "model_name" : "backbone"}: ${backbone}`);
 
   if (project.numClasses !== "" && project.numClasses !== undefined) {
     lines.push(`    num_classes: ${project.numClasses}`);
@@ -55,7 +70,7 @@ export function buildConfigYaml(project, runId = "default") {
     lines.push("    multilabel: true");
   }
 
-  if (task === "Object Detection" && project.detectionArch) {
+  if (task === "Object Detection" && project.detectionArch && !isYolox) {
     lines.push(`    detection_arch: ${project.detectionArch}`);
   }
 

@@ -1556,15 +1556,25 @@ async fn start_training(
                 return;
             }
 
-            // ── Step 2: test (run to completion, pipe stderr to logs) ─────────
+            // ── Step 2: test (stream stdout as NDJSON, stderr to logs) ─────────
             {
+                let test_stdout_path = logs_dir.join("test_stdout.log");
                 let test_stderr_path = logs_dir.join("test_stderr.log");
+                let test_stdout_file = std::fs::OpenOptions::new().create(true).append(true).open(&test_stdout_path).unwrap();
                 let test_stderr_file = std::fs::OpenOptions::new().create(true).append(true).open(&test_stderr_path).unwrap();
 
-                let mut c = tokio::process::Command::new(&test_args[0]);
-                c.args(&test_args[1..]);
+                // Inject json_progress args into the test step so it emits events
+                let test_progress_args: Vec<String> = vec![
+                    "--trainer.json_progress=true".into(),
+                    format!("--trainer.json_progress_log_file={}", tb_jsonl_path),
+                ];
+                let mut test_full_args = test_args.clone();
+                test_full_args.extend(test_progress_args);
+
+                let mut c = tokio::process::Command::new(&test_full_args[0]);
+                c.args(&test_full_args[1..]);
                 c.current_dir(&cwd2);
-                c.stdout(std::process::Stdio::null());
+                c.stdout(std::process::Stdio::from(test_stdout_file));
                 c.stderr(std::process::Stdio::from(test_stderr_file));
                 c.kill_on_drop(false);
                 if !shell_env.is_empty() {
@@ -1574,6 +1584,17 @@ async fn start_training(
                 #[cfg(unix)]
                 unsafe { c.pre_exec(|| { libc::setsid(); Ok(()) }); }
                 if let Ok(mut child) = c.spawn() {
+                    // Tail stdout for JSON events (testing_started, testing_complete)
+                    spawn_tail_task(
+                        test_stdout_path,
+                        Arc::clone(&alive2),
+                        true,
+                        None,
+                        app2.clone(),
+                        sid.clone(),
+                        None,
+                    );
+                    // Tail stderr for log output
                     spawn_tail_task(
                         test_stderr_path,
                         Arc::clone(&alive2),
@@ -2362,6 +2383,136 @@ print(json.dumps(res))
     }
 }
 
+// ── Download model ───────────────────────────────────────────────────────────
+
+#[derive(serde::Serialize)]
+struct DownloadModelResult {
+    success: bool,
+    path: String,
+    message: String,
+}
+
+#[command]
+async fn download_model(
+    project_path: String,
+    run_id: String,
+    run_name: String,
+    ssh_command: Option<String>,
+) -> Result<DownloadModelResult, String> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    let downloads = format!("{}/Downloads", home);
+
+    // Ensure Downloads directory exists
+    let _ = std::fs::create_dir_all(&downloads);
+
+    let pp = project_path.trim_end_matches('/');
+    let ckpt_dir = format!("{pp}/logs/{run_id}/checkpoints");
+
+    if let Some(ssh_cmd) = ssh_command {
+        // Remote: find best checkpoint via SSH, then scp it
+        let parts: Vec<String> = ssh_cmd.split_whitespace().map(String::from).collect();
+        if parts.len() < 2 {
+            return Err("Invalid SSH command".to_string());
+        }
+
+        // Find the best checkpoint file on the remote
+        let find_script = format!(
+            r#"find "{ckpt_dir}" -name "*.ckpt" -type f 2>/dev/null | head -1"#
+        );
+        let find_output = tokio::process::Command::new(&parts[0])
+            .args(&parts[1..])
+            .arg(&find_script)
+            .output()
+            .await
+            .map_err(|e| format!("SSH failed: {e}"))?;
+
+        let remote_path = String::from_utf8_lossy(&find_output.stdout).trim().to_string();
+        if remote_path.is_empty() {
+            return Err("No checkpoint file found. Training may not have saved a model yet.".to_string());
+        }
+
+        let dest_name = format!("{}.ckpt", run_name);
+        let dest = format!("{downloads}/{dest_name}");
+
+        // Build scp source: user@host:path
+        // SSH command is typically: ssh user@host (or ssh -p port user@host)
+        // We need to extract user@host for scp
+        let mut scp_args: Vec<String> = Vec::new();
+        let mut host_part = String::new();
+        let mut i = 1; // skip "ssh"
+        while i < parts.len() {
+            if parts[i] == "-p" || parts[i] == "-i" || parts[i] == "-o" {
+                scp_args.push(parts[i].clone());
+                if i + 1 < parts.len() {
+                    // For -p flag, scp uses -P (uppercase)
+                    if parts[i] == "-p" {
+                        scp_args.pop();
+                        scp_args.push("-P".to_string());
+                    }
+                    scp_args.push(parts[i + 1].clone());
+                    i += 2;
+                } else {
+                    i += 1;
+                }
+            } else {
+                host_part = parts[i].clone();
+                i += 1;
+            }
+        }
+
+        let scp_source = format!("{host_part}:{remote_path}");
+        scp_args.push(scp_source);
+        scp_args.push(dest.clone());
+
+        let scp_output = tokio::process::Command::new("scp")
+            .args(&scp_args)
+            .output()
+            .await
+            .map_err(|e| format!("scp failed: {e}"))?;
+
+        if !scp_output.status.success() {
+            let stderr = String::from_utf8_lossy(&scp_output.stderr);
+            return Err(format!("scp failed: {stderr}"));
+        }
+
+        Ok(DownloadModelResult {
+            success: true,
+            path: dest,
+            message: format!("Saved to ~/Downloads/{dest_name}"),
+        })
+    } else {
+        // Local: find and copy checkpoint
+        let ckpt_path = std::path::Path::new(&ckpt_dir);
+        let mut best_ckpt: Option<std::path::PathBuf> = None;
+
+        if let Ok(entries) = std::fs::read_dir(ckpt_path) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                    if name.ends_with(".ckpt") {
+                        best_ckpt = Some(path);
+                    }
+                }
+            }
+        }
+
+        match best_ckpt {
+            Some(src) => {
+                let dest_name = format!("{}.ckpt", run_name);
+                let dest = format!("{downloads}/{dest_name}");
+                std::fs::copy(&src, &dest)
+                    .map_err(|e| format!("Copy failed: {e}"))?;
+                Ok(DownloadModelResult {
+                    success: true,
+                    path: dest,
+                    message: format!("Saved to ~/Downloads/{dest_name}"),
+                })
+            }
+            None => Err("No checkpoint file found. Training may not have saved a model yet.".to_string()),
+        }
+    }
+}
+
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 fn main() {
@@ -2413,6 +2564,7 @@ fn main() {
             parse_run_jsonl,
             parse_csv_run,
             get_system_metrics,
+            download_model,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -20,7 +20,8 @@ const columns = [
   { key: "status", label: "Status" },
   { key: "model", label: "Model" },
   { key: "dataset", label: "Dataset" },
-  { key: "bestAcc", label: "Best Acc" },
+  { key: "bestAcc", label: "Val Acc" },
+  { key: "testAcc", label: "Test Acc" },
   { key: "valLoss", label: "Val Loss" },
 ];
 
@@ -177,6 +178,9 @@ export function RunsTable() {
                 <td>{run.dataset}</td>
                 <td class="mono">
                   {run.bestAcc != null ? run.bestAcc.toFixed(4) : "\u2014"}
+                </td>
+                <td class="mono">
+                  {run.testAcc != null ? run.testAcc.toFixed(4) : "\u2014"}
                 </td>
                 <td class="mono">
                   {run.valLoss != null ? run.valLoss.toFixed(4) : "\u2014"}

@@ -14,6 +14,9 @@ import {
   STEP_LABELS,
   TASK_TYPES,
   MODEL_CATEGORIES,
+  YOLOX_MODEL_CATEGORIES,
+  DETECTION_MODEL_CATEGORIES,
+  SEGMENTATION_MODEL_CATEGORIES,
   DETECTION_ARCHS,
   SEG_HEAD_TYPES,
   DATASET_FORMATS,
@@ -1290,8 +1293,20 @@ const MODEL_PREVIEWS = {
   },
 };
 
-function ModelPreview({ category }) {
-  const info = MODEL_CATEGORIES[category];
+function getModelSource(d) {
+  if (d.taskType === "Object Detection" && d.detectionArch === "yolox")
+    return YOLOX_MODEL_CATEGORIES;
+  if (d.taskType === "Object Detection") return DETECTION_MODEL_CATEGORIES;
+  if (
+    d.taskType === "Semantic Segmentation" ||
+    d.taskType === "Instance Segmentation"
+  )
+    return SEGMENTATION_MODEL_CATEGORIES;
+  return MODEL_CATEGORIES;
+}
+
+function ModelPreview({ category, modelSource }) {
+  const info = (modelSource || MODEL_CATEGORIES)[category];
   const preview = MODEL_PREVIEWS[category];
   if (!info || !preview) return null;
 
@@ -1350,7 +1365,8 @@ function ModelPreview({ category }) {
 
 function StepModelCategory() {
   const d = wizardData.value;
-  const categories = Object.keys(MODEL_CATEGORIES);
+  const source = getModelSource(d);
+  const categories = Object.keys(source);
 
   return (
     <div>
@@ -1361,7 +1377,7 @@ function StepModelCategory() {
       <div class="wizard-model-layout">
         <div class="wizard-category-list">
           {categories.map((cat) => {
-            const info = MODEL_CATEGORIES[cat];
+            const info = source[cat];
             return (
               <button
                 key={cat}
@@ -1374,7 +1390,9 @@ function StepModelCategory() {
             );
           })}
         </div>
-        {d.modelCategory && <ModelPreview category={d.modelCategory} />}
+        {d.modelCategory && (
+          <ModelPreview category={d.modelCategory} modelSource={source} />
+        )}
       </div>
     </div>
   );

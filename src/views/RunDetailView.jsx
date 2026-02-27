@@ -1,6 +1,8 @@
 import { useState, useEffect } from "preact/hooks";
+import { invoke } from "@tauri-apps/api/core";
 import { navigate, routeParams } from "../state/router.js";
 import { allRuns, loadRunScalars } from "../state/experiments.js";
+import { currentProject } from "../state/projects.js";
 import { ChartPanel } from "../components/ChartPanel.jsx";
 import { LineChart } from "../components/LineChart.jsx";
 
@@ -45,6 +47,70 @@ function buildTabs(scalars) {
 function stripPrefix(tag) {
   const idx = tag.indexOf("/");
   return idx > 0 ? tag.slice(idx + 1) : tag;
+}
+
+function DownloadModelButton({ runId, runName }) {
+  const [status, setStatus] = useState("idle");
+  const [error, setError] = useState("");
+
+  async function handleDownload() {
+    const project = currentProject.value;
+    if (!project) return;
+
+    setStatus("loading");
+    setError("");
+    try {
+      const sshCmd =
+        project.connectionType === "remote" ? project.sshCommand : null;
+      await invoke("download_model", {
+        projectPath: project.projectPath,
+        runId,
+        runName: runName || runId,
+        sshCommand: sshCmd,
+      });
+      setStatus("done");
+    } catch (err) {
+      setStatus("error");
+      setError(String(err));
+    }
+  }
+
+  const icon =
+    status === "loading" ? (
+      <div class="download-spinner" />
+    ) : status === "done" ? (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
+    ) : (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+        <polyline points="7 10 12 15 17 10" />
+        <line x1="12" y1="15" x2="12" y2="3" />
+      </svg>
+    );
+
+  return (
+    <div class="training-download-row">
+      <button
+        class="training-download-btn"
+        onClick={handleDownload}
+        disabled={status === "loading"}
+      >
+        {icon}
+        {status === "loading"
+          ? "Downloading..."
+          : status === "done"
+            ? "Downloaded"
+            : "Download Model"}
+      </button>
+      {error && (
+        <span class="training-download-msg training-download-msg--error">
+          {error}
+        </span>
+      )}
+    </div>
+  );
 }
 
 export function RunDetailView() {
@@ -100,6 +166,7 @@ export function RunDetailView() {
 
       <div class="run-detail-header">
         <h2>{run.name || run.id}</h2>
+        <DownloadModelButton runId={run.id} runName={run.name || run.id} />
       </div>
 
       <div class="run-detail-meta">
@@ -111,7 +178,10 @@ export function RunDetailView() {
           <span class="run-meta-tag">Epochs: {run.epochs}</span>
         )}
         {run.bestAcc != null && (
-          <span class="run-meta-tag">Best Acc: {run.bestAcc.toFixed(4)}</span>
+          <span class="run-meta-tag">Val Acc: {run.bestAcc.toFixed(4)}</span>
+        )}
+        {run.testAcc != null && (
+          <span class="run-meta-tag">Test Acc: {run.testAcc.toFixed(4)}</span>
         )}
         {run.valLoss != null && (
           <span class="run-meta-tag">Val Loss: {run.valLoss.toFixed(4)}</span>

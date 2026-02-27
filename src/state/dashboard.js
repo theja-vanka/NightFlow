@@ -120,35 +120,46 @@ function addSyncLog(projectId, message, type = "info") {
   if (lowerMessage.includes("starting sync")) {
     progress = 5;
   } else if (
-    lowerMessage.includes("creating project directory") ||
-    lowerMessage.includes("directory ready")
+    lowerMessage.includes("connecting to ssh") ||
+    lowerMessage.includes("local mode")
   ) {
-    progress = Math.max(progress, 20);
-  } else if (
-    lowerMessage.includes("checking conda") ||
-    lowerMessage.includes("checking uv")
-  ) {
+    progress = Math.max(progress, 8);
+  } else if (lowerMessage.includes("creating project directory")) {
+    progress = Math.max(progress, 12);
+  } else if (lowerMessage.includes("directory ready")) {
+    progress = Math.max(progress, 18);
+  } else if (lowerMessage.includes("config yaml written")) {
+    progress = Math.max(progress, 25);
+  } else if (lowerMessage.includes("checking conda")) {
     progress = Math.max(progress, 30);
   } else if (
     lowerMessage.includes("conda ready") ||
-    lowerMessage.includes("uv ready")
+    lowerMessage.includes("conda not found")
   ) {
     progress = Math.max(progress, 35);
+  } else if (lowerMessage.includes("checking uv")) {
+    progress = Math.max(progress, 38);
+  } else if (lowerMessage.includes("uv ready")) {
+    progress = Math.max(progress, 42);
   } else if (
     lowerMessage.includes("setting up python") ||
     lowerMessage.includes("python 3.12")
   ) {
-    progress = Math.max(progress, 40);
+    progress = Math.max(progress, 45);
   } else if (lowerMessage.includes("python environment ready")) {
     progress = Math.max(progress, 55);
   } else if (lowerMessage.includes("checking dataset paths")) {
     progress = Math.max(progress, 60);
   } else if (lowerMessage.includes("loading runs")) {
-    progress = Math.max(progress, 90);
+    progress = Math.max(progress, 75);
+  } else if (lowerMessage.includes("scanning run logs")) {
+    progress = Math.max(progress, 82);
   } else if (
-    lowerMessage.includes("sync completed successfully") ||
-    lowerMessage.includes("imported")
+    lowerMessage.includes("synced metrics") ||
+    lowerMessage.includes("no run logs found")
   ) {
+    progress = Math.max(progress, 92);
+  } else if (lowerMessage.includes("sync completed successfully")) {
     progress = 100;
   }
 
@@ -170,11 +181,13 @@ export const stats = computed(() => {
   const bestAcc = completed.length
     ? Math.max(...completed.map((x) => x.bestAcc ?? 0))
     : null;
-  const avgLoss = completed.length
-    ? +(
-      completed.reduce((s, x) => s + (x.valLoss ?? 0), 0) / completed.length
-    ).toFixed(4)
+
+  // Best test accuracy across all runs that have test results
+  const runsWithTestAcc = r.filter((x) => x.testAcc != null);
+  const bestTestAcc = runsWithTestAcc.length
+    ? Math.max(...runsWithTestAcc.map((x) => x.testAcc))
     : null;
+
   return {
     totalRuns: r.length,
     completed: completed.length,
@@ -182,7 +195,7 @@ export const stats = computed(() => {
     failed: failed.length,
     queued: queued.length,
     bestAcc,
-    avgLoss,
+    bestTestAcc,
   };
 });
 

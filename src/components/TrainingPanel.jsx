@@ -10,6 +10,7 @@ import {
   trainingError,
   trainingFastDevRun,
   trainingMetrics,
+  trainingTestMetrics,
   stopTraining,
 } from "../state/training.js";
 
@@ -135,6 +136,29 @@ export function TrainingPanel() {
             })}
           </div>
         </>
+      )}
+
+      {/* Test metrics displayed during or after testing */}
+      {(event === "testing_started" || event === "testing_complete") && (
+        <div class="training-panel-stats">
+          {Object.entries(trainingTestMetrics.value).map(([key, val]) => {
+            const label = key
+              .replace(/^test\//, "")
+              .replace(/_/g, " ");
+            const displayVal =
+              typeof val === "number"
+                ? val < 1 && val > -1
+                  ? val.toFixed(4)
+                  : val.toFixed(2)
+                : val;
+            return (
+              <div class="training-stat" key={key}>
+                <span class="training-stat-label">Test {label}</span>
+                <span class="training-stat-value">{displayVal}</span>
+              </div>
+            );
+          })}
+        </div>
       )}
 
       {isError && error && <div class="training-panel-error">{error}</div>}
