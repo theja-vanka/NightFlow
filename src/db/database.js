@@ -117,6 +117,59 @@ export async function updateRun(id, updates) {
 }
 
 // ========================================
+// Migrations
+// ========================================
+
+/**
+ * Re-number project IDs from old `proj-<timestamp>` format to sequential
+ * integers (1, 2, 3, …) matching MLflow experiment ID style.
+ * Also updates the `projectId` field on all associated runs.
+ */
+export async function migrateProjectIds() {
+  const db = await initDB();
+  const projects = await db.getAll("projects");
+
+  // Only migrate if there are projects with the old format
+  const needsMigration = projects.some((p) => String(p.id).startsWith("proj-"));
+  if (!needsMigration) return false;
+
+  const tx = db.transaction(["projects", "runs"], "readwrite");
+  const projectStore = tx.objectStore("projects");
+  const runStore = tx.objectStore("runs");
+
+  // Sort projects by creation order (the timestamp in the old id)
+  const sorted = [...projects].sort((a, b) => {
+    const tsA = String(a.id).startsWith("proj-")
+      ? Number(String(a.id).slice(5))
+      : 0;
+    const tsB = String(b.id).startsWith("proj-")
+      ? Number(String(b.id).slice(5))
+      : 0;
+    return tsA - tsB;
+  });
+
+  let nextId = 1;
+  for (const project of sorted) {
+    const oldId = project.id;
+    const newId = String(nextId++);
+    if (oldId === newId) continue;
+
+    // Delete old project entry, insert with new id
+    await projectStore.delete(oldId);
+    await projectStore.put({ ...project, id: newId });
+
+    // Update all runs that reference this project
+    const runs = await runStore.index("projectId").getAll(oldId);
+    for (const run of runs) {
+      await runStore.put({ ...run, projectId: newId });
+    }
+  }
+
+  await tx.done;
+  return true;
+}
+
+// ========================================
 // Bulk Operations
 // ========================================
 

@@ -4,6 +4,7 @@ import {
   saveProject,
   updateProject as dbUpdateProject,
   deleteProject as dbDeleteProject,
+  migrateProjectIds,
 } from "../db/database.js";
 import { restoreSyncState } from "./dashboard.js";
 
@@ -13,6 +14,8 @@ export const currentProjectId = signal(null);
 // Load projects from database on initialization
 export async function loadProjects() {
   try {
+    // Migrate old proj-<timestamp> IDs to sequential integers (1, 2, 3, …)
+    await migrateProjectIds();
     const projects = await getAllProjects();
     // Add default values for fields that might not exist in older projects
     const updatedProjects = projects.map((p) => {
@@ -581,7 +584,9 @@ export function wizardCreate() {
   if (!wizardCanProceed.value) return;
   const d = wizardData.value;
   const project = {
-    id: `proj-${Date.now()}`,
+    id: String(
+      Math.max(0, ...projectList.value.map((p) => Number(p.id) || 0)) + 1,
+    ),
     connectionType: d.connectionType,
     sshCommand: d.sshCommand.trim(),
     name: d.name.trim(),
