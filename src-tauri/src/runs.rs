@@ -1,0 +1,154 @@
+use std::collections::HashMap;
+use tauri::command;
+
+use crate::expand_tilde;
+
+#[command]
+pub fn list_run_folders(project_path: String) -> Result<Vec<String>, String> {
+    let expanded = expand_tilde(&project_path);
+    let logs_dir = std::path::PathBuf::from(&expanded).join("logs");
+
+    if !logs_dir.exists() {
+        return Ok(Vec::new());
+    }
+
+    let entries = std::fs::read_dir(&logs_dir).map_err(|e| {
+        format!(
+            "Failed to read logs directory {}: {}",
+            logs_dir.display(),
+            e
+        )
+    })?;
+
+    let mut names = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir()
+            && let Some(run_id) = path.file_name().and_then(|s| s.to_str())
+        {
+            names.push(run_id.to_string());
+        }
+    }
+    names.sort();
+    Ok(names)
+}
+
+#[command]
+pub fn parse_run_jsonl(
+    project_path: String,
+    run_id: String,
+) -> Result<HashMap<String, Vec<serde_json::Value>>, String> {
+    let expanded = expand_tilde(&project_path);
+    let file_path = std::path::PathBuf::from(&expanded)
+        .join("logs")
+        .join(&run_id)
+        .join(format!("{}.jsonl", run_id));
+
+    let content = std::fs::read_to_string(&file_path)
+        .map_err(|e| format!("Failed to read {}: {}", file_path.display(), e))?;
+
+    let mut scalars: HashMap<String, Vec<serde_json::Value>> = HashMap::new();
+
+    for line in content.lines() {
+        let json: serde_json::Value = match serde_json::from_str(line) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+
+        let event = json.get("event").and_then(|v| v.as_str()).unwrap_or("");
+        if event != "epoch_end" && event != "validation_end" {
+            continue;
+        }
+
+        let epoch = json.get("epoch").and_then(|v| v.as_i64()).unwrap_or(0);
+        let metrics = match json.get("metrics").and_then(|v| v.as_object()) {
+            Some(m) => m,
+            None => continue,
+        };
+
+        for (tag, val) in metrics {
+            if let Some(num) = val.as_f64() {
+                let entry = scalars.entry(tag.clone()).or_default();
+                entry.push(serde_json::json!({ "step": epoch, "value": num }));
+            }
+        }
+    }
+
+    for points in scalars.values_mut() {
+        points.sort_by(|a, b| {
+            let sa = a.get("step").and_then(|v| v.as_i64()).unwrap_or(0);
+            let sb = b.get("step").and_then(|v| v.as_i64()).unwrap_or(0);
+            sa.cmp(&sb)
+        });
+    }
+
+    Ok(scalars)
+}
+
+#[command]
+pub fn parse_csv_run(
+    project_path: String,
+    run_id: String,
+) -> Result<HashMap<String, Vec<serde_json::Value>>, String> {
+    let expanded = expand_tilde(&project_path);
+    let mut file_path = std::path::PathBuf::from(&expanded)
+        .join("logs")
+        .join(&run_id)
+        .join("metrics.csv");
+
+    if !file_path.exists() {
+        let alt_path = std::path::PathBuf::from(&expanded)
+            .join("logs")
+            .join(&run_id)
+            .join("version_0")
+            .join("metrics.csv");
+        if alt_path.exists() {
+            file_path = alt_path;
+        } else {
+            return Err(format!("metrics.csv not found for run {}", run_id));
+        }
+    }
+
+    let content = std::fs::read_to_string(&file_path)
+        .map_err(|e| format!("Failed to read {}: {}", file_path.display(), e))?;
+
+    let mut scalars: HashMap<String, Vec<serde_json::Value>> = HashMap::new();
+    let mut lines = content.lines();
+
+    if let Some(header_line) = lines.next() {
+        let headers: Vec<&str> = header_line.split(',').collect();
+        let step_idx = headers.iter().position(|&h| h == "step").unwrap_or(0);
+
+        for line in lines {
+            let parts: Vec<&str> = line.split(',').collect();
+            if parts.is_empty() {
+                continue;
+            }
+
+            let step: i64 = parts.get(step_idx).and_then(|s| s.parse().ok()).unwrap_or(0);
+
+            for (i, &val_str) in parts.iter().enumerate() {
+                if i == step_idx { continue; }
+                if let Some(header) = headers.get(i) {
+                    if *header == "epoch" { continue; }
+                    if val_str.is_empty() { continue; }
+
+                    if let Ok(num) = val_str.parse::<f64>() {
+                        let entry = scalars.entry(header.to_string()).or_default();
+                        entry.push(serde_json::json!({ "step": step, "value": num }));
+                    }
+                }
+            }
+        }
+    }
+
+    for points in scalars.values_mut() {
+        points.sort_by(|a, b| {
+            let sa = a.get("step").and_then(|v| v.as_i64()).unwrap_or(0);
+            let sb = b.get("step").and_then(|v| v.as_i64()).unwrap_or(0);
+            sa.cmp(&sb)
+        });
+    }
+
+    Ok(scalars)
+}
