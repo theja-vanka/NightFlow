@@ -21,7 +21,7 @@ pub fn home_dir() -> Option<String> {
     std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
         .ok()
-        .or_else(|| {
+        .or({
             #[cfg(target_os = "windows")]
             if let (Ok(drive), Ok(path)) =
                 (std::env::var("HOMEDRIVE"), std::env::var("HOMEPATH"))
