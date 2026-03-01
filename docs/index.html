@@ -3,11 +3,58 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NightFlow — Deep Learning Experiment Manager</title>
-  <meta name="description" content="A native, privacy-first desktop app for managing, running, and analyzing deep-learning experiments. No cloud, no telemetry, no account required." />
-  <meta property="og:title" content="NightFlow" />
-  <meta property="og:description" content="Native desktop app for deep-learning experiments." />
+  <title>NightFlow — Desktop App for Deep Learning Experiments</title>
+
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="NightFlow is a native, privacy-first desktop app for managing, running, and analyzing deep learning experiments. Track metrics, visualize models, and train locally — no cloud, no telemetry, no account." />
+  <meta name="keywords" content="deep learning, experiment tracker, machine learning, MLOps, model training, experiment management, PyTorch, TensorBoard alternative, ML dashboard, privacy-first, offline, desktop app, neural network visualization, training metrics" />
+  <meta name="author" content="Krishnatheja Vanka" />
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large" />
+  <link rel="canonical" href="https://theja-vanka.github.io/NightFlow/" />
+
+  <!-- Open Graph -->
   <meta property="og:type" content="website" />
+  <meta property="og:title" content="NightFlow — Desktop App for Deep Learning Experiments" />
+  <meta property="og:description" content="A native, privacy-first desktop app for managing, running, and analyzing deep learning experiments. No cloud, no telemetry, no account required." />
+  <meta property="og:url" content="https://theja-vanka.github.io/NightFlow/" />
+  <meta property="og:site_name" content="NightFlow" />
+  <meta property="og:image" content="https://theja-vanka.github.io/NightFlow/logo.png" />
+  <meta property="og:locale" content="en_US" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="NightFlow — Desktop App for Deep Learning Experiments" />
+  <meta name="twitter:description" content="Native, privacy-first experiment tracker for deep learning. No cloud, no telemetry." />
+  <meta name="twitter:image" content="https://theja-vanka.github.io/NightFlow/logo.png" />
+
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "NightFlow",
+    "description": "A native, privacy-first desktop app for managing, running, and analyzing deep learning experiments.",
+    "url": "https://theja-vanka.github.io/NightFlow/",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "macOS, Windows, Linux",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "author": {
+      "@type": "Person",
+      "name": "Krishnatheja Vanka",
+      "url": "https://github.com/theja-vanka"
+    },
+    "license": "https://www.apache.org/licenses/LICENSE-2.0",
+    "softwareVersion": "0.1.0",
+    "downloadUrl": "https://github.com/theja-vanka/NightFlow/releases/latest"
+  }
+  </script>
+
+  <link rel="icon" href="favicon.ico" type="image/x-icon" />
+
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     :root{
@@ -41,13 +88,22 @@
     .hero{padding:140px 24px 80px;text-align:center}
     .hero img{height:96px;width:auto;border-radius:20px;margin-bottom:24px}
     .hero h1{font-size:3rem;font-weight:800;letter-spacing:-.02em;margin-bottom:12px;background:linear-gradient(135deg,var(--accent2),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-    .hero p{color:var(--text2);font-size:1.2rem;max-width:560px;margin:0 auto 32px}
+    .hero p{color:var(--text2);font-size:1.2rem;max-width:600px;margin:0 auto 36px}
     .hero-buttons{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
-    .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:10px;font-weight:600;font-size:.95rem;transition:all .2s}
-    .btn-primary{background:var(--accent);color:#fff}
-    .btn-primary:hover{background:#5a4bd6;text-decoration:none}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:10px;font-weight:600;font-size:.95rem;transition:all .2s;border:none;cursor:pointer}
+    .btn-primary{background:var(--accent);color:#fff;padding:14px 32px;font-size:1rem}
+    .btn-primary:hover{background:#5a4bd6;text-decoration:none;transform:translateY(-1px)}
     .btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
     .btn-outline:hover{border-color:var(--accent2);color:var(--accent2);text-decoration:none}
+    .btn-sm{padding:8px 18px;font-size:.85rem;border-radius:8px}
+
+    /* ── HERO DOWNLOAD ── */
+    .hero-download{margin-top:40px}
+    .hero-download .detected{color:var(--text2);font-size:.85rem;margin-bottom:12px}
+    .hero-download .other-platforms{margin-top:12px;font-size:.85rem;color:var(--text2)}
+    .hero-download .other-platforms a{color:var(--text2);margin:0 6px;transition:color .2s}
+    .hero-download .other-platforms a:hover{color:var(--accent2)}
+    .platform-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
 
     /* ── SECTIONS ── */
     section{max-width:var(--max-w);margin:0 auto;padding:80px 24px}
@@ -55,12 +111,21 @@
     section .subtitle{color:var(--text2);font-size:1.05rem;margin-bottom:48px}
 
     /* ── FEATURES ── */
-    .features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}
-    .feature-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;transition:border-color .2s}
+    .features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}
+    .feature-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;transition:border-color .25s}
     .feature-card:hover{border-color:var(--accent)}
-    .feature-icon{font-size:1.6rem;margin-bottom:12px}
-    .feature-card h3{font-size:1.1rem;margin-bottom:6px}
+    .feature-icon{width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:10px;margin-bottom:14px;font-size:1.4rem}
+    .feature-icon.purple{background:rgba(108,92,231,.15);color:var(--accent2)}
+    .feature-icon.green{background:rgba(0,184,148,.15);color:var(--green)}
+    .feature-icon.blue{background:rgba(9,132,227,.15);color:#74b9ff}
+    .feature-card h3{font-size:1.05rem;margin-bottom:6px}
     .feature-card p{color:var(--text2);font-size:.9rem;line-height:1.5}
+
+    /* ── WHY SECTION ── */
+    .why-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;text-align:center}
+    .why-item{padding:32px 20px}
+    .why-number{font-size:2.4rem;font-weight:800;background:linear-gradient(135deg,var(--accent2),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:8px}
+    .why-label{color:var(--text2);font-size:.95rem}
 
     /* ── DOWNLOAD ── */
     .download-section{text-align:center}
@@ -69,28 +134,38 @@
     .release-block h3{font-size:1.25rem;margin-bottom:4px}
     .release-meta{color:var(--text2);font-size:.85rem;margin-bottom:16px}
     .release-assets{display:flex;flex-wrap:wrap;gap:10px}
-    .asset-link{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:.85rem;color:var(--text);transition:all .2s}
+    .asset-link{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:.85rem;color:var(--text);transition:all .2s}
     .asset-link:hover{border-color:var(--accent);color:var(--accent2);text-decoration:none}
     .asset-link .platform-icon{font-size:1rem}
+    .asset-size{color:var(--text2);font-size:.75rem;margin-left:2px}
     .release-loading{color:var(--text2);padding:40px 0;font-size:.95rem}
     .release-error{color:#ff6b6b;padding:40px 0}
+    .latest-badge{background:var(--green);color:#000;font-size:.7rem;padding:2px 8px;border-radius:6px;font-weight:700;margin-left:8px;vertical-align:middle}
 
-    /* ── TECH ── */
-    .tech-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
-    .tech-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;text-align:center}
-    .tech-item .label{font-size:.8rem;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
-    .tech-item .value{font-weight:600;font-size:1rem}
+    /* ── CTA ── */
+    .cta{text-align:center;padding:80px 24px;margin:0 auto;max-width:var(--max-w)}
+    .cta h2{font-size:2rem;font-weight:700;margin-bottom:12px}
+    .cta p{color:var(--text2);font-size:1.05rem;margin-bottom:28px}
 
     /* ── FOOTER ── */
     footer{border-top:1px solid var(--border);text-align:center;padding:32px 24px;color:var(--text2);font-size:.85rem}
     footer a{color:var(--accent2)}
+    .footer-links{display:flex;gap:20px;justify-content:center;margin-top:10px}
 
     /* ── RESPONSIVE ── */
-    @media(max-width:640px){
-      .hero h1{font-size:2rem}
+    @media(max-width:768px){
+      .hero h1{font-size:2.2rem}
       .hero p{font-size:1rem}
       .nav-links{gap:16px}
       section{padding:60px 16px}
+      .why-grid{grid-template-columns:1fr;gap:12px}
+      .why-item{padding:20px}
+      .features-grid{grid-template-columns:1fr}
+    }
+    @media(max-width:480px){
+      .hero h1{font-size:1.8rem}
+      .nav-links{gap:12px;font-size:.8rem}
+      .hero-buttons{flex-direction:column;align-items:center}
     }
   </style>
 </head>
@@ -99,35 +174,55 @@
 <!-- NAV -->
 <nav>
   <div class="nav-inner">
-    <div class="nav-brand">
+    <a href="#" class="nav-brand" style="text-decoration:none">
       <img src="logo.png" alt="NightFlow" />
       NightFlow
-    </div>
+    </a>
     <div class="nav-links">
       <a href="#features">Features</a>
       <a href="#download">Download</a>
-      <a href="#tech">Tech Stack</a>
-      <a href="https://github.com/theja-vanka/NightFlow" target="_blank">GitHub</a>
+      <a href="https://github.com/theja-vanka/NightFlow" target="_blank" rel="noopener">GitHub</a>
     </div>
   </div>
 </nav>
 
 <!-- HERO -->
-<div class="hero">
-  <img src="logo.png" alt="NightFlow logo" />
+<header class="hero">
+  <img src="logo.png" alt="NightFlow logo" width="96" height="96" />
   <h1>NightFlow</h1>
-  <p>A native, privacy-first desktop app for managing, running, and analyzing deep-learning experiments.</p>
+  <p>Manage, run, and analyze deep learning experiments from a single native desktop app. Private by default — your data never leaves your machine.</p>
   <div class="hero-buttons">
-    <a href="#download" class="btn btn-primary">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      Download
+    <a href="#download" class="btn btn-primary" id="hero-download-btn">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      <span id="hero-download-text">Download</span>
     </a>
-    <a href="https://github.com/theja-vanka/NightFlow" target="_blank" class="btn btn-outline">
+    <a href="https://github.com/theja-vanka/NightFlow" target="_blank" rel="noopener" class="btn btn-outline">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.37.5 0 5.78 0 12.292c0 5.211 3.438 9.63 8.205 11.188.6.111.82-.254.82-.567 0-.28-.01-1.022-.015-2.005-3.338.711-4.042-1.582-4.042-1.582-.546-1.361-1.333-1.723-1.333-1.723-1.089-.73.083-.716.083-.716 1.205.083 1.838 1.215 1.838 1.215 1.07 1.803 2.809 1.282 3.495.98.108-.763.417-1.282.76-1.577-2.665-.295-5.466-1.309-5.466-5.827 0-1.287.465-2.339 1.235-3.164-.135-.298-.54-1.497.105-3.121 0 0 1.005-.316 3.3 1.209A11.615 11.615 0 0112 6.844c1.02.005 2.047.136 3.006.404 2.28-1.525 3.285-1.209 3.285-1.209.645 1.624.24 2.823.12 3.121.765.825 1.23 1.877 1.23 3.164 0 4.53-2.805 5.527-5.475 5.817.42.354.81 1.077.81 2.182 0 1.578-.015 2.846-.015 3.229 0 .309.21.678.825.56C20.565 21.917 24 17.495 24 12.292 24 5.78 18.627.5 12 .5z"/></svg>
       View on GitHub
     </a>
   </div>
-</div>
+  <div class="hero-download" id="hero-platform-links">
+    <!-- Populated by JS: shows detected OS + links to other platforms -->
+  </div>
+</header>
+
+<!-- WHY -->
+<section>
+  <div class="why-grid">
+    <div class="why-item">
+      <div class="why-number">0 B</div>
+      <div class="why-label">Data sent to the cloud</div>
+    </div>
+    <div class="why-item">
+      <div class="why-number">0</div>
+      <div class="why-label">Accounts required</div>
+    </div>
+    <div class="why-item">
+      <div class="why-number">3</div>
+      <div class="why-label">Platforms supported</div>
+    </div>
+  </div>
+</section>
 
 <!-- FEATURES -->
 <section id="features">
@@ -135,49 +230,67 @@
   <p class="subtitle">Everything you need to manage your ML workflow — no cloud required.</p>
   <div class="features-grid">
     <div class="feature-card">
-      <div class="feature-icon">📊</div>
+      <div class="feature-icon purple">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      </div>
       <h3>Project Management</h3>
       <p>Create and organize ML projects with dataset, model, and training configurations in one place.</p>
     </div>
     <div class="feature-card">
-      <div class="feature-icon">🧪</div>
+      <div class="feature-icon green">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      </div>
       <h3>Experiment Tracking</h3>
-      <p>View runs, metrics, and training history in a structured, sortable table.</p>
+      <p>View runs, metrics, and training history in a structured, sortable table with full run detail views.</p>
     </div>
     <div class="feature-card">
-      <div class="feature-icon">📈</div>
-      <h3>Charts & Visualization</h3>
+      <div class="feature-icon blue">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      </div>
+      <h3>Charts &amp; Visualization</h3>
       <p>Interactive loss curves, accuracy plots, and custom metric charts rendered in real time.</p>
     </div>
     <div class="feature-card">
-      <div class="feature-icon">🧠</div>
+      <div class="feature-icon purple">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
+      </div>
       <h3>Model Interpretation</h3>
-      <p>Built-in interpretability tools to understand what your model is learning.</p>
+      <p>Built-in GradCAM, attention maps, and interpretability tools to understand what your model learns.</p>
     </div>
     <div class="feature-card">
-      <div class="feature-icon">🔬</div>
+      <div class="feature-icon green">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+      </div>
       <h3>Netron Integration</h3>
-      <p>Visualize neural network architectures directly inside the app.</p>
+      <p>Visualize neural network architectures directly inside the app — no browser needed.</p>
     </div>
     <div class="feature-card">
-      <div class="feature-icon">💻</div>
+      <div class="feature-icon blue">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      </div>
       <h3>Integrated Terminal</h3>
       <p>Full PTY terminal with SSH support for remote training servers — no context switching.</p>
     </div>
     <div class="feature-card">
-      <div class="feature-icon">🔒</div>
+      <div class="feature-icon green">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      </div>
       <h3>100% Private</h3>
       <p>No telemetry, no tracking, no cloud. All your data is stored locally on your machine.</p>
     </div>
     <div class="feature-card">
-      <div class="feature-icon">⚡</div>
-      <h3>Lightweight & Fast</h3>
-      <p>Built with Tauri + Rust for a tiny footprint and native performance. No Electron bloat.</p>
+      <div class="feature-icon purple">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      </div>
+      <h3>Lightweight &amp; Fast</h3>
+      <p>Native performance with a tiny footprint. No Electron, no bloated runtimes.</p>
     </div>
     <div class="feature-card">
-      <div class="feature-icon">🌐</div>
+      <div class="feature-icon blue">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      </div>
       <h3>Cross-Platform</h3>
-      <p>Runs natively on macOS (Intel & Apple Silicon), Windows, and Linux.</p>
+      <p>Runs natively on macOS (Intel &amp; Apple Silicon), Windows, and Linux.</p>
     </div>
   </div>
 </section>
@@ -185,68 +298,64 @@
 <!-- DOWNLOAD -->
 <section id="download" class="download-section">
   <h2>Download</h2>
-  <p class="subtitle">Grab the latest release for your platform — or browse all versions below.</p>
+  <p class="subtitle">Grab the latest release for your platform.</p>
+
+  <!-- OS-specific download buttons -->
+  <div id="os-download" style="margin-bottom:48px">
+    <div class="platform-btns" id="platform-buttons">
+      <!-- Populated by JS with auto-detected OS highlighted -->
+    </div>
+  </div>
+
+  <h3 style="font-size:1.2rem;margin-bottom:24px;color:var(--text2)">All Releases</h3>
   <div id="releases-container">
-    <p class="release-loading">Loading releases…</p>
+    <p class="release-loading">Loading releases...</p>
   </div>
 </section>
 
-<!-- TECH STACK -->
-<section id="tech">
-  <h2>Tech Stack</h2>
-  <p class="subtitle">Modern, minimal, and built for performance.</p>
-  <div class="tech-grid">
-    <div class="tech-item">
-      <div class="label">UI Framework</div>
-      <div class="value">Preact + Signals</div>
-    </div>
-    <div class="tech-item">
-      <div class="label">Bundler</div>
-      <div class="value">Vite</div>
-    </div>
-    <div class="tech-item">
-      <div class="label">Desktop Runtime</div>
-      <div class="value">Tauri v2</div>
-    </div>
-    <div class="tech-item">
-      <div class="label">Terminal</div>
-      <div class="value">xterm.js + WebGL</div>
-    </div>
-    <div class="tech-item">
-      <div class="label">Storage</div>
-      <div class="value">IndexedDB (idb)</div>
-    </div>
-    <div class="tech-item">
-      <div class="label">Backend</div>
-      <div class="value">Rust + Tokio</div>
-    </div>
-  </div>
-</section>
+<!-- CTA -->
+<div class="cta">
+  <h2>Open source &amp; free forever</h2>
+  <p>NightFlow is Apache 2.0 licensed. Star on GitHub, report issues, or contribute.</p>
+  <a href="https://github.com/theja-vanka/NightFlow" target="_blank" rel="noopener" class="btn btn-outline">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.37.5 0 5.78 0 12.292c0 5.211 3.438 9.63 8.205 11.188.6.111.82-.254.82-.567 0-.28-.01-1.022-.015-2.005-3.338.711-4.042-1.582-4.042-1.582-.546-1.361-1.333-1.723-1.333-1.723-1.089-.73.083-.716.083-.716 1.205.083 1.838 1.215 1.838 1.215 1.07 1.803 2.809 1.282 3.495.98.108-.763.417-1.282.76-1.577-2.665-.295-5.466-1.309-5.466-5.827 0-1.287.465-2.339 1.235-3.164-.135-.298-.54-1.497.105-3.121 0 0 1.005-.316 3.3 1.209A11.615 11.615 0 0112 6.844c1.02.005 2.047.136 3.006.404 2.28-1.525 3.285-1.209 3.285-1.209.645 1.624.24 2.823.12 3.121.765.825 1.23 1.877 1.23 3.164 0 4.53-2.805 5.527-5.475 5.817.42.354.81 1.077.81 2.182 0 1.578-.015 2.846-.015 3.229 0 .309.21.678.825.56C20.565 21.917 24 17.495 24 12.292 24 5.78 18.627.5 12 .5z"/></svg>
+    Star on GitHub
+  </a>
+</div>
 
 <!-- FOOTER -->
 <footer>
-  <p>
-    Released under the <a href="https://github.com/theja-vanka/NightFlow/blob/main/LICENSE" target="_blank">Apache License 2.0</a>.
-    Built with 🔥 by Krishnatheja Vanka.
-  </p>
-  <p style="margin-top:8px">
-    <a href="https://github.com/theja-vanka/NightFlow" target="_blank">GitHub</a>
-  </p>
+  <p>Released under the <a href="https://github.com/theja-vanka/NightFlow/blob/main/LICENSE" target="_blank" rel="noopener">Apache License 2.0</a>.</p>
+  <div class="footer-links">
+    <a href="https://github.com/theja-vanka/NightFlow" target="_blank" rel="noopener">GitHub</a>
+    <a href="https://github.com/theja-vanka/NightFlow/releases" target="_blank" rel="noopener">Releases</a>
+    <a href="https://github.com/theja-vanka/NightFlow/issues" target="_blank" rel="noopener">Issues</a>
+  </div>
 </footer>
 
 <script>
 (async () => {
   const REPO = "theja-vanka/NightFlow";
-  const container = document.getElementById("releases-container");
 
-  // Map file extensions to platform info
+  // ── Detect user OS ──
+  function detectOS() {
+    const ua = navigator.userAgent.toLowerCase();
+    if (ua.includes("mac")) return "macos";
+    if (ua.includes("win")) return "windows";
+    if (ua.includes("linux")) return "linux";
+    return null;
+  }
+
+  const userOS = detectOS();
+
+  // ── Platform info helper ──
   function platformInfo(name) {
     const n = name.toLowerCase();
-    if (n.endsWith(".dmg"))       return { icon: "🍎", platform: "macOS", ext: ".dmg" };
-    if (n.endsWith(".exe"))       return { icon: "🪟", platform: "Windows", ext: ".exe" };
-    if (n.endsWith(".appimage"))  return { icon: "🐧", platform: "Linux", ext: ".AppImage" };
-    if (n.endsWith(".deb"))       return { icon: "🐧", platform: "Linux", ext: ".deb" };
-    if (n.endsWith(".msi"))       return { icon: "🪟", platform: "Windows", ext: ".msi" };
+    if (n.endsWith(".dmg"))       return { os: "macos",   label: "macOS",   ext: ".dmg" };
+    if (n.endsWith(".exe"))       return { os: "windows", label: "Windows", ext: ".exe" };
+    if (n.endsWith(".msi"))       return { os: "windows", label: "Windows", ext: ".msi" };
+    if (n.endsWith(".appimage"))  return { os: "linux",   label: "Linux",   ext: ".AppImage" };
+    if (n.endsWith(".deb"))       return { os: "linux",   label: "Linux",   ext: ".deb" };
     return null;
   }
 
@@ -262,6 +371,23 @@
     return (bytes / 1e3).toFixed(0) + " KB";
   }
 
+  const platformIcons = {
+    macos: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>',
+    windows: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 12V6.75l8-1.25V12H3zm0 .5h8v6.5l-8-1.25V12.5zm9-7L21 4v8h-9V5.5zm0 7.5h9v8l-9-1.5V13z"/></svg>',
+    linux: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12.5 2c-1.5 0-2.5 1.5-2.5 3.5 0 .7.2 1.4.5 2-1.8.8-3 2.4-3 4.2 0 .9.3 1.8.7 2.5C7 15 6 16.3 6 17.8c0 1.4.8 2.6 2 3.2.5.3 1 .5 1.5.5H14c.5 0 1-.2 1.5-.5 1.2-.6 2-1.8 2-3.2 0-1.5-1-2.8-2.2-3.6.4-.7.7-1.6.7-2.5 0-1.8-1.2-3.4-3-4.2.3-.6.5-1.3.5-2C13.5 3.5 14 2 12.5 2z"/></svg>'
+  };
+
+  const container = document.getElementById("releases-container");
+  const platformButtons = document.getElementById("platform-buttons");
+  const heroDownloadText = document.getElementById("hero-download-text");
+  const heroDownloadBtn = document.getElementById("hero-download-btn");
+
+  // Update hero button text based on detected OS
+  const osNames = { macos: "for macOS", windows: "for Windows", linux: "for Linux" };
+  if (userOS && osNames[userOS]) {
+    heroDownloadText.textContent = "Download " + osNames[userOS];
+  }
+
   try {
     const res = await fetch(`https://api.github.com/repos/${REPO}/releases`);
     if (!res.ok) throw new Error(`GitHub API returned ${res.status}`);
@@ -269,21 +395,54 @@
 
     if (!releases.length) {
       container.innerHTML = `
-        <p class="release-loading">No releases yet — check back soon!</p>
+        <p class="release-loading">No releases yet - check back soon!</p>
         <p style="margin-top:12px">
-          <a href="https://github.com/${REPO}/releases" target="_blank" class="btn btn-outline">View on GitHub</a>
+          <a href="https://github.com/${REPO}/releases" target="_blank" rel="noopener" class="btn btn-outline">View on GitHub</a>
         </p>`;
+      platformButtons.innerHTML = "";
       return;
     }
 
+    // ── Build OS-specific download buttons from latest release ──
+    const latest = releases[0];
+    const byOS = { macos: [], windows: [], linux: [] };
+
+    latest.assets.forEach(a => {
+      const info = platformInfo(a.name);
+      if (info) byOS[info.os].push({ ...info, url: a.browser_download_url, size: a.size, filename: a.name });
+    });
+
+    // Link hero button to user's OS download
+    if (userOS && byOS[userOS] && byOS[userOS].length) {
+      heroDownloadBtn.href = byOS[userOS][0].url;
+      heroDownloadBtn.setAttribute("download", "");
+    }
+
+    // Platform download buttons
+    const platformOrder = ["macos", "windows", "linux"];
+    platformButtons.innerHTML = platformOrder.map(os => {
+      const assets = byOS[os];
+      if (!assets.length) return "";
+      const primary = assets[0];
+      const isDetected = os === userOS;
+      const btnClass = isDetected ? "btn btn-primary btn-sm" : "btn btn-outline btn-sm";
+      const allFormats = assets.map(a => a.ext).join(" / ");
+      return `<a href="${primary.url}" class="${btnClass}" download title="${primary.filename} (${formatSize(primary.size)})">
+        ${platformIcons[os]}
+        ${primary.label} ${allFormats}
+      </a>`;
+    }).join("");
+
+    // ── Build release history ──
     container.innerHTML = releases.map((release, i) => {
       const assets = release.assets
         .map(a => {
           const info = platformInfo(a.name);
           if (!info) return "";
-          return `<a class="asset-link" href="${a.browser_download_url}" title="${a.name} (${formatSize(a.size)})">
-            <span class="platform-icon">${info.icon}</span>
-            ${info.platform} ${info.ext}
+          return `<a class="asset-link" href="${a.browser_download_url}" download title="${a.name}">
+            ${platformIcons[info.os]}
+            ${info.label} ${info.ext}
+            <span class="asset-size">${formatSize(a.size)}</span>
           </a>`;
         })
         .filter(Boolean)
@@ -295,11 +454,11 @@
       return `
         <div class="release-block">
           <h3>
-            ${tag}${isLatest ? ' <span style="background:var(--green);color:#000;font-size:.7rem;padding:2px 8px;border-radius:6px;font-weight:700;margin-left:8px">LATEST</span>' : ""}
+            ${tag}${isLatest ? ' <span class="latest-badge">LATEST</span>' : ""}
           </h3>
           <div class="release-meta">
             Released ${formatDate(release.published_at)}
-            · <a href="${release.html_url}" target="_blank">Release notes</a>
+            &middot; <a href="${release.html_url}" target="_blank" rel="noopener">Release notes</a>
           </div>
           ${assets ? `<div class="release-assets">${assets}</div>` : '<p style="color:var(--text2);font-size:.85rem">No app bundles in this release.</p>'}
         </div>`;
@@ -308,7 +467,7 @@
     container.innerHTML = `
       <p class="release-error">Could not load releases. Please visit GitHub directly.</p>
       <p style="margin-top:12px">
-        <a href="https://github.com/${REPO}/releases" target="_blank" class="btn btn-outline">View Releases on GitHub</a>
+        <a href="https://github.com/${REPO}/releases" target="_blank" rel="noopener" class="btn btn-outline">View Releases on GitHub</a>
       </p>`;
   }
 })();
