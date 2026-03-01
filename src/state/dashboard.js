@@ -670,44 +670,18 @@ async function doSync(projectId, abortController) {
 
         if (runIds && runIds.length > 0) {
           const existingById = new Map();
-          const existingByName = new Map();
           for (const r of allRuns.value) {
             if (r.projectId === projectId) {
               existingById.set(r.id, r);
-              if (r.name) existingByName.set(r.name, r);
             }
           }
 
-          // Create runs for discovered folders that have no matching run
-          // Now that folder names are run_names, we check if we already have it in DB
-          for (const folder of runIds) {
-            if (!existingById.has(folder) && !existingByName.has(folder)) {
-              const newRun = {
-                id: folder, // we don't know the real ID if it's orphaned and just a name, so use folder
-                name: folder,
-                projectId,
-                status: "completed",
-                model: project.modelCategory || "unknown",
-                dataset: project.datasetName || project.folderPath || "unknown",
-                bestAcc: null,
-                valLoss: null,
-                epochs: 0,
-                lossCurve: [],
-                accCurve: [],
-                created: Date.now(),
-              };
-              await addRun(newRun);
-              existingById.set(folder, newRun);
-              existingByName.set(folder, newRun);
-            }
-          }
-
-          // Sync scalars from TensorBoard/JSONL for all discovered runs (always refresh)
+          // Sync scalars from TensorBoard/JSONL for runs that exist in the DB
           let synced = 0;
           for (const folder of runIds) {
             if (abortController.signal.aborted) throw new Error("AbortError");
-            // The folder could be the run_id OR the run_name, so check both to find the DB run
-            const run = existingById.get(folder) || existingByName.get(folder);
+            // Only process folders whose run_id matches an existing DB run
+            const run = existingById.get(folder);
             if (!run) continue;
             try {
               const result = await loadRunScalars(run);

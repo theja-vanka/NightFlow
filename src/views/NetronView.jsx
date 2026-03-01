@@ -1,55 +1,105 @@
 import { signal } from "@preact/signals";
+import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc } from "@tauri-apps/api/core";
+import {
+  completedRuns,
+  selectedRunId,
+  selectedRun,
+} from "../state/interpretation.js";
+import { currentProject } from "../state/projects.js";
 
-const modelUrl = signal("");
-const loaded = signal(false);
+const modelSrc = signal(null);
+const loading = signal(false);
+const error = signal(null);
 
-function handleLoad() {
-  if (!modelUrl.value.trim()) return;
-  loaded.value = true;
+async function handleLoad() {
+  const run = selectedRun.value;
+  const project = currentProject.value;
+  if (!run || !project) return;
+
+  loading.value = true;
+  error.value = null;
+  modelSrc.value = null;
+
+  try {
+    const projectPath = project.projectPath;
+    const runId = run.id;
+    const sshCommand =
+      project.connectionType === "remote" ? project.sshCommand : null;
+
+    const taskClassMap = {
+      Classification: "ImageClassifier",
+      "Multi-Label Classification": "ImageClassifier",
+      "Object Detection":
+        project.detectionArch === "yolox" ? "YOLOXDetector" : "ObjectDetector",
+      "Semantic Segmentation": "SemanticSegmentor",
+      "Instance Segmentation": "InstanceSegmentor",
+    };
+    const taskClass = taskClassMap[project.taskType] || "ImageClassifier";
+
+    const ptPath = await invoke("export_jit_model", {
+      projectPath,
+      runId,
+      taskClass,
+      sshCommand,
+    });
+
+    modelSrc.value = `https://netron.app/?url=${encodeURIComponent(convertFileSrc(ptPath))}`;
+  } catch (err) {
+    error.value = typeof err === "string" ? err : err.message || "Export failed";
+  } finally {
+    loading.value = false;
+  }
 }
 
 function handleClear() {
-  modelUrl.value = "";
-  loaded.value = false;
+  modelSrc.value = null;
+  error.value = null;
 }
 
 export function NetronView() {
-  const src = loaded.value
-    ? `https://netron.app/?url=${encodeURIComponent(modelUrl.value.trim())}`
-    : null;
+  const runs = completedRuns.value;
+  const run = selectedRun.value;
+  const canLoad = run && !loading.value;
 
   return (
     <div class="netron-view">
       <div class="netron-toolbar">
-        <input
-          class="netron-url-input"
-          type="text"
-          placeholder="Paste model URL (.onnx, .pt, .tflite, .pb, ...)"
-          value={modelUrl.value}
-          onInput={(e) => {
-            modelUrl.value = e.target.value;
+        <select
+          class="interp-select"
+          value={selectedRunId.value}
+          onChange={(e) => {
+            selectedRunId.value = e.target.value;
+            modelSrc.value = null;
+            error.value = null;
           }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") handleLoad();
-          }}
-        />
-        <button
-          class="netron-btn netron-btn-primary"
-          onClick={handleLoad}
-          disabled={!modelUrl.value.trim()}
         >
-          Load
-        </button>
-        {loaded.value && (
+          <option value="">Select a completed run…</option>
+          {runs.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.name || r.id} — {r.model}
+            </option>
+          ))}
+        </select>
+        {modelSrc.value && (
           <button class="netron-btn netron-btn-secondary" onClick={handleClear}>
             Clear
           </button>
         )}
+        <button
+          class="netron-btn netron-btn-primary"
+          onClick={handleLoad}
+          disabled={!canLoad}
+          style="margin-left: auto"
+        >
+          {loading.value ? "Exporting…" : "Load Model"}
+        </button>
       </div>
-      {loaded.value ? (
+      {error.value && <div class="interp-error">{error.value}</div>}
+      {modelSrc.value ? (
         <iframe
           class="netron-frame"
-          src={src}
+          src={modelSrc.value}
           title="Netron Model Viewer"
           sandbox="allow-scripts allow-same-origin allow-popups"
         />
@@ -75,8 +125,8 @@ export function NetronView() {
           </div>
           <p class="netron-empty-title">Netron Model Viewer</p>
           <p class="netron-empty-desc">
-            Paste a URL to an ONNX, TorchScript, TensorFlow, or other model file
-            to visualize its architecture.
+            Select a completed run and click "Load Model" to export and
+            visualize the model architecture.
           </p>
         </div>
       )}

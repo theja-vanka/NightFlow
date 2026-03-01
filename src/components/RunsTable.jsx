@@ -15,7 +15,7 @@ export const selectedRunIds = signal(new Set());
 
 const columns = [
   { key: "_check", label: "", sortable: false },
-  { key: "id", label: "Run" },
+  { key: "name", label: "Run" },
   { key: "created", label: "Started" },
   { key: "status", label: "Status" },
   { key: "model", label: "Model" },
@@ -77,7 +77,7 @@ export function RunsTable() {
           <input
             type="text"
             class="filter-input"
-            placeholder="Filter by ID, model, dataset..."
+            placeholder="Filter by name, model, dataset..."
             value={filterText}
             onInput={(e) => (filterText.value = e.currentTarget.value)}
           />
@@ -165,7 +165,7 @@ export function RunsTable() {
                     onChange={() => { }}
                   />
                 </td>
-                <td class="mono">{run.name || run.id}</td>
+                <td class="mono">{run.name ?? run.id}</td>
                 <td class="mono">
                   {run.created
                     ? new Date(run.created).toLocaleString()

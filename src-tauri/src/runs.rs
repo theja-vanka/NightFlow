@@ -56,7 +56,7 @@ pub fn parse_run_jsonl(
         };
 
         let event = json.get("event").and_then(|v| v.as_str()).unwrap_or("");
-        if event != "epoch_end" && event != "validation_end" {
+        if event != "epoch_end" && event != "validation_end" && event != "testing_complete" {
             continue;
         }
 
@@ -151,4 +151,76 @@ pub fn parse_csv_run(
     }
 
     Ok(scalars)
+}
+
+#[command]
+pub fn parse_hparams_yaml(
+    project_path: String,
+    run_id: String,
+) -> Result<HashMap<String, serde_json::Value>, String> {
+    let expanded = expand_tilde(&project_path);
+    let base = std::path::PathBuf::from(&expanded).join("logs").join(&run_id);
+
+    // Try direct path first, then version_0 subdirectory
+    let candidates = [
+        base.join("hparams.yaml"),
+        base.join("version_0").join("hparams.yaml"),
+    ];
+
+    let file_path = candidates
+        .iter()
+        .find(|p| p.exists())
+        .ok_or_else(|| format!("hparams.yaml not found for run {}", run_id))?;
+
+    let content = std::fs::read_to_string(file_path)
+        .map_err(|e| format!("Failed to read {}: {}", file_path.display(), e))?;
+
+    let yaml_value: serde_yaml::Value = serde_yaml::from_str(&content)
+        .map_err(|e| format!("Failed to parse YAML: {}", e))?;
+
+    // Convert YAML mapping to HashMap<String, serde_json::Value>
+    let mut result: HashMap<String, serde_json::Value> = HashMap::new();
+    if let serde_yaml::Value::Mapping(map) = yaml_value {
+        for (k, v) in map {
+            if let serde_yaml::Value::String(key) = k {
+                result.insert(key, yaml_to_json(v));
+            }
+        }
+    }
+
+    Ok(result)
+}
+
+fn yaml_to_json(v: serde_yaml::Value) -> serde_json::Value {
+    match v {
+        serde_yaml::Value::Null => serde_json::Value::Null,
+        serde_yaml::Value::Bool(b) => serde_json::Value::Bool(b),
+        serde_yaml::Value::Number(n) => {
+            if let Some(i) = n.as_i64() {
+                serde_json::Value::Number(i.into())
+            } else if let Some(f) = n.as_f64() {
+                serde_json::json!(f)
+            } else {
+                serde_json::Value::Null
+            }
+        }
+        serde_yaml::Value::String(s) => serde_json::Value::String(s),
+        serde_yaml::Value::Sequence(seq) => {
+            serde_json::Value::Array(seq.into_iter().map(yaml_to_json).collect())
+        }
+        serde_yaml::Value::Mapping(map) => {
+            let obj: serde_json::Map<String, serde_json::Value> = map
+                .into_iter()
+                .filter_map(|(k, v)| {
+                    if let serde_yaml::Value::String(key) = k {
+                        Some((key, yaml_to_json(v)))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            serde_json::Value::Object(obj)
+        }
+        serde_yaml::Value::Tagged(tagged) => yaml_to_json(tagged.value),
+    }
 }

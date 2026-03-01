@@ -3268,26 +3268,6 @@ select.wizard-input {
   flex-shrink: 0;
 }
 
-.netron-url-input {
-  flex: 1;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font-size: 0.8rem;
-  font-family: var(--font-mono, monospace);
-}
-
-.netron-url-input:focus {
-  outline: none;
-  border-color: var(--border-focus);
-}
-
-.netron-url-input::placeholder {
-  color: var(--text-muted);
-}
-
 .netron-btn {
   padding: 8px 16px;
   border-radius: 8px;
@@ -3566,6 +3546,7 @@ select.wizard-input {
 }
 
 .interp-results-wrap {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -3649,7 +3630,6 @@ select.wizard-input {
 }
 
 .interp-clear-btn {
-  align-self: flex-start;
   padding: 8px 20px;
   border-radius: 8px;
   font-size: 0.8rem;
@@ -3666,6 +3646,92 @@ select.wizard-input {
 .interp-clear-btn:hover {
   border-color: var(--text-secondary);
   color: var(--text-primary);
+}
+
+.interp-run-btn {
+  margin-left: auto;
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--bg-surface);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+.interp-run-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.interp-run-btn:not(:disabled):hover {
+  background: var(--accent);
+  color: var(--bg-surface);
+}
+
+.interp-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 10px;
+  color: #fff;
+  font-size: 0.85rem;
+}
+
+.interp-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: interp-spin 0.8s linear infinite;
+}
+
+@keyframes interp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.interp-predicted-class {
+  padding: 8px 16px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.interp-method-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.6);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.interp-error {
+  padding: 10px 16px;
+  background: rgba(255, 60, 60, 0.1);
+  border: 1px solid rgba(255, 60, 60, 0.3);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: #ff6b6b;
 }
 
 /* ========================================
@@ -4474,47 +4540,71 @@ select.wizard-input {
 }
 
 .run-detail-group-title {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-secondary);
-  margin: 0 0 12px;
+  margin: 0 0 14px;
   text-transform: capitalize;
+  display: flex;
+  align-items: center;
+  gap: 7px;
 }
 
 .run-detail-hparams {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 16px;
   margin-bottom: 0;
 }
 
 .run-detail-empty-sidebar {
   font-size: 12px;
   color: var(--text-muted);
+  padding: 8px 0;
 }
 
-.hparams-table {
-  border-collapse: collapse;
-  width: 100%;
-  font-size: 12px;
+.hparams-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
-.hparams-table tr {
-  border-bottom: 1px solid var(--border-color);
+.hparams-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 50%, transparent);
+  transition: background 0.12s ease;
 }
 
-.hparams-table tr:last-child {
+.hparams-item:last-child {
   border-bottom: none;
+  padding-bottom: 0;
+}
+
+.hparams-item:first-child {
+  padding-top: 0;
 }
 
 .hparams-key {
-  padding: 6px 12px 6px 0;
+  font-size: 11.5px;
   color: var(--text-muted);
-  white-space: nowrap;
   font-weight: 500;
+  letter-spacing: 0.01em;
 }
 
 .hparams-val {
-  padding: 6px 0;
+  font-size: 12px;
   color: var(--text-primary);
   font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  font-weight: 500;
+  text-align: right;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Responsive: stack on narrow widths */

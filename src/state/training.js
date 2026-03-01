@@ -211,10 +211,18 @@ function _processEvent(session_id, data) {
         testMetrics["test/MulticlassAccuracy"] ??
         null;
 
-      _set(session_id, { event: "testing_complete", testMetrics });
+      // Accumulate test metrics into scalars for chart display
+      const prevScalars = { ..._get(session_id).scalars };
+      for (const [tag, value] of Object.entries(testMetrics)) {
+        if (value == null) continue;
+        if (!prevScalars[tag]) prevScalars[tag] = [];
+        prevScalars[tag] = [...prevScalars[tag], { step: 0, value }];
+      }
+
+      _set(session_id, { event: "testing_complete", testMetrics, scalars: prevScalars });
 
       if (state.runId) {
-        const updates = { testMetrics };
+        const updates = { testMetrics, scalars: prevScalars };
         if (testAcc != null) updates.testAcc = testAcc;
         updateRun(state.runId, updates);
       }
@@ -384,6 +392,7 @@ export async function recoverOrphanedSessions() {
           hp.numClasses = Number(project.numClasses);
         await addRun({
           id: runId,
+          name: generateRunName(),
           projectId,
           status: "running",
           model: project.modelCategory ?? "unknown",

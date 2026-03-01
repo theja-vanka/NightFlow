@@ -2,6 +2,7 @@
 
 mod env;
 mod fs;
+mod interpretation;
 mod pty;
 mod runs;
 mod ssh;
@@ -124,8 +125,12 @@ fn main() {
             runs::list_run_folders,
             runs::parse_run_jsonl,
             runs::parse_csv_run,
+            runs::parse_hparams_yaml,
             system::get_system_metrics,
             system::download_model,
+            interpretation::save_interpretation_image,
+            interpretation::run_interpretation,
+            interpretation::export_jit_model,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

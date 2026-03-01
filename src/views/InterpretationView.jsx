@@ -1,28 +1,19 @@
 import { useRef } from "preact/hooks";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import {
   INTERPRETATION_METHODS,
   completedRuns,
   selectedRunId,
+  selectedRun,
   uploadedImage,
   selectRun,
   setImage,
   clearImage,
+  runInterpretation,
+  interpretationLoading,
+  interpretationResult,
+  interpretationError,
 } from "../state/interpretation.js";
-
-const HEATMAP_GRADIENTS = {
-  gradcam:
-    "radial-gradient(circle at 45% 40%, rgba(255,0,0,0.55) 0%, rgba(255,255,0,0.3) 35%, transparent 70%)",
-  gradcampp:
-    "radial-gradient(ellipse at 50% 45%, rgba(255,0,0,0.5) 0%, rgba(255,165,0,0.35) 30%, rgba(255,255,0,0.2) 50%, transparent 75%)",
-  integrated_gradients:
-    "linear-gradient(135deg, rgba(0,0,255,0.4) 0%, rgba(0,255,255,0.3) 25%, rgba(0,255,0,0.3) 50%, rgba(255,255,0,0.3) 75%, rgba(255,0,0,0.4) 100%)",
-  smoothgrad:
-    "radial-gradient(circle at 50% 50%, rgba(255,80,80,0.4) 0%, rgba(255,200,50,0.25) 40%, transparent 65%)",
-  attention_rollout:
-    "conic-gradient(from 0deg at 50% 50%, rgba(255,0,0,0.4), rgba(255,165,0,0.3), rgba(255,255,0,0.2), rgba(0,128,0,0.15), rgba(0,0,255,0.2), rgba(128,0,128,0.3), rgba(255,0,0,0.4))",
-  attention_flow:
-    "radial-gradient(circle at 35% 35%, rgba(128,0,255,0.5) 0%, rgba(0,100,255,0.3) 40%, transparent 70%), radial-gradient(circle at 65% 60%, rgba(255,0,128,0.4) 0%, transparent 50%)",
-};
 
 function UploadZone() {
   const fileRef = useRef(null);
@@ -83,9 +74,24 @@ function UploadZone() {
 
 function ResultsPanel() {
   const image = uploadedImage.value;
+  const result = interpretationResult.value;
+  const loading = interpretationLoading.value;
+  const hasResult = result && result.results;
+  const showMethods = hasResult || loading;
 
   return (
     <div class="interp-results-wrap">
+      {loading && (
+        <div class="interp-loading-overlay">
+          <div class="interp-spinner" />
+          <p>Running interpretation…</p>
+        </div>
+      )}
+      {hasResult && result.predicted_class !== undefined && (
+        <div class="interp-predicted-class">
+          Predicted class: <strong>{result.predicted_class}</strong>
+        </div>
+      )}
       <div class="interp-results">
         <div class="interp-panel">
           <div class="interp-panel-label">Original</div>
@@ -93,32 +99,64 @@ function ResultsPanel() {
             <img class="interp-image" src={image.url} alt={image.name} />
           </div>
         </div>
-        {INTERPRETATION_METHODS.map((m) => (
-          <div class="interp-panel" key={m.id}>
-            <div class="interp-panel-label">{m.label}</div>
-            <div class="interp-image-wrap">
-              <img class="interp-image" src={image.url} alt={m.label} />
-              <div
-                class="interp-heatmap"
-                style={{ background: HEATMAP_GRADIENTS[m.id] }}
-              />
-            </div>
-            <div class="interp-panel-desc">{m.desc}</div>
-          </div>
-        ))}
+        {showMethods &&
+          INTERPRETATION_METHODS.map((m) => {
+            const hasMethodResult = hasResult && result.results[m.id];
+            const methodError =
+              hasResult && result.errors && result.errors[m.id];
+
+            return (
+              <div class="interp-panel" key={m.id}>
+                <div class="interp-panel-label">{m.label}</div>
+                <div class="interp-image-wrap">
+                  {hasMethodResult ? (
+                    <img
+                      class="interp-image"
+                      src={convertFileSrc(result.results[m.id])}
+                      alt={m.label}
+                    />
+                  ) : (
+                    <img
+                      class="interp-image"
+                      src={image.url}
+                      alt={m.label}
+                      style={loading ? { opacity: 0.4 } : undefined}
+                    />
+                  )}
+                  {methodError && (
+                    <div class="interp-method-error">
+                      <span>{methodError}</span>
+                    </div>
+                  )}
+                </div>
+                <div class="interp-panel-desc">{m.desc}</div>
+              </div>
+            );
+          })}
       </div>
-      <div class="interp-info">
-        <span class="interp-info-file">{image.name}</span>
-      </div>
-      <button class="interp-clear-btn" onClick={clearImage}>
-        Clear Image
-      </button>
+      {interpretationError.value && (
+        <div class="interp-error">{interpretationError.value}</div>
+      )}
     </div>
   );
 }
 
 export function InterpretationView() {
+  const fileRef = useRef(null);
   const runs = completedRuns.value;
+  const run = selectedRun.value;
+  const image = uploadedImage.value;
+  const loading = interpretationLoading.value;
+  const canRun = run && image && !loading;
+
+  function handleChangeImage(e) {
+    const file = e.target.files?.[0];
+    if (file && file.type.startsWith("image/")) {
+      clearImage();
+      setImage(file);
+    }
+    e.target.value = "";
+  }
 
   return (
     <div class="interp-view">
@@ -135,9 +173,36 @@ export function InterpretationView() {
             </option>
           ))}
         </select>
+        {image && (
+          <>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              style="display:none"
+              onChange={handleChangeImage}
+            />
+            <button
+              class="interp-clear-btn"
+              onClick={() => fileRef.current?.click()}
+            >
+              Change Image
+            </button>
+            <button class="interp-clear-btn" onClick={clearImage}>
+              Clear Image
+            </button>
+          </>
+        )}
+        <button
+          class="interp-run-btn"
+          disabled={!canRun}
+          onClick={runInterpretation}
+        >
+          {loading ? "Running…" : "Run Interpretation"}
+        </button>
       </div>
       <div class="interp-body">
-        {uploadedImage.value ? <ResultsPanel /> : <UploadZone />}
+        {image ? <ResultsPanel /> : <UploadZone />}
       </div>
     </div>
   );
