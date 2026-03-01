@@ -1,9 +1,12 @@
 use tauri::command;
 
+use crate::env::python_cmd;
+use crate::home_dir;
+
 #[command]
 pub async fn get_system_metrics(ssh_command: Option<String>) -> Result<String, String> {
     let python_script = r#"
-import json, os, subprocess, sys
+import json, os, subprocess, sys, shutil
 
 res = {}
 if hasattr(os, 'cpu_count'):
@@ -20,6 +23,25 @@ try:
             if 'Pages active:' in line: pages_active = int(line.split(':')[1].strip().strip('.'))
         res['mem_total'] = mem_total
         res['mem_used'] = pages_active * page_size
+    elif sys.platform == 'win32':
+        import ctypes
+        class MEMORYSTATUSEX(ctypes.Structure):
+            _fields_ = [
+                ('dwLength', ctypes.c_ulong),
+                ('dwMemoryLoad', ctypes.c_ulong),
+                ('ullTotalPhys', ctypes.c_ulonglong),
+                ('ullAvailPhys', ctypes.c_ulonglong),
+                ('ullTotalPageFile', ctypes.c_ulonglong),
+                ('ullAvailPageFile', ctypes.c_ulonglong),
+                ('ullTotalVirtual', ctypes.c_ulonglong),
+                ('ullAvailVirtual', ctypes.c_ulonglong),
+                ('ullAvailExtendedVirtual', ctypes.c_ulonglong),
+            ]
+        mem = MEMORYSTATUSEX()
+        mem.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
+        ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(mem))
+        res['mem_total'] = mem.ullTotalPhys
+        res['mem_used'] = mem.ullTotalPhys - mem.ullAvailPhys
     else:
         with open('/proc/meminfo', 'r') as f:
             lines = f.readlines()
@@ -39,11 +61,12 @@ try:
 except Exception:
     pass
 
-# Disk
+# Disk (cross-platform using shutil)
 try:
-    st = os.statvfs('/')
-    res['disk_total'] = st.f_blocks * st.f_frsize
-    res['disk_used'] = (st.f_blocks - st.f_bfree) * st.f_frsize
+    disk_path = 'C:\\' if sys.platform == 'win32' else '/'
+    usage = shutil.disk_usage(disk_path)
+    res['disk_total'] = usage.total
+    res['disk_used'] = usage.used
 except Exception:
     pass
 
@@ -72,7 +95,15 @@ except Exception:
 
 # CPU Load
 try:
-    res['loadavg'] = os.getloadavg()
+    if hasattr(os, 'getloadavg'):
+        res['loadavg'] = os.getloadavg()
+    else:
+        try:
+            import psutil
+            cpu_pct = psutil.cpu_percent(interval=0.5)
+            res['loadavg'] = [cpu_pct / 100.0 * os.cpu_count(), 0, 0]
+        except ImportError:
+            pass
 except Exception:
     pass
 
@@ -100,7 +131,7 @@ print(json.dumps(res))
             Err(String::from_utf8_lossy(&output.stderr).to_string())
         }
     } else {
-        let output = tokio::process::Command::new("python3")
+        let output = tokio::process::Command::new(python_cmd())
             .arg("-c")
             .arg(python_script)
             .output()
@@ -128,12 +159,13 @@ pub async fn download_model(
     run_name: String,
     ssh_command: Option<String>,
 ) -> Result<DownloadModelResult, String> {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-    let downloads = format!("{}/Downloads", home);
+    let home = home_dir().unwrap_or_else(|| if cfg!(windows) { std::env::var("TEMP").unwrap_or_else(|_| r"C:\Temp".to_string()) } else { "/tmp".to_string() });
+    let downloads_path = std::path::PathBuf::from(&home).join("Downloads");
+    let downloads = downloads_path.to_string_lossy().to_string();
 
     let _ = std::fs::create_dir_all(&downloads);
 
-    let pp = project_path.trim_end_matches('/');
+    let pp = project_path.trim_end_matches('/').trim_end_matches('\\');
     let ckpt_dir = format!("{pp}/logs/{run_id}/checkpoints");
 
     if let Some(ssh_cmd) = ssh_command {

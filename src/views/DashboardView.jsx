@@ -20,6 +20,7 @@ import {
   uvInfo,
   envInfo,
   syncConfig,
+  platform,
 } from "../state/dashboard.js";
 import { currentProject } from "../state/projects.js";
 import { startTraining, trainingActive } from "../state/training.js";
@@ -461,6 +462,7 @@ function buildTrainingCommand(project) {
   const env = envInfo.value;
   const useVenv = env && (env.status === "exists" || env.status === "created");
   const isConda = useVenv && env.envType === "conda";
+  const isWindows = platform.value === "windows";
   const pp = project.projectPath.endsWith("/")
     ? project.projectPath.slice(0, -1)
     : project.projectPath;
@@ -472,7 +474,10 @@ function buildTrainingCommand(project) {
     // Format: __STEPS__:conda:<venv_path>:<config_path>
     return `__STEPS__:conda:${pp}/.venv:${cfg}`;
   } else {
-    const python = useVenv ? `${pp}/.venv/bin/python` : "python3";
+    const venvPython = isWindows
+      ? `${pp}/.venv/Scripts/python.exe`
+      : `${pp}/.venv/bin/python`;
+    const python = useVenv ? venvPython : (isWindows ? "python" : "python3");
     // Format: __STEPS__:direct:<python_path>:<config_path>
     return `__STEPS__:direct:${python}:${cfg}`;
   }
@@ -483,6 +488,7 @@ function buildCommandDisplay(project) {
   const env = envInfo.value;
   const useVenv = env && (env.status === "exists" || env.status === "created");
   const isConda = useVenv && env.envType === "conda";
+  const isWindows = platform.value === "windows";
   const pp = project.projectPath.endsWith("/")
     ? project.projectPath.slice(0, -1)
     : project.projectPath;
@@ -496,7 +502,10 @@ function buildCommandDisplay(project) {
       `${run} test --config ${cfg}`,
     ].join(" &&\n");
   } else {
-    const py = useVenv ? `${pp}/.venv/bin/python` : "python3";
+    const venvPy = isWindows
+      ? `${pp}/.venv/Scripts/python.exe`
+      : `${pp}/.venv/bin/python`;
+    const py = useVenv ? venvPy : (isWindows ? "python" : "python3");
     return [
       `${py} -m autotimm fit  --config ${cfg}`,
       `${py} -m autotimm test --config ${cfg}`,

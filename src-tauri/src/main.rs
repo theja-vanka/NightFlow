@@ -14,24 +14,54 @@ use tauri::{Manager, command, window::Color};
 
 // ── Shared utility ───────────────────────────────────────────────────────────
 
+/// Cross-platform home directory: HOME (Unix), USERPROFILE (Windows),
+/// or HOMEDRIVE+HOMEPATH (Windows fallback).
+pub fn home_dir() -> Option<String> {
+    std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .ok()
+        .or_else(|| {
+            #[cfg(target_os = "windows")]
+            if let (Ok(drive), Ok(path)) =
+                (std::env::var("HOMEDRIVE"), std::env::var("HOMEPATH"))
+            {
+                return Some(format!("{}{}", drive, path));
+            }
+            None
+        })
+}
+
+/// Cross-platform default shell: SHELL on Unix, COMSPEC on Windows.
+pub fn default_shell() -> String {
+    if cfg!(windows) {
+        std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".to_string())
+    } else {
+        std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string())
+    }
+}
+
 pub fn expand_tilde(path: &str) -> String {
     if !path.starts_with('~') {
         return path.to_string();
     }
-    let home = std::env::var("HOME")
-        .or_else(|_| std::env::var("USERPROFILE"))
-        .ok();
-    if let Some(home_dir) = home {
-        return path.replacen('~', &home_dir, 1);
-    }
-    #[cfg(target_os = "windows")]
-    if let (Ok(drive), Ok(homepath)) = (std::env::var("HOMEDRIVE"), std::env::var("HOMEPATH")) {
-        return path.replacen('~', &format!("{}{}", drive, homepath), 1);
+    if let Some(home) = home_dir() {
+        return path.replacen('~', &home, 1);
     }
     path.to_string()
 }
 
 // ── Misc commands ────────────────────────────────────────────────────────────
+
+#[command]
+fn get_platform() -> String {
+    if cfg!(windows) {
+        "windows".to_string()
+    } else if cfg!(target_os = "macos") {
+        "macos".to_string()
+    } else {
+        "linux".to_string()
+    }
+}
 
 #[command]
 fn close_splash(app: tauri::AppHandle) {
@@ -61,6 +91,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             close_splash,
+            get_platform,
             pty::spawn_terminal,
             pty::pty_write,
             pty::pty_resize,

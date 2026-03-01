@@ -53,9 +53,6 @@ export const trainingMaxEpochs = computed(
   () => _get(currentProjectId.value).maxEpochs,
 );
 export const trainingStep = computed(() => _get(currentProjectId.value).step);
-export const trainingTotalSteps = computed(
-  () => _get(currentProjectId.value).totalSteps,
-);
 export const trainingLoss = computed(() => _get(currentProjectId.value).loss);
 export const trainingMetrics = computed(
   () => _get(currentProjectId.value).metrics,
@@ -63,12 +60,6 @@ export const trainingMetrics = computed(
 export const trainingError = computed(() => _get(currentProjectId.value).error);
 export const trainingFastDevRun = computed(
   () => _get(currentProjectId.value).fastDevRun,
-);
-export const trainingLossCurve = computed(
-  () => _get(currentProjectId.value).lossCurve,
-);
-export const trainingAccCurve = computed(
-  () => _get(currentProjectId.value).accCurve,
 );
 export const trainingTestMetrics = computed(
   () => _get(currentProjectId.value).testMetrics,

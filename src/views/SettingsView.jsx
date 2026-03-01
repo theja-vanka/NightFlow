@@ -19,6 +19,7 @@ import { DeleteProjectDialog } from "../components/DeleteProjectDialog.jsx";
 import { clearAllData } from "../db/database.js";
 import { projectList } from "../state/projects.js";
 import { navigate } from "../state/router.js";
+import { startTutorial } from "../state/tutorial.js";
 
 const EDITABLE_KEYS = [
   "name",
@@ -724,6 +725,32 @@ export function SettingsView() {
                   onClick={() => set("powerUserMode", !draft.powerUserMode)}
                 >
                   {draft.powerUserMode ? "On" : "Off"}
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* Tutorial */}
+          <section class="settings-section">
+            <div class="settings-section-header">
+              <h2 class="settings-heading">App Tour</h2>
+              <p class="settings-heading-desc">
+                Replay the first-time tutorial walkthrough
+              </p>
+            </div>
+            <div class="settings-card">
+              <div class="settings-card-row settings-row-between">
+                <div>
+                  <div class="settings-label">Restart Tutorial</div>
+                  <div class="settings-desc">
+                    Walk through the UI highlights again
+                  </div>
+                </div>
+                <button
+                  class="tutorial-restart-btn"
+                  onClick={startTutorial}
+                >
+                  Restart Tour
                 </button>
               </div>
             </div>

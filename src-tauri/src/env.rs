@@ -2,6 +2,26 @@ use std::collections::HashMap;
 use tauri::command;
 
 use crate::expand_tilde;
+use crate::{default_shell, home_dir};
+
+/// Returns the correct Python path inside a venv (Scripts/python.exe on Windows,
+/// bin/python on Unix).
+pub fn venv_python(venv_path: &std::path::Path) -> std::path::PathBuf {
+    if cfg!(windows) {
+        venv_path.join("Scripts").join("python.exe")
+    } else {
+        venv_path.join("bin").join("python")
+    }
+}
+
+/// Returns `"python"` on Windows, `"python3"` on Unix.
+pub fn python_cmd() -> &'static str {
+    if cfg!(windows) {
+        "python"
+    } else {
+        "python3"
+    }
+}
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct EnvSetupResult {
@@ -42,8 +62,8 @@ pub fn find_conda() -> Option<String> {
         return Some(conda_exe);
     }
 
-    let home = std::env::var("HOME").unwrap_or_default();
-    let candidates = [
+    let home = home_dir().unwrap_or_default();
+    let mut candidates = vec![
         "conda".to_string(),
         format!("{}/miniconda3/condabin/conda", home),
         format!("{}/miniconda3/bin/conda", home),
@@ -58,6 +78,14 @@ pub fn find_conda() -> Option<String> {
         "/opt/homebrew/Caskroom/miniconda/base/condabin/conda".to_string(),
         "/usr/local/bin/conda".to_string(),
     ];
+    if cfg!(windows) {
+        candidates.extend([
+            format!(r"{}\miniconda3\Scripts\conda.exe", home),
+            format!(r"{}\anaconda3\Scripts\conda.exe", home),
+            r"C:\ProgramData\miniconda3\Scripts\conda.exe".to_string(),
+        ]);
+    }
+    let candidates = candidates;
 
     for path in &candidates {
         if let Ok(output) = std::process::Command::new(path)
@@ -71,23 +99,25 @@ pub fn find_conda() -> Option<String> {
         }
     }
 
-    // Last resort: ask a login shell for CONDA_EXE
-    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
-    if let Ok(output) = std::process::Command::new(&shell)
-        .args(["-l", "-c", "echo $CONDA_EXE"])
-        .output()
-        && output.status.success()
-    {
-        let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if !path.is_empty()
-            && let Ok(check) = std::process::Command::new(&path)
-                .arg("--version")
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
-                .status()
-            && check.success()
+    // Last resort: ask a login shell for CONDA_EXE (not applicable on Windows)
+    if !cfg!(windows) {
+        let shell = default_shell();
+        if let Ok(output) = std::process::Command::new(&shell)
+            .args(["-l", "-c", "echo $CONDA_EXE"])
+            .output()
+            && output.status.success()
         {
-            return Some(path);
+            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !path.is_empty()
+                && let Ok(check) = std::process::Command::new(&path)
+                    .arg("--version")
+                    .stdout(std::process::Stdio::null())
+                    .stderr(std::process::Stdio::null())
+                    .status()
+                && check.success()
+            {
+                return Some(path);
+            }
         }
     }
 
@@ -97,11 +127,19 @@ pub fn find_conda() -> Option<String> {
 /// Find the `uv` binary, checking PATH and common install locations.
 pub fn find_uv() -> Option<String> {
     let candidates = ["uv".to_string()];
-    let home = std::env::var("HOME").unwrap_or_default();
-    let extra = [
-        format!("{}/.local/bin/uv", home),
-        format!("{}/.cargo/bin/uv", home),
-    ];
+    let home = home_dir().unwrap_or_default();
+    let extra = if cfg!(windows) {
+        // On Windows the standalone installer defaults to %USERPROFILE%\.local\bin
+        vec![
+            format!(r"{}\.local\bin\uv.exe", home),
+            format!(r"{}\.cargo\bin\uv.exe", home),
+        ]
+    } else {
+        vec![
+            format!("{}/.local/bin/uv", home),
+            format!("{}/.cargo/bin/uv", home),
+        ]
+    };
 
     for path in candidates.iter().chain(extra.iter()) {
         if let Ok(output) = std::process::Command::new(path)
@@ -124,17 +162,33 @@ async fn ensure_uv_available() -> Result<String, String> {
         return Ok(path);
     }
 
-    let install = tokio::process::Command::new("sh")
-        .args(["-c", "curl -LsSf https://astral.sh/uv/install.sh | sh"])
-        .output()
-        .await
-        .map_err(|e| format!("Failed to run uv installer: {}", e))?;
+    let install = if cfg!(windows) {
+        tokio::process::Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-ExecutionPolicy", "ByPass",
+                "-c",
+                "irm https://astral.sh/uv/install.ps1 | iex",
+            ])
+            .output()
+            .await
+            .map_err(|e| format!("Failed to run uv installer: {}", e))?
+    } else {
+        tokio::process::Command::new("sh")
+            .args(["-c", "curl -LsSf https://astral.sh/uv/install.sh | sh"])
+            .output()
+            .await
+            .map_err(|e| format!("Failed to run uv installer: {}", e))?
+    };
 
     if !install.status.success() {
         let stderr = String::from_utf8_lossy(&install.stderr).to_string();
         return Err(format!("uv installation failed: {}", stderr));
     }
 
+    // find_uv() re-checks PATH and known locations. On Windows the installer
+    // places uv in %USERPROFILE%\.local\bin which find_uv() probes directly,
+    // so it works even though the current process PATH hasn't been updated.
     find_uv().ok_or_else(|| "uv was installed but could not be found on PATH".to_string())
 }
 
@@ -220,8 +274,13 @@ fi"#;
 }
 
 /// Get the full environment from a login shell.
+/// On Windows, there is no login shell concept — return the current process env.
 pub async fn get_shell_env() -> HashMap<String, String> {
-    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+    if cfg!(windows) {
+        return std::env::vars().collect();
+    }
+
+    let shell = default_shell();
     let output = tokio::process::Command::new(&shell)
         .args(["-l", "-i", "-c", "env"])
         .stderr(std::process::Stdio::null())
@@ -242,21 +301,24 @@ pub async fn get_shell_env() -> HashMap<String, String> {
 
 /// Resolve conda path asynchronously — tries find_conda() first, then falls
 /// back to asking a login shell (handles GUI-launched apps).
+/// On Windows, the login shell fallback is skipped.
 pub async fn resolve_conda_path() -> Option<String> {
     if let Some(path) = find_conda() {
         return Some(path);
     }
 
-    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
-    if let Ok(output) = tokio::process::Command::new(&shell)
-        .args(["-l", "-i", "-c", "echo $CONDA_EXE"])
-        .output()
-        .await
-        && output.status.success()
-    {
-        let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if !path.is_empty() && std::path::Path::new(&path).exists() {
-            return Some(path);
+    if !cfg!(windows) {
+        let shell = default_shell();
+        if let Ok(output) = tokio::process::Command::new(&shell)
+            .args(["-l", "-i", "-c", "echo $CONDA_EXE"])
+            .output()
+            .await
+            && output.status.success()
+        {
+            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !path.is_empty() && std::path::Path::new(&path).exists() {
+                return Some(path);
+            }
         }
     }
 
@@ -357,7 +419,7 @@ fi"#;
 
 /// Query Python and autotimm versions from an existing venv.
 async fn get_venv_versions(venv_path: &std::path::Path) -> (Option<String>, Option<String>) {
-    let python = venv_path.join("bin").join("python");
+    let python = venv_python(venv_path);
 
     let py_ver = tokio::process::Command::new(&python)
         .args(["--version"])
@@ -396,8 +458,10 @@ pub async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, St
         let (python_version, autotimm_version) = get_venv_versions(&venv_path).await;
         if autotimm_version.is_none() || detected_env_type == "conda" {
             let uv_bin = find_uv().unwrap_or_else(|| "uv".to_string());
+            let venv_py = venv_python(&venv_path);
+            let venv_py_str = venv_py.to_string_lossy().to_string();
             let _ = tokio::process::Command::new(&uv_bin)
-                .args(["pip", "install", "--upgrade", "autotimm", "--python", ".venv/bin/python"])
+                .args(["pip", "install", "--upgrade", "autotimm", "--python", &venv_py_str])
                 .current_dir(&expanded)
                 .output()
                 .await;
@@ -420,7 +484,7 @@ pub async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, St
     }
 
     // 2. Check if the system/active Python already has autotimm installed
-    let sys_check = tokio::process::Command::new("python3")
+    let sys_check = tokio::process::Command::new(python_cmd())
         .args(["-c", "import autotimm; print(autotimm.__version__)"])
         .output()
         .await;
@@ -428,7 +492,7 @@ pub async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, St
         && out.status.success()
     {
         let at_ver = String::from_utf8_lossy(&out.stdout).trim().to_string();
-        let py_ver = tokio::process::Command::new("python3")
+        let py_ver = tokio::process::Command::new(python_cmd())
             .args(["--version"])
             .output()
             .await
@@ -541,8 +605,10 @@ pub async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, St
         });
     }
 
+    let final_venv_py = venv_python(&venv_path);
+    let final_venv_py_str = final_venv_py.to_string_lossy().to_string();
     let install_output = tokio::process::Command::new(&uv_bin)
-        .args(["pip", "install", "--upgrade", "autotimm", "--python", ".venv/bin/python"])
+        .args(["pip", "install", "--upgrade", "autotimm", "--python", &final_venv_py_str])
         .current_dir(&expanded)
         .output()
         .await

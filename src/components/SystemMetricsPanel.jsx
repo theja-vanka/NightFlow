@@ -48,15 +48,24 @@ export function SystemMetricsPanel() {
     const [error, setError] = useState(null);
     const connected = sshConnected.value;
     const project = currentProject.value;
+    // Use stable primitive values as effect dependencies to avoid
+    // teardown/restart cycles when the project object reference changes.
+    const projectId = project?.id;
+    const sshCommand = project?.sshCommand;
 
     useEffect(() => {
+        if (!connected || !projectId) {
+            setMetrics(null);
+            setError(null);
+            return;
+        }
+
         let mounted = true;
         let timer;
 
         async function fetchMetrics() {
-            if (!connected || !project) return;
             try {
-                const cmd = project.sshCommand?.trim().toLowerCase() === "localhost" ? null : project.sshCommand;
+                const cmd = sshCommand?.trim().toLowerCase() === "localhost" ? null : sshCommand;
                 const resStr = await invoke("get_system_metrics", { sshCommand: cmd });
                 if (mounted) {
                     setMetrics(JSON.parse(resStr));
@@ -67,22 +76,17 @@ export function SystemMetricsPanel() {
             }
 
             if (mounted) {
-                timer = setTimeout(fetchMetrics, 5000); // Poll every 5s
+                timer = setTimeout(fetchMetrics, 3000); // Poll every 3s
             }
         }
 
-        if (connected) {
-            fetchMetrics();
-        } else {
-            setMetrics(null);
-            setError(null);
-        }
+        fetchMetrics();
 
         return () => {
             mounted = false;
             clearTimeout(timer);
         };
-    }, [connected, project]);
+    }, [connected, projectId, sshCommand]);
 
     if (!connected) return null;
 

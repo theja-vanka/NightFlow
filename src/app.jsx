@@ -24,6 +24,8 @@ import {
 import { CreateProjectWizard } from "./components/CreateProjectWizard.jsx";
 import { DeleteProjectDialog } from "./components/DeleteProjectDialog.jsx";
 import { EmptyProjectsScreen } from "./components/EmptyProjectsScreen.jsx";
+import { TutorialOverlay } from "./components/TutorialOverlay.jsx";
+import { maybeStartTutorial } from "./state/tutorial.js";
 
 function CurrentView() {
   switch (currentPage.value) {
@@ -57,6 +59,9 @@ export function App() {
     // Start listening for training events
     initTrainingListeners();
 
+    // Start tutorial for first-time users
+    maybeStartTutorial();
+
     // Close splash screen after delay
     const timer = setTimeout(() => {
       invoke("close_splash");
@@ -86,6 +91,7 @@ export function App() {
       )}
       <CreateProjectWizard />
       <DeleteProjectDialog />
+      <TutorialOverlay />
     </>
   );
 }

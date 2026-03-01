@@ -576,6 +576,14 @@ pub async fn stop_training(
             unsafe {
                 libc::kill(meta.pid as i32, libc::SIGTERM);
             }
+            #[cfg(windows)]
+            {
+                let _ = std::process::Command::new("taskkill")
+                    .args(["/PID", &meta.pid.to_string(), "/F"])
+                    .stdout(std::process::Stdio::null())
+                    .stderr(std::process::Stdio::null())
+                    .status();
+            }
         }
         remove_training_meta(&expanded);
     }

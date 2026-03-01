@@ -8,6 +8,7 @@ use std::sync::{
 use tauri::{Emitter, State, command};
 
 use crate::expand_tilde;
+use crate::{default_shell, home_dir};
 
 // ── Per-session data ──────────────────────────────────────────────────────────
 
@@ -82,9 +83,12 @@ pub fn spawn_terminal(
         cmd.env("COLORTERM", "truecolor");
         cmd
     } else {
-        let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+        let shell = default_shell();
         let mut cmd = CommandBuilder::new(&shell);
-        cmd.arg("-l");
+        // Don't pass -l on Windows (not valid for cmd.exe/powershell)
+        if !cfg!(windows) {
+            cmd.arg("-l");
+        }
         cmd.env("TERM", "xterm-256color");
         cmd.env("COLORTERM", "truecolor");
         if let Some(ref dir) = cwd {
@@ -218,17 +222,22 @@ pub fn get_terminal_info(
     state: State<'_, PtyState>,
 ) -> std::collections::HashMap<String, String> {
     let mut info = std::collections::HashMap::new();
-    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
-    let shell_name = shell.rsplit('/').next().unwrap_or(&shell).to_string();
+    let shell = default_shell();
+    let shell_name = std::path::Path::new(&shell)
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| shell.clone());
     info.insert("shell".into(), shell_name);
     info.insert("shellPath".into(), shell);
-    if let Ok(user) = std::env::var("USER") {
+    // USER on Unix, USERNAME on Windows
+    let user_var = if cfg!(windows) { "USERNAME" } else { "USER" };
+    if let Ok(user) = std::env::var(user_var) {
         info.insert("user".into(), user);
     }
     if let Ok(hostname) = hostname::get() {
         info.insert("hostname".into(), hostname.to_string_lossy().to_string());
     }
-    if let Ok(home) = std::env::var("HOME") {
+    if let Some(home) = home_dir() {
         info.insert("home".into(), home);
     }
     info.insert("pid".into(), std::process::id().to_string());

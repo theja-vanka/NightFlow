@@ -57,9 +57,6 @@ export const sshConnecting = computed(
 export const sshConnectedAt = computed(
   () => _getState(currentProjectId.value).connectedAt,
 );
-export const shouldAutoConnect = computed(
-  () => _getState(currentProjectId.value).shouldAutoConnect,
-);
 export const dashboardSynced = computed(
   () => _getState(currentProjectId.value).synced,
 );
@@ -85,6 +82,11 @@ export const envInfo = computed(
 export const syncLogs = computed(
   () => _getState(currentProjectId.value).syncLogs,
 );
+
+// ── Platform detection (cached) ──────────────────────────────────────────────
+
+export const platform = signal("linux");
+invoke("get_platform").then((p) => { platform.value = p; }).catch(() => {});
 
 // ── Incremented to force useTerminal to tear down and reinitialize a session ──
 
@@ -127,11 +129,9 @@ function addSyncLog(projectId, message, type = "info") {
   } else if (lowerMessage.includes("creating project directory")) {
     progress = Math.max(progress, 12);
   } else if (lowerMessage.includes("directory ready")) {
-    progress = Math.max(progress, 18);
-  } else if (lowerMessage.includes("config yaml written")) {
-    progress = Math.max(progress, 25);
+    progress = Math.max(progress, 20);
   } else if (lowerMessage.includes("checking conda")) {
-    progress = Math.max(progress, 30);
+    progress = Math.max(progress, 28);
   } else if (
     lowerMessage.includes("conda ready") ||
     lowerMessage.includes("conda not found")
@@ -378,7 +378,7 @@ export async function syncDashboard() {
       syncProgress: 100,
       syncing: false,
     });
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     // Mark as synced and hide completion screen
     _setState(projectId, {
@@ -476,10 +476,6 @@ async function doSync(projectId, abortController) {
         );
         addSyncLog(projectId, `Warning: ${dirErr.message}`, "warning");
       }
-
-      // Write config.yaml to project directory
-      if (abortController.signal.aborted) throw new Error("AbortError");
-      await syncConfig(project, projectId);
 
       // Check conda first, fall back to uv if conda not available
       if (abortController.signal.aborted) throw new Error("AbortError");
