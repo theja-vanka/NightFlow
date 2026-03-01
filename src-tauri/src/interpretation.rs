@@ -219,10 +219,10 @@ pub async fn run_interpretation(
         if let Ok(entries) = std::fs::read_dir(ckpt_path_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                    if name.ends_with(".ckpt") {
-                        best_ckpt = Some(path);
-                    }
+                if let Some(name) = path.file_name().and_then(|n| n.to_str())
+                    && name.ends_with(".ckpt")
+                {
+                    best_ckpt = Some(path);
                 }
             }
         }
@@ -408,10 +408,10 @@ pub async fn export_jit_model(
         if let Ok(entries) = std::fs::read_dir(ckpt_path_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                    if name.ends_with(".ckpt") {
-                        best_ckpt = Some(path);
-                    }
+                if let Some(name) = path.file_name().and_then(|n| n.to_str())
+                    && name.ends_with(".ckpt")
+                {
+                    best_ckpt = Some(path);
                 }
             }
         }
