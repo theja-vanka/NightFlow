@@ -71,9 +71,71 @@
       --max-w:1080px;
     }
     html{scroll-behavior:smooth}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased}
+    body{
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+      background:var(--bg);
+      color:var(--text);
+      line-height:1.6;
+      -webkit-font-smoothing:antialiased;
+      overflow-x:hidden;
+    }
+
+    /* ── Dot grid background ── */
+    body::before{
+      content:'';
+      position:fixed;
+      inset:0;
+      z-index:0;
+      background-image:radial-gradient(circle,rgba(255,255,255,.03) 1px,transparent 1px);
+      background-size:32px 32px;
+      pointer-events:none;
+    }
+
+    /* Ensure all content above dot grid */
+    body>*{position:relative;z-index:1}
+
     a{color:var(--accent2);text-decoration:none}
     a:hover{text-decoration:underline}
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeInUp{
+      from{opacity:0;transform:translateY(24px)}
+      to{opacity:1;transform:translateY(0)}
+    }
+    @keyframes gradientShift{
+      0%{background-position:0% 50%}
+      50%{background-position:100% 50%}
+      100%{background-position:0% 50%}
+    }
+    @keyframes glowPulse{
+      0%,100%{opacity:.5}
+      50%{opacity:.8}
+    }
+    @keyframes borderGlow{
+      0%{background-position:0% 50%}
+      100%{background-position:200% 50%}
+    }
+
+    /* Scroll reveal base state */
+    .reveal{
+      opacity:0;
+      transform:translateY(24px);
+      transition:opacity .6s ease,transform .6s ease;
+    }
+    .reveal.visible{
+      opacity:1;
+      transform:translateY(0);
+    }
+
+    /* Respect reduced motion */
+    @media(prefers-reduced-motion:reduce){
+      *,*::before,*::after{
+        animation-duration:0.01ms !important;
+        animation-iteration-count:1 !important;
+        transition-duration:0.01ms !important;
+      }
+      .reveal{opacity:1;transform:none}
+    }
 
     /* ── NAV ── */
     nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(10,10,15,.85);backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}
@@ -85,16 +147,74 @@
     .nav-links a:hover{color:var(--text);text-decoration:none}
 
     /* ── HERO ── */
-    .hero{padding:140px 24px 80px;text-align:center}
-    .hero img{height:96px;width:auto;border-radius:20px;margin-bottom:24px}
-    .hero h1{font-size:3rem;font-weight:800;letter-spacing:-.02em;margin-bottom:12px;background:linear-gradient(135deg,var(--accent2),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-    .hero p{color:var(--text2);font-size:1.2rem;max-width:600px;margin:0 auto 36px}
+    .hero{
+      padding:140px 24px 80px;
+      text-align:center;
+      position:relative;
+      overflow:hidden;
+    }
+    /* Aurora gradient glow */
+    .hero::before{
+      content:'';
+      position:absolute;
+      top:-20%;
+      left:50%;
+      transform:translateX(-50%);
+      width:800px;
+      height:600px;
+      background:radial-gradient(ellipse at center,rgba(108,92,231,.15) 0%,rgba(0,184,148,.08) 40%,transparent 70%);
+      pointer-events:none;
+      animation:glowPulse 6s ease-in-out infinite;
+    }
+    .hero-content{
+      position:relative;
+      animation:fadeInUp .8s ease both;
+    }
+    /* Logo glow halo */
+    .hero-logo{
+      position:relative;
+      display:inline-block;
+      margin-bottom:24px;
+    }
+    .hero-logo::before{
+      content:'';
+      position:absolute;
+      inset:-20px;
+      background:radial-gradient(circle,rgba(108,92,231,.3) 0%,transparent 70%);
+      border-radius:50%;
+      animation:glowPulse 4s ease-in-out infinite;
+      pointer-events:none;
+    }
+    .hero-logo img{
+      height:96px;
+      width:auto;
+      border-radius:20px;
+      position:relative;
+    }
+    .hero h1{
+      font-size:clamp(2rem,5vw,3.5rem);
+      font-weight:800;
+      letter-spacing:-.02em;
+      margin-bottom:12px;
+      background:linear-gradient(135deg,var(--accent2),var(--green),var(--accent2),var(--green));
+      background-size:300% 300%;
+      -webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;
+      background-clip:text;
+      animation:gradientShift 8s ease infinite;
+    }
+    .hero p{
+      color:var(--text2);
+      font-size:clamp(1rem,2vw,1.2rem);
+      max-width:600px;
+      margin:0 auto 36px;
+    }
     .hero-buttons{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
-    .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:10px;font-weight:600;font-size:.95rem;transition:all .2s;border:none;cursor:pointer}
-    .btn-primary{background:var(--accent);color:#fff;padding:14px 32px;font-size:1rem}
-    .btn-primary:hover{background:#5a4bd6;text-decoration:none;transform:translateY(-1px)}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:10px;font-weight:600;font-size:.95rem;transition:all .25s ease;border:none;cursor:pointer}
+    .btn-primary{background:var(--accent);color:#fff;padding:14px 32px;font-size:1rem;box-shadow:0 4px 24px rgba(108,92,231,.3)}
+    .btn-primary:hover{background:#5a4bd6;text-decoration:none;transform:translateY(-2px);box-shadow:0 8px 32px rgba(108,92,231,.4)}
     .btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
-    .btn-outline:hover{border-color:var(--accent2);color:var(--accent2);text-decoration:none}
+    .btn-outline:hover{border-color:var(--accent2);color:var(--accent2);text-decoration:none;transform:translateY(-1px)}
     .btn-sm{padding:8px 18px;font-size:.85rem;border-radius:8px}
 
     /* ── HERO DOWNLOAD ── */
@@ -107,35 +227,172 @@
 
     /* ── SECTIONS ── */
     section{max-width:var(--max-w);margin:0 auto;padding:80px 24px}
-    section h2{font-size:2rem;font-weight:700;margin-bottom:12px}
-    section .subtitle{color:var(--text2);font-size:1.05rem;margin-bottom:48px}
+    section h2{font-size:clamp(1.6rem,3.5vw,2rem);font-weight:700;margin-bottom:12px}
+    section .subtitle{color:var(--text2);font-size:clamp(.95rem,2vw,1.05rem);margin-bottom:48px}
+
+    /* ── WHY / STATS SECTION ── */
+    .why-grid{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:0;
+      text-align:center;
+      background:rgba(255,255,255,.03);
+      backdrop-filter:blur(12px);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      overflow:hidden;
+    }
+    .why-item{
+      padding:36px 20px;
+      position:relative;
+    }
+    /* Dividers between stat items */
+    .why-item:not(:last-child)::after{
+      content:'';
+      position:absolute;
+      right:0;
+      top:20%;
+      height:60%;
+      width:1px;
+      background:var(--border);
+    }
+    .why-number{
+      font-size:clamp(1.8rem,4vw,2.4rem);
+      font-weight:800;
+      background:linear-gradient(135deg,var(--accent2),var(--green));
+      -webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;
+      background-clip:text;
+      margin-bottom:8px;
+    }
+    .why-label{color:var(--text2);font-size:.95rem}
 
     /* ── FEATURES ── */
     .features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}
-    .feature-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;transition:border-color .25s}
-    .feature-card:hover{border-color:var(--accent)}
-    .feature-icon{width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:10px;margin-bottom:14px;font-size:1.4rem}
+    .feature-card{
+      background:var(--surface);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      padding:28px;
+      transition:border-color .3s,transform .3s,box-shadow .3s;
+      position:relative;
+      overflow:hidden;
+    }
+    /* Animated gradient border on hover */
+    .feature-card::before{
+      content:'';
+      position:absolute;
+      inset:-1px;
+      border-radius:var(--radius);
+      background:linear-gradient(90deg,var(--accent),var(--green),var(--accent2),var(--accent));
+      background-size:200% 100%;
+      z-index:-1;
+      opacity:0;
+      transition:opacity .3s;
+      animation:borderGlow 3s linear infinite;
+    }
+    .feature-card::after{
+      content:'';
+      position:absolute;
+      inset:1px;
+      border-radius:calc(var(--radius) - 1px);
+      background:var(--surface);
+      z-index:-1;
+    }
+    .feature-card:hover{
+      transform:translateY(-4px);
+      box-shadow:0 8px 32px rgba(108,92,231,.12);
+    }
+    .feature-card:hover::before{
+      opacity:1;
+    }
+    .feature-icon{
+      width:44px;
+      height:44px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:12px;
+      margin-bottom:16px;
+      font-size:1.4rem;
+    }
     .feature-icon.purple{background:rgba(108,92,231,.15);color:var(--accent2)}
     .feature-icon.green{background:rgba(0,184,148,.15);color:var(--green)}
     .feature-icon.blue{background:rgba(9,132,227,.15);color:#74b9ff}
     .feature-card h3{font-size:1.05rem;margin-bottom:6px}
     .feature-card p{color:var(--text2);font-size:.9rem;line-height:1.5}
 
-    /* ── WHY SECTION ── */
-    .why-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;text-align:center}
-    .why-item{padding:32px 20px}
-    .why-number{font-size:2.4rem;font-weight:800;background:linear-gradient(135deg,var(--accent2),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:8px}
-    .why-label{color:var(--text2);font-size:.95rem}
+    /* ── APP PREVIEW ── */
+    .preview-section{
+      max-width:var(--max-w);
+      margin:0 auto;
+      padding:40px 24px 80px;
+      text-align:center;
+    }
+    .preview-frame{
+      position:relative;
+      display:inline-block;
+      max-width:900px;
+      width:100%;
+      perspective:1200px;
+    }
+    .preview-frame img{
+      width:100%;
+      border-radius:12px;
+      border:1px solid var(--border);
+      box-shadow:0 24px 80px rgba(0,0,0,.5),0 0 60px rgba(108,92,231,.1);
+      transform:rotateX(2deg);
+      transition:transform .4s ease,box-shadow .4s ease;
+    }
+    .preview-frame:hover img{
+      transform:rotateX(0deg);
+      box-shadow:0 32px 100px rgba(0,0,0,.6),0 0 80px rgba(108,92,231,.15);
+    }
+    .preview-caption{
+      margin-top:20px;
+      color:var(--text2);
+      font-size:.95rem;
+      font-style:italic;
+    }
 
     /* ── DOWNLOAD ── */
     .download-section{text-align:center}
     #releases-container{margin-top:32px}
-    .release-block{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;margin-bottom:20px;text-align:left}
+    .release-block{
+      background:var(--surface);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      padding:28px;
+      margin-bottom:20px;
+      text-align:left;
+      transition:border-color .3s,box-shadow .3s;
+    }
+    .release-block:hover{
+      border-color:rgba(108,92,231,.3);
+      box-shadow:0 4px 24px rgba(0,0,0,.2);
+    }
     .release-block h3{font-size:1.25rem;margin-bottom:4px}
     .release-meta{color:var(--text2);font-size:.85rem;margin-bottom:16px}
     .release-assets{display:flex;flex-wrap:wrap;gap:10px}
-    .asset-link{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:.85rem;color:var(--text);transition:all .2s}
-    .asset-link:hover{border-color:var(--accent);color:var(--accent2);text-decoration:none}
+    .asset-link{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:10px 18px;
+      background:var(--surface2);
+      border:1px solid var(--border);
+      border-radius:8px;
+      font-size:.85rem;
+      color:var(--text);
+      transition:all .25s ease;
+    }
+    .asset-link:hover{
+      border-color:var(--accent);
+      color:var(--accent2);
+      text-decoration:none;
+      transform:translateY(-2px);
+      box-shadow:0 4px 16px rgba(108,92,231,.15);
+    }
     .asset-link .platform-icon{font-size:1rem}
     .asset-size{color:var(--text2);font-size:.75rem;margin-left:2px}
     .release-loading{color:var(--text2);padding:40px 0;font-size:.95rem}
@@ -143,29 +400,63 @@
     .latest-badge{background:var(--green);color:#000;font-size:.7rem;padding:2px 8px;border-radius:6px;font-weight:700;margin-left:8px;vertical-align:middle}
 
     /* ── CTA ── */
-    .cta{text-align:center;padding:80px 24px;margin:0 auto;max-width:var(--max-w)}
-    .cta h2{font-size:2rem;font-weight:700;margin-bottom:12px}
-    .cta p{color:var(--text2);font-size:1.05rem;margin-bottom:28px}
+    .cta{
+      text-align:center;
+      padding:100px 24px;
+      margin:0 auto;
+      max-width:100%;
+      background:linear-gradient(180deg,transparent 0%,rgba(108,92,231,.06) 40%,rgba(0,184,148,.04) 60%,transparent 100%);
+      border-top:1px solid rgba(108,92,231,.1);
+      border-bottom:1px solid rgba(0,184,148,.1);
+    }
+    .cta h2{
+      font-size:clamp(1.8rem,4vw,2.4rem);
+      font-weight:700;
+      margin-bottom:16px;
+    }
+    .cta p{
+      color:var(--text2);
+      font-size:clamp(1rem,2vw,1.15rem);
+      margin-bottom:32px;
+      max-width:520px;
+      margin-left:auto;
+      margin-right:auto;
+    }
 
     /* ── FOOTER ── */
-    footer{border-top:1px solid var(--border);text-align:center;padding:32px 24px;color:var(--text2);font-size:.85rem}
+    footer{
+      border-top:1px solid var(--border);
+      text-align:center;
+      padding:48px 24px;
+      color:var(--text2);
+      font-size:.85rem;
+    }
     footer a{color:var(--accent2)}
-    .footer-links{display:flex;gap:20px;justify-content:center;margin-top:10px}
+    .footer-links{display:flex;gap:24px;justify-content:center;margin-top:14px}
 
     /* ── RESPONSIVE ── */
+    @media(max-width:1024px){
+      .features-grid{grid-template-columns:repeat(2,1fr)}
+    }
     @media(max-width:768px){
-      .hero h1{font-size:2.2rem}
-      .hero p{font-size:1rem}
       .nav-links{gap:16px}
       section{padding:60px 16px}
-      .why-grid{grid-template-columns:1fr;gap:12px}
-      .why-item{padding:20px}
+      .why-grid{grid-template-columns:1fr;gap:0}
+      .why-item:not(:last-child)::after{
+        right:20%;
+        top:auto;
+        bottom:0;
+        height:1px;
+        width:60%;
+      }
       .features-grid{grid-template-columns:1fr}
+      .preview-frame img{transform:none}
+      .btn{min-height:44px}
     }
     @media(max-width:480px){
-      .hero h1{font-size:1.8rem}
       .nav-links{gap:12px;font-size:.8rem}
       .hero-buttons{flex-direction:column;align-items:center}
+      .cta{padding:64px 16px}
     }
   </style>
 </head>
@@ -188,37 +479,41 @@
 
 <!-- HERO -->
 <header class="hero">
-  <img src="logo.png" alt="NightFlow logo" width="96" height="96" />
-  <h1>NightFlow</h1>
-  <p>Manage, run, and analyze deep learning experiments from a single native desktop app. Private by default — your data never leaves your machine.</p>
-  <div class="hero-buttons">
-    <a href="#download" class="btn btn-primary" id="hero-download-btn">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      <span id="hero-download-text">Download</span>
-    </a>
-    <a href="https://github.com/theja-vanka/NightFlow" target="_blank" rel="noopener" class="btn btn-outline">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.37.5 0 5.78 0 12.292c0 5.211 3.438 9.63 8.205 11.188.6.111.82-.254.82-.567 0-.28-.01-1.022-.015-2.005-3.338.711-4.042-1.582-4.042-1.582-.546-1.361-1.333-1.723-1.333-1.723-1.089-.73.083-.716.083-.716 1.205.083 1.838 1.215 1.838 1.215 1.07 1.803 2.809 1.282 3.495.98.108-.763.417-1.282.76-1.577-2.665-.295-5.466-1.309-5.466-5.827 0-1.287.465-2.339 1.235-3.164-.135-.298-.54-1.497.105-3.121 0 0 1.005-.316 3.3 1.209A11.615 11.615 0 0112 6.844c1.02.005 2.047.136 3.006.404 2.28-1.525 3.285-1.209 3.285-1.209.645 1.624.24 2.823.12 3.121.765.825 1.23 1.877 1.23 3.164 0 4.53-2.805 5.527-5.475 5.817.42.354.81 1.077.81 2.182 0 1.578-.015 2.846-.015 3.229 0 .309.21.678.825.56C20.565 21.917 24 17.495 24 12.292 24 5.78 18.627.5 12 .5z"/></svg>
-      View on GitHub
-    </a>
-  </div>
-  <div class="hero-download" id="hero-platform-links">
-    <!-- Populated by JS: shows detected OS + links to other platforms -->
+  <div class="hero-content">
+    <div class="hero-logo">
+      <img src="logo.png" alt="NightFlow logo" width="96" height="96" />
+    </div>
+    <h1>NightFlow</h1>
+    <p>Manage, run, and analyze deep learning experiments from a single native desktop app. Private by default — your data never leaves your machine.</p>
+    <div class="hero-buttons">
+      <a href="#download" class="btn btn-primary" id="hero-download-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span id="hero-download-text">Download</span>
+      </a>
+      <a href="https://github.com/theja-vanka/NightFlow" target="_blank" rel="noopener" class="btn btn-outline">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.37.5 0 5.78 0 12.292c0 5.211 3.438 9.63 8.205 11.188.6.111.82-.254.82-.567 0-.28-.01-1.022-.015-2.005-3.338.711-4.042-1.582-4.042-1.582-.546-1.361-1.333-1.723-1.333-1.723-1.089-.73.083-.716.083-.716 1.205.083 1.838 1.215 1.838 1.215 1.07 1.803 2.809 1.282 3.495.98.108-.763.417-1.282.76-1.577-2.665-.295-5.466-1.309-5.466-5.827 0-1.287.465-2.339 1.235-3.164-.135-.298-.54-1.497.105-3.121 0 0 1.005-.316 3.3 1.209A11.615 11.615 0 0112 6.844c1.02.005 2.047.136 3.006.404 2.28-1.525 3.285-1.209 3.285-1.209.645 1.624.24 2.823.12 3.121.765.825 1.23 1.877 1.23 3.164 0 4.53-2.805 5.527-5.475 5.817.42.354.81 1.077.81 2.182 0 1.578-.015 2.846-.015 3.229 0 .309.21.678.825.56C20.565 21.917 24 17.495 24 12.292 24 5.78 18.627.5 12 .5z"/></svg>
+        View on GitHub
+      </a>
+    </div>
+    <div class="hero-download" id="hero-platform-links">
+      <!-- Populated by JS: shows detected OS + links to other platforms -->
+    </div>
   </div>
 </header>
 
-<!-- WHY -->
+<!-- WHY / STATS -->
 <section>
-  <div class="why-grid">
+  <div class="why-grid reveal">
     <div class="why-item">
-      <div class="why-number">0 B</div>
+      <div class="why-number" data-count="0" data-suffix=" B">0 B</div>
       <div class="why-label">Data sent to the cloud</div>
     </div>
     <div class="why-item">
-      <div class="why-number">0</div>
+      <div class="why-number" data-count="0" data-suffix="">0</div>
       <div class="why-label">Accounts required</div>
     </div>
     <div class="why-item">
-      <div class="why-number">3</div>
+      <div class="why-number" data-count="3" data-suffix="">0</div>
       <div class="why-label">Platforms supported</div>
     </div>
   </div>
@@ -226,66 +521,66 @@
 
 <!-- FEATURES -->
 <section id="features">
-  <h2>Features</h2>
-  <p class="subtitle">Everything you need to manage your ML workflow — no cloud required.</p>
+  <h2 class="reveal">Features</h2>
+  <p class="subtitle reveal">Everything you need to manage your ML workflow — no cloud required.</p>
   <div class="features-grid">
-    <div class="feature-card">
+    <div class="feature-card reveal">
       <div class="feature-icon purple">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
       </div>
       <h3>Project Management</h3>
       <p>Create and organize ML projects with dataset, model, and training configurations in one place.</p>
     </div>
-    <div class="feature-card">
+    <div class="feature-card reveal">
       <div class="feature-icon green">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
       </div>
       <h3>Experiment Tracking</h3>
       <p>View runs, metrics, and training history in a structured, sortable table with full run detail views.</p>
     </div>
-    <div class="feature-card">
+    <div class="feature-card reveal">
       <div class="feature-icon blue">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
       </div>
       <h3>Charts &amp; Visualization</h3>
       <p>Interactive loss curves, accuracy plots, and custom metric charts rendered in real time.</p>
     </div>
-    <div class="feature-card">
+    <div class="feature-card reveal">
       <div class="feature-icon purple">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
       </div>
       <h3>Model Interpretation</h3>
       <p>Built-in GradCAM, attention maps, and interpretability tools to understand what your model learns.</p>
     </div>
-    <div class="feature-card">
+    <div class="feature-card reveal">
       <div class="feature-icon green">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
       </div>
       <h3>Netron Integration</h3>
       <p>Visualize neural network architectures directly inside the app — no browser needed.</p>
     </div>
-    <div class="feature-card">
+    <div class="feature-card reveal">
       <div class="feature-icon blue">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
       </div>
       <h3>Integrated Terminal</h3>
       <p>Full PTY terminal with SSH support for remote training servers — no context switching.</p>
     </div>
-    <div class="feature-card">
+    <div class="feature-card reveal">
       <div class="feature-icon green">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
       </div>
       <h3>100% Private</h3>
       <p>No telemetry, no tracking, no cloud. All your data is stored locally on your machine.</p>
     </div>
-    <div class="feature-card">
+    <div class="feature-card reveal">
       <div class="feature-icon purple">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
       </div>
       <h3>Lightweight &amp; Fast</h3>
       <p>Native performance with a tiny footprint. No Electron, no bloated runtimes.</p>
     </div>
-    <div class="feature-card">
+    <div class="feature-card reveal">
       <div class="feature-icon blue">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
       </div>
@@ -295,19 +590,27 @@
   </div>
 </section>
 
+<!-- APP PREVIEW -->
+<div class="preview-section reveal" id="app-preview">
+  <div class="preview-frame">
+    <img src="assets/image.png" alt="NightFlow app screenshot showing the experiment dashboard" loading="lazy" />
+  </div>
+  <p class="preview-caption">A clean, focused workspace for your experiments.</p>
+</div>
+
 <!-- DOWNLOAD -->
 <section id="download" class="download-section">
-  <h2>Download</h2>
-  <p class="subtitle">Grab the latest release for your platform.</p>
+  <h2 class="reveal">Download</h2>
+  <p class="subtitle reveal">Grab the latest release for your platform.</p>
 
   <!-- OS-specific download buttons -->
-  <div id="os-download" style="margin-bottom:48px">
+  <div id="os-download" style="margin-bottom:48px" class="reveal">
     <div class="platform-btns" id="platform-buttons">
       <!-- Populated by JS with auto-detected OS highlighted -->
     </div>
   </div>
 
-  <h3 style="font-size:1.2rem;margin-bottom:24px;color:var(--text2)">All Releases</h3>
+  <h3 style="font-size:1.2rem;margin-bottom:24px;color:var(--text2)" class="reveal">All Releases</h3>
   <div id="releases-container">
     <p class="release-loading">Loading releases...</p>
   </div>
@@ -315,12 +618,14 @@
 
 <!-- CTA -->
 <div class="cta">
-  <h2>Open source &amp; free forever</h2>
-  <p>NightFlow is Apache 2.0 licensed. Star on GitHub, report issues, or contribute.</p>
-  <a href="https://github.com/theja-vanka/NightFlow" target="_blank" rel="noopener" class="btn btn-outline">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.37.5 0 5.78 0 12.292c0 5.211 3.438 9.63 8.205 11.188.6.111.82-.254.82-.567 0-.28-.01-1.022-.015-2.005-3.338.711-4.042-1.582-4.042-1.582-.546-1.361-1.333-1.723-1.333-1.723-1.089-.73.083-.716.083-.716 1.205.083 1.838 1.215 1.838 1.215 1.07 1.803 2.809 1.282 3.495.98.108-.763.417-1.282.76-1.577-2.665-.295-5.466-1.309-5.466-5.827 0-1.287.465-2.339 1.235-3.164-.135-.298-.54-1.497.105-3.121 0 0 1.005-.316 3.3 1.209A11.615 11.615 0 0112 6.844c1.02.005 2.047.136 3.006.404 2.28-1.525 3.285-1.209 3.285-1.209.645 1.624.24 2.823.12 3.121.765.825 1.23 1.877 1.23 3.164 0 4.53-2.805 5.527-5.475 5.817.42.354.81 1.077.81 2.182 0 1.578-.015 2.846-.015 3.229 0 .309.21.678.825.56C20.565 21.917 24 17.495 24 12.292 24 5.78 18.627.5 12 .5z"/></svg>
-    Star on GitHub
-  </a>
+  <div class="reveal">
+    <h2>Open source &amp; free forever</h2>
+    <p>NightFlow is Apache 2.0 licensed. Star on GitHub, report issues, or contribute.</p>
+    <a href="https://github.com/theja-vanka/NightFlow" target="_blank" rel="noopener" class="btn btn-outline">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.37.5 0 5.78 0 12.292c0 5.211 3.438 9.63 8.205 11.188.6.111.82-.254.82-.567 0-.28-.01-1.022-.015-2.005-3.338.711-4.042-1.582-4.042-1.582-.546-1.361-1.333-1.723-1.333-1.723-1.089-.73.083-.716.083-.716 1.205.083 1.838 1.215 1.838 1.215 1.07 1.803 2.809 1.282 3.495.98.108-.763.417-1.282.76-1.577-2.665-.295-5.466-1.309-5.466-5.827 0-1.287.465-2.339 1.235-3.164-.135-.298-.54-1.497.105-3.121 0 0 1.005-.316 3.3 1.209A11.615 11.615 0 0112 6.844c1.02.005 2.047.136 3.006.404 2.28-1.525 3.285-1.209 3.285-1.209.645 1.624.24 2.823.12 3.121.765.825 1.23 1.877 1.23 3.164 0 4.53-2.805 5.527-5.475 5.817.42.354.81 1.077.81 2.182 0 1.578-.015 2.846-.015 3.229 0 .309.21.678.825.56C20.565 21.917 24 17.495 24 12.292 24 5.78 18.627.5 12 .5z"/></svg>
+      Star on GitHub
+    </a>
+  </div>
 </div>
 
 <!-- FOOTER -->
@@ -336,6 +641,71 @@
 <script>
 (async () => {
   const REPO = "theja-vanka/NightFlow";
+
+  // ── Scroll reveal with IntersectionObserver ──
+  const revealEls = document.querySelectorAll('.reveal');
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry, i) => {
+        if (entry.isIntersecting) {
+          // Stagger siblings for feature cards
+          const card = entry.target;
+          const parent = card.parentElement;
+          const siblings = parent ? Array.from(parent.querySelectorAll('.reveal')) : [];
+          const idx = siblings.indexOf(card);
+          const delay = idx >= 0 ? idx * 80 : 0;
+          setTimeout(() => card.classList.add('visible'), delay);
+          observer.unobserve(card);
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+    revealEls.forEach(el => observer.observe(el));
+  } else {
+    // Fallback: show everything
+    revealEls.forEach(el => el.classList.add('visible'));
+  }
+
+  // ── Number count-up animation ──
+  const countEls = document.querySelectorAll('.why-number[data-count]');
+  if ('IntersectionObserver' in window) {
+    const countObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const el = entry.target;
+          const target = parseInt(el.dataset.count, 10);
+          const suffix = el.dataset.suffix || '';
+          const duration = 1200;
+          const start = performance.now();
+
+          // Special case: "0 B" and "0" stay at 0, just animate opacity
+          if (target === 0) {
+            el.textContent = '0' + suffix;
+            countObserver.unobserve(el);
+            return;
+          }
+
+          function step(now) {
+            const progress = Math.min((now - start) / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+            const current = Math.round(eased * target);
+            el.textContent = current + suffix;
+            if (progress < 1) requestAnimationFrame(step);
+          }
+          requestAnimationFrame(step);
+          countObserver.unobserve(el);
+        }
+      });
+    }, { threshold: 0.5 });
+    countEls.forEach(el => countObserver.observe(el));
+  }
+
+  // ── Hide preview section if image fails to load ──
+  const previewImg = document.querySelector('#app-preview img');
+  if (previewImg) {
+    previewImg.onerror = function() {
+      document.getElementById('app-preview').style.display = 'none';
+    };
+  }
 
   // ── Detect user OS ──
   function detectOS() {
@@ -452,7 +822,7 @@
       const isLatest = i === 0;
 
       return `
-        <div class="release-block">
+        <div class="release-block reveal">
           <h3>
             ${tag}${isLatest ? ' <span class="latest-badge">LATEST</span>' : ""}
           </h3>
@@ -463,6 +833,22 @@
           ${assets ? `<div class="release-assets">${assets}</div>` : '<p style="color:var(--text2);font-size:.85rem">No app bundles in this release.</p>'}
         </div>`;
     }).join("");
+
+    // Re-observe dynamically added release blocks
+    const newRevealEls = container.querySelectorAll('.reveal');
+    if ('IntersectionObserver' in window) {
+      const dynObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            dynObserver.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.1 });
+      newRevealEls.forEach(el => dynObserver.observe(el));
+    } else {
+      newRevealEls.forEach(el => el.classList.add('visible'));
+    }
   } catch (e) {
     container.innerHTML = `
       <p class="release-error">Could not load releases. Please visit GitHub directly.</p>
