@@ -2,7 +2,7 @@ import { signal, computed } from "@preact/signals";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { currentProjectId, currentProject, projectList } from "./projects.js";
-import { addRun, updateRun, allRuns, generateRunName } from "./experiments.js";
+import { addRun, updateRun, allRuns, generateRunName, resolveBackboneName } from "./experiments.js";
 import { processQueue } from "./queue.js";
 
 // ── Notifications ──────────────────────────────────────────────────────────
@@ -167,21 +167,29 @@ export async function startTraining(command, cwd, passedRunId) {
   if (project?.numClasses != null && project.numClasses !== "")
     hyperparameters.numClasses = Number(project.numClasses);
 
-  // Create a run record in experiments
+  // Create a run record in experiments — persist everything so RunDetail
+  // can render fully even if log files are later deleted.
   await addRun({
     id: runId,
     name: runName,
     projectId,
     status: "running",
     model: project?.modelCategory ?? "unknown",
+    backbone: resolveBackboneName(project),
+    taskType: project?.taskType || "Classification",
     dataset: project?.folderPath || project?.trainPath || "unknown",
     bestAcc: null,
+    testAcc: null,
     valLoss: null,
     epochs: 0,
     lr: hyperparameters.lr ?? null,
     hyperparameters,
+    testMetrics: {},
+    scalars: {},
     lossCurve: [],
     accCurve: [],
+    tags: [],
+    notes: "",
     created: new Date().toISOString(),
   });
 
@@ -288,11 +296,23 @@ function _processEvent(session_id, data) {
         prevScalars[tag] = [...prevScalars[tag], { step: 0, value }];
       }
 
-      _set(session_id, { event: "testing_complete", testMetrics, scalars: prevScalars });
+      // Capture confusion matrix and per-class metrics if present
+      const confusionMatrix = data.confusion_matrix ?? null;
+      const perClassMetrics = data.per_class_metrics ?? null;
+      if (confusionMatrix) prevScalars["test/confusion_matrix"] = confusionMatrix;
+      if (perClassMetrics) prevScalars["test/per_class_metrics"] = perClassMetrics;
+
+      _set(session_id, {
+        event: "testing_complete",
+        testMetrics,
+        scalars: prevScalars,
+      });
 
       if (state.runId) {
         const updates = { testMetrics, scalars: prevScalars };
         if (testAcc != null) updates.testAcc = testAcc;
+        if (confusionMatrix) updates.confusionMatrix = confusionMatrix;
+        if (perClassMetrics) updates.perClassMetrics = perClassMetrics;
         updateRun(state.runId, updates);
       }
       break;
@@ -406,7 +426,22 @@ function _processEvent(session_id, data) {
       });
 
       if (state.runId) {
-        updateRun(state.runId, { status: "completed" });
+        // Persist all accumulated data so RunDetail can render without files
+        const finalUpdate = {
+          status: "completed",
+          epochs: state.epoch + 1,
+          lossCurve: state.lossCurve,
+          accCurve: state.accCurve,
+          scalars: state.scalars,
+          bestAcc: state.accCurve.length > 0 ? Math.max(...state.accCurve) : null,
+          valLoss: state.metrics?.["val/loss"] ?? null,
+        };
+        if (Object.keys(state.testMetrics).length > 0) {
+          finalUpdate.testMetrics = state.testMetrics;
+          const tAcc = state.testMetrics["test/accuracy"] ?? state.testMetrics["test/acc"] ?? null;
+          if (tAcc != null) finalUpdate.testAcc = tAcc;
+        }
+        updateRun(state.runId, finalUpdate);
       }
 
       // Send OS notification
@@ -495,6 +530,13 @@ export async function recoverOrphanedSessions() {
         if (project.imageSize != null && project.imageSize !== "")
           hp.imageSize = Number(project.imageSize);
         if (project.precision) hp.precision = project.precision;
+        if (project.gradientClipVal != null && project.gradientClipVal !== "")
+          hp.gradientClipVal = Number(project.gradientClipVal);
+        if (project.freezeBackbone) hp.freezeBackbone = true;
+        if (project.seed != null && project.seed !== "")
+          hp.seed = Number(project.seed);
+        if (project.augmentationPreset)
+          hp.augmentationPreset = project.augmentationPreset;
         if (project.numClasses != null && project.numClasses !== "")
           hp.numClasses = Number(project.numClasses);
         await addRun({
@@ -503,14 +545,21 @@ export async function recoverOrphanedSessions() {
           projectId,
           status: "running",
           model: project.modelCategory ?? "unknown",
+          backbone: resolveBackboneName(project),
+          taskType: project.taskType || "Classification",
           dataset: project.folderPath || project.trainPath || "unknown",
           bestAcc: null,
+          testAcc: null,
           valLoss: null,
           epochs: 0,
           lr: hp.lr ?? null,
           hyperparameters: hp,
+          testMetrics: {},
+          scalars: {},
           lossCurve: [],
           accCurve: [],
+          tags: [],
+          notes: "",
           created: new Date(meta.started_at * 1000).toISOString(),
         });
       }

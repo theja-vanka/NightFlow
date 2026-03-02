@@ -96,7 +96,15 @@ export function NetronView() {
         </button>
       </div>
       {error.value && <div class="interp-error">{error.value}</div>}
-      {modelSrc.value ? (
+      {loading.value ? (
+        <div class="netron-loading">
+          <div class="netron-loading-spinner" />
+          <p class="netron-loading-title">Exporting model…</p>
+          <p class="netron-loading-desc">
+            Converting checkpoint to TorchScript for visualization
+          </p>
+        </div>
+      ) : modelSrc.value ? (
         <iframe
           class="netron-frame"
           src={modelSrc.value}

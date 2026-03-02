@@ -34,6 +34,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Sync version from tag
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "Setting version to $VERSION"
+          # package.json
+          node -e "const p=require('./package.json'); p.version='$VERSION'; require('fs').writeFileSync('package.json', JSON.stringify(p,null,2)+'\n')"
+          # src-tauri/tauri.conf.json
+          node -e "const c=require('./src-tauri/tauri.conf.json'); c.version='$VERSION'; require('fs').writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(c,null,2)+'\n')"
+          # src-tauri/Cargo.toml
+          sed -i.bak "s/^version = \".*\"/version = \"$VERSION\"/" src-tauri/Cargo.toml && rm -f src-tauri/Cargo.toml.bak
+
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:

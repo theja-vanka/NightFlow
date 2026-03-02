@@ -1,12 +1,40 @@
 import { signal, computed } from "@preact/signals";
 import { invoke } from "@tauri-apps/api/core";
-import { currentProjectId, projectList } from "./projects.js";
+import {
+  currentProjectId,
+  projectList,
+  MODEL_CATEGORIES,
+  YOLOX_MODEL_CATEGORIES,
+  DETECTION_MODEL_CATEGORIES,
+  SEGMENTATION_MODEL_CATEGORIES,
+} from "./projects.js";
 import {
   getAllRuns,
   saveRun,
   updateRun as dbUpdateRun,
   deleteRun as dbDeleteRun,
 } from "../db/database.js";
+
+/**
+ * Resolve the actual backbone/model name from a project's category and task type.
+ * Mirrors the logic in configBuilder.js but returns just the model name string.
+ */
+export function resolveBackboneName(project) {
+  if (!project) return "unknown";
+  const task = project.taskType || "Classification";
+  const isYolox = task === "Object Detection" && project.detectionArch === "yolox";
+  const isFcos = task === "Object Detection" && !isYolox;
+  const isSeg = task === "Semantic Segmentation" || task === "Instance Segmentation";
+  const category = project.modelCategory || "Edge";
+  const source = isYolox
+    ? YOLOX_MODEL_CATEGORIES
+    : isFcos
+      ? DETECTION_MODEL_CATEGORIES
+      : isSeg
+        ? SEGMENTATION_MODEL_CATEGORIES
+        : MODEL_CATEGORIES;
+  return source[category]?.models?.[0] || (isYolox ? "yolox-s" : "efficientnet_b0");
+}
 
 export const allRuns = signal([]);
 
@@ -154,7 +182,9 @@ export async function loadRunScalars(run, force = false) {
     const updates = {};
 
     if (scalars && Object.keys(scalars).length > 0) {
-      updates.scalars = scalars;
+      // Merge with existing persisted scalars (don't lose data already in DB)
+      const existing = run.scalars || {};
+      updates.scalars = { ...existing, ...scalars };
     }
 
     // 3. Also load hparams.yaml if not already cached

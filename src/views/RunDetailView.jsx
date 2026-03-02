@@ -71,11 +71,15 @@ function formatHparamValue(key, val) {
   return String(val);
 }
 
+// Tags that hold structured data (not scalar points) — excluded from charts
+const NON_SCALAR_TAGS = new Set(["test/confusion_matrix", "test/per_class_metrics"]);
+
 // Build tabs from scalar tags: train, val, test, other
 function buildTabs(scalars) {
   const tabs = {};
   for (const tag of Object.keys(scalars).sort()) {
     if (tag.startsWith("sanity_val/") || tag.startsWith("sanity_val_")) continue;
+    if (NON_SCALAR_TAGS.has(tag)) continue;
     const slashIdx = tag.indexOf("/");
     const prefix = slashIdx > 0 ? tag.slice(0, slashIdx) : "other";
     if (!tabs[prefix]) tabs[prefix] = [];
@@ -313,9 +317,9 @@ export function RunDetailView() {
   const hasScalars = run?.scalars && Object.keys(run.scalars).length > 0;
   const tabs = hasScalars ? buildTabs(run.scalars) : {};
   const tabNames = Object.keys(tabs);
-  // Check for confusion matrix / per-class data in scalars
-  const confusionMatrix = run?.scalars?.["test/confusion_matrix"] || run?.testMetrics?.confusion_matrix || null;
-  const perClassMetrics = run?.scalars?.["test/per_class_metrics"] || run?.testMetrics?.per_class_metrics || null;
+  // Check for confusion matrix / per-class data (persisted directly or in scalars)
+  const confusionMatrix = run?.confusionMatrix || run?.scalars?.["test/confusion_matrix"] || null;
+  const perClassMetrics = run?.perClassMetrics || run?.scalars?.["test/per_class_metrics"] || null;
   const hasClassificationData = confusionMatrix || perClassMetrics;
 
   const TAB_ORDER = ["train", "val", "test"];
@@ -343,9 +347,10 @@ export function RunDetailView() {
     );
   }
 
-  // Prefer hparams from file (hparams.yaml), fall back to project-captured ones
-  const rawHp = fileHparams || run.hyperparameters;
-  const hp = filterHparams(rawHp);
+  // Merge both sources: file hparams (more detailed) + project-captured hparams (always available).
+  // This ensures augmentation, backbone, etc. survive even if log files are deleted.
+  const mergedHp = { ...(run.hyperparameters || {}), ...(fileHparams || {}) };
+  const hp = filterHparams(mergedHp);
   const hasHparams = Object.keys(hp).length > 0;
   const currentTags = activeTab && tabs[activeTab] ? tabs[activeTab] : [];
 
@@ -367,7 +372,9 @@ export function RunDetailView() {
       <NotesSection notes={run.notes || ""} runId={run.id} />
 
       <div class="run-detail-meta">
-        {run.model && <span class="run-meta-tag">Model: {run.model}</span>}
+        {run.backbone && <span class="run-meta-tag">Backbone: {run.backbone}</span>}
+        {!run.backbone && run.model && <span class="run-meta-tag">Model: {run.model}</span>}
+        {run.taskType && <span class="run-meta-tag">Task: {run.taskType}</span>}
         {run.dataset && (
           <span class="run-meta-tag">Dataset: {run.dataset}</span>
         )}
@@ -424,9 +431,9 @@ export function RunDetailView() {
 
           {/* Augmentation Steps */}
           {(() => {
-            const presetName = hp.augmentation_preset || hp.augmentationPreset || run.hyperparameters?.augmentationPreset || run.hyperparameters?.augmentation_preset;
+            const presetName = hp.augmentation_preset || hp.augmentationPreset;
             if (!presetName) return null;
-            const steps = getAugmentationSteps(presetName, { ...run.hyperparameters, ...hp });
+            const steps = getAugmentationSteps(presetName, hp);
             if (!steps) return null;
 
             return (
@@ -497,19 +504,21 @@ export function RunDetailView() {
                 });
 
                 if (allSingular && currentTags.length > 0) {
-                  // Render as a single bar chart with all metrics
-                  const barItems = currentTags.map((tag) => {
-                    const pts = run.scalars[tag];
-                    const val = pts.length === 1
-                      ? (typeof pts[0] === "number" ? pts[0] : pts[0].value)
-                      : 0;
-                    return { label: stripPrefix(tag), value: val };
-                  });
-
+                  // Render each singular metric as its own bar chart
                   return (
-                    <ChartPanel title={`${activeTab} metrics`}>
-                      <BarChart items={barItems} />
-                    </ChartPanel>
+                    <div class="run-detail-charts-grid">
+                      {currentTags.map((tag) => {
+                        const pts = run.scalars[tag];
+                        const val = pts.length === 1
+                          ? (typeof pts[0] === "number" ? pts[0] : pts[0].value)
+                          : 0;
+                        return (
+                          <ChartPanel key={tag} title={stripPrefix(tag)}>
+                            <BarChart items={[{ label: stripPrefix(tag), value: val }]} />
+                          </ChartPanel>
+                        );
+                      })}
+                    </div>
                   );
                 }
 

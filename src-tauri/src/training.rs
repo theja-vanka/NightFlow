@@ -88,6 +88,7 @@ fn remove_training_meta(project_dir: &str) {
     let _ = std::fs::remove_file(meta_path(project_dir));
 }
 
+#[allow(clippy::too_many_arguments)]
 fn spawn_tail_task(
     path: std::path::PathBuf,
     alive: Arc<AtomicBool>,
@@ -113,12 +114,11 @@ fn spawn_tail_task(
                         if is_json {
                             if let Ok(json) = serde_json::from_str::<serde_json::Value>(&line) {
                                 // Skip filtered event types (e.g. training_complete from fit stdout)
-                                if let Some(ref skip) = skip_events {
-                                    if let Some(evt) = json.get("event").and_then(|v| v.as_str()) {
-                                        if skip.iter().any(|s| s == evt) {
-                                            continue;
-                                        }
-                                    }
+                                if let Some(ref skip) = skip_events
+                                    && let Some(evt) = json.get("event").and_then(|v| v.as_str())
+                                    && skip.iter().any(|s| s == evt)
+                                {
+                                    continue;
                                 }
                                 let _ = app.emit(
                                     "training-event",
