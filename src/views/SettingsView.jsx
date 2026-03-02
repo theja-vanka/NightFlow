@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "preact/hooks";
+import { invoke } from "@tauri-apps/api/core";
 import { theme, toggleTheme } from "../state/theme.js";
 import {
   currentProject,
@@ -17,6 +18,7 @@ import { sshConnected, syncConfig } from "../state/dashboard.js";
 import { allRuns } from "../state/experiments.js";
 import { DeleteProjectDialog } from "../components/DeleteProjectDialog.jsx";
 import { clearAllData } from "../db/database.js";
+import { downloadFile } from "../utils/exportRuns.js";
 import { projectList } from "../state/projects.js";
 import { navigate } from "../state/router.js";
 import { startTutorial } from "../state/tutorial.js";
@@ -51,6 +53,7 @@ const EDITABLE_KEYS = [
   "earlyStopping",
   "earlyStoppingPatience",
   "earlyStoppingMonitor",
+  "gpuDevices",
 ];
 
 // Read-only fields that need to be included in draft for rendering
@@ -187,6 +190,52 @@ function ClearAllDataDialog({ onClose }) {
   );
 }
 
+function SshKeysSection() {
+  const [keys, setKeys] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    invoke("list_ssh_keys")
+      .then((k) => {
+        setKeys(k);
+        setLoaded(true);
+      })
+      .catch(() => setLoaded(true));
+  }, []);
+
+  if (!loaded) return null;
+
+  return (
+    <section class="settings-section">
+      <div class="settings-section-header">
+        <h2 class="settings-heading">SSH Keys</h2>
+        <p class="settings-heading-desc">
+          Detected SSH keys from ~/.ssh/
+        </p>
+      </div>
+      <div class="settings-card">
+        {keys.length === 0 ? (
+          <div class="settings-card-row">
+            <div class="settings-desc">No SSH keys found in ~/.ssh/</div>
+          </div>
+        ) : (
+          <div class="ssh-keys-list">
+            {keys.map((k) => (
+              <div key={k.name} class="ssh-key-item">
+                <div class="ssh-key-info">
+                  <span class="ssh-key-name">{k.name}</span>
+                  <span class="ssh-key-fingerprint">{k.fingerprint}</span>
+                </div>
+                <span class="ssh-key-type">{k.key_type}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export function SettingsView() {
   const proj = currentProject.value;
   const [draft, setDraft] = useState(() => {
@@ -204,6 +253,10 @@ export function SettingsView() {
   });
   const [saved, setSaved] = useState(false);
   const savedTimer = useRef(null);
+  const [augPreviewOpen, setAugPreviewOpen] = useState(false);
+  const [augPreviewImages, setAugPreviewImages] = useState([]);
+  const [augPreviewLoading, setAugPreviewLoading] = useState(false);
+  const [augSourceImage, setAugSourceImage] = useState(null);
 
   // Re-sync draft when switching projects
   useEffect(() => {
@@ -687,6 +740,9 @@ export function SettingsView() {
             </div>
           </section>
 
+          {/* SSH Keys */}
+          <SshKeysSection />
+
           {/* Appearance */}
           <section class="settings-section">
             <div class="settings-section-header">
@@ -751,6 +807,82 @@ export function SettingsView() {
                   onClick={startTutorial}
                 >
                   Restart Tour
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* Project Import / Export */}
+          <section class="settings-section">
+            <div class="settings-section-header">
+              <h2 class="settings-heading">Project Config</h2>
+              <p class="settings-heading-desc">
+                Export or import project configuration as a JSON template
+              </p>
+            </div>
+            <div class="settings-card">
+              <div class="settings-card-row settings-row-between">
+                <div>
+                  <div class="settings-label">Export Project Config</div>
+                  <div class="settings-desc">
+                    Download this project's settings as a portable JSON file
+                  </div>
+                </div>
+                <button
+                  class="settings-action-btn"
+                  onClick={() => {
+                    const config = { ...proj };
+                    // Remove internal/volatile fields
+                    delete config.syncMetadata;
+                    const json = JSON.stringify(config, null, 2);
+                    downloadFile(
+                      json,
+                      `${(proj.name || "project").replace(/\s+/g, "-")}-config.json`,
+                      "application/json",
+                    );
+                  }}
+                >
+                  Export
+                </button>
+              </div>
+              <div class="settings-card-divider" />
+              <div class="settings-card-row settings-row-between">
+                <div>
+                  <div class="settings-label">Import Project Config</div>
+                  <div class="settings-desc">
+                    Create a new project from an exported JSON config
+                  </div>
+                </div>
+                <button
+                  class="settings-action-btn"
+                  onClick={() => {
+                    const input = document.createElement("input");
+                    input.type = "file";
+                    input.accept = ".json";
+                    input.onchange = async (e) => {
+                      const file = e.target.files[0];
+                      if (!file) return;
+                      try {
+                        const text = await file.text();
+                        const config = JSON.parse(text);
+                        // Assign new ID
+                        const { addProject } = await import("../state/projects.js");
+                        config.id = String(
+                          Math.max(0, ...projectList.value.map((p) => Number(p.id) || 0)) + 1,
+                        );
+                        config.name = config.name
+                          ? `${config.name} (imported)`
+                          : "Imported Project";
+                        delete config.syncMetadata;
+                        await addProject(config);
+                      } catch (err) {
+                        console.error("Failed to import project config:", err);
+                      }
+                    };
+                    input.click();
+                  }}
+                >
+                  Import
                 </button>
               </div>
             </div>
@@ -1050,6 +1182,15 @@ export function SettingsView() {
                     </select>
                     <span class="settings-select-chevron" />
                   </div>
+                  <button
+                    type="button"
+                    class="settings-action-btn"
+                    style="margin-top:6px"
+                    onClick={() => setAugPreviewOpen(true)}
+                    disabled={locked}
+                  >
+                    Preview
+                  </button>
                 </label>
                 <label class="settings-field">
                   <span class="settings-label">Gradient Clip</span>
@@ -1119,6 +1260,23 @@ export function SettingsView() {
                   />
                 </label>
               </div>
+              <div class="settings-card-divider" />
+              <div class="settings-card-row">
+                <label class="settings-field">
+                  <span class="settings-label">GPU Devices</span>
+                  <span class="settings-hint">
+                    CUDA_VISIBLE_DEVICES — e.g. 0 or 0,1 (leave empty for auto)
+                  </span>
+                  <input
+                    class="settings-input"
+                    type="text"
+                    value={draft.gpuDevices}
+                    placeholder="auto"
+                    disabled={locked}
+                    onInput={(e) => set("gpuDevices", e.target.value)}
+                  />
+                </label>
+              </div>
             </div>
           </section>
         </>
@@ -1151,6 +1309,81 @@ export function SettingsView() {
       </div>
 
       <DeleteProjectDialog />
+
+      {augPreviewOpen && (
+        <div class="modal-overlay" onClick={() => setAugPreviewOpen(false)}>
+          <div class="modal" onClick={(e) => e.stopPropagation()} style="max-width:640px">
+            <div class="modal-header">
+              <h3>Augmentation Preview</h3>
+              <button class="modal-close" onClick={() => setAugPreviewOpen(false)}>&times;</button>
+            </div>
+            <div class="modal-body">
+              <p class="settings-hint" style="margin-bottom:12px">
+                Preset: <strong>{draft.augmentationPreset || "Auto (default)"}</strong>
+              </p>
+              {!augSourceImage ? (
+                <label class="aug-preview-upload">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style="display:none"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        const b64 = reader.result.split(",")[1];
+                        setAugSourceImage(b64);
+                        setAugPreviewLoading(true);
+                        invoke("preview_augmentation", {
+                          projectPath: proj.projectPath,
+                          imageBase64: b64,
+                          preset: draft.augmentationPreset || "default",
+                          sshCommand: proj.connectionType === "ssh" ? proj.sshCommand : null,
+                        })
+                          .then((res) => setAugPreviewImages(res.images || []))
+                          .catch(() => setAugPreviewImages([]))
+                          .finally(() => setAugPreviewLoading(false));
+                      };
+                      reader.readAsDataURL(file);
+                    }}
+                  />
+                  Click to upload a sample image
+                </label>
+              ) : (
+                <>
+                  <button
+                    class="settings-action-btn"
+                    style="margin-bottom:12px"
+                    onClick={() => {
+                      setAugSourceImage(null);
+                      setAugPreviewImages([]);
+                    }}
+                  >
+                    Choose different image
+                  </button>
+                  {augPreviewLoading ? (
+                    <p class="settings-hint">Generating augmented images...</p>
+                  ) : augPreviewImages.length > 0 ? (
+                    <div class="aug-preview-grid">
+                      {augPreviewImages.map((img, i) => (
+                        <img
+                          key={i}
+                          class="aug-preview-img"
+                          src={`data:image/png;base64,${img}`}
+                          alt={`Augmented ${i + 1}`}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <p class="settings-hint">No augmented images generated. Ensure the project environment is set up.</p>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

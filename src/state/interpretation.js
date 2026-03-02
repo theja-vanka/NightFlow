@@ -107,6 +107,11 @@ export async function runInterpretation() {
       sshCommand,
     });
 
+    // Surface top-level error from Python script failure
+    if (result.error) {
+      interpretationError.value = result.error;
+    }
+
     interpretationResult.value = result;
   } catch (err) {
     interpretationError.value =

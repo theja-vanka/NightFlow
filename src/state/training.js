@@ -1,8 +1,40 @@
 import { signal, computed } from "@preact/signals";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import {
+  isPermissionGranted,
+  requestPermission,
+  sendNotification,
+} from "@tauri-apps/plugin-notification";
 import { currentProjectId, currentProject, projectList } from "./projects.js";
 import { addRun, updateRun, allRuns, generateRunName } from "./experiments.js";
+import { processQueue } from "./queue.js";
+
+// ── Notifications ──────────────────────────────────────────────────────────
+
+let _notificationsAllowed = false;
+
+async function _initNotifications() {
+  try {
+    let granted = await isPermissionGranted();
+    if (!granted) {
+      const perm = await requestPermission();
+      granted = perm === "granted";
+    }
+    _notificationsAllowed = granted;
+  } catch {
+    _notificationsAllowed = false;
+  }
+}
+
+function _notify(title, body) {
+  if (!_notificationsAllowed) return;
+  try {
+    sendNotification({ title, body });
+  } catch {
+    // notification may fail silently
+  }
+}
 
 // ── Per-project training state ───────────────────────────────────────────────
 
@@ -25,6 +57,8 @@ const _defaultTraining = () => ({
   lossCurve: [],
   accCurve: [],
   scalars: {}, // { [tag]: [{ step, value }] } — all metrics accumulated per epoch
+  epochStartTime: null, // timestamp when current epoch started
+  estimatedRemaining: null, // estimated remaining time in ms
 });
 
 function _get(projectId) {
@@ -63,6 +97,10 @@ export const trainingFastDevRun = computed(
 );
 export const trainingTestMetrics = computed(
   () => _get(currentProjectId.value).testMetrics,
+);
+
+export const trainingEstimatedRemaining = computed(
+  () => _get(currentProjectId.value).estimatedRemaining,
 );
 
 export const trainingProgress = computed(() => {
@@ -234,6 +272,7 @@ function _processEvent(session_id, data) {
         event: "epoch_started",
         epoch: data.epoch ?? 0,
         maxEpochs: data.max_epochs ?? state.maxEpochs,
+        epochStartTime: Date.now(),
       });
       break;
 
@@ -261,6 +300,14 @@ function _processEvent(session_id, data) {
         prevScalars[tag] = [...prevScalars[tag], { step: epoch, value }];
       }
 
+      // Calculate estimated remaining time
+      let estimatedRemaining = state.estimatedRemaining;
+      if (state.epochStartTime && state.maxEpochs > 0) {
+        const epochDuration = Date.now() - state.epochStartTime;
+        const remaining = epochDuration * (state.maxEpochs - epoch - 1);
+        estimatedRemaining = remaining > 0 ? remaining : null;
+      }
+
       _set(session_id, {
         event: "epoch_end",
         epoch,
@@ -268,6 +315,7 @@ function _processEvent(session_id, data) {
         loss,
         lossCurve,
         scalars: prevScalars,
+        estimatedRemaining,
       });
 
       if (state.runId) {
@@ -316,31 +364,59 @@ function _processEvent(session_id, data) {
       break;
     }
 
-    case "training_complete":
+    case "training_complete": {
+      const finalMetrics = data.final_metrics ?? state.metrics;
       _set(session_id, {
         event: "training_complete",
         active: false,
         reconnected: false,
-        metrics: data.final_metrics ?? state.metrics,
+        metrics: finalMetrics,
+        estimatedRemaining: null,
       });
 
       if (state.runId) {
         updateRun(state.runId, { status: "completed" });
       }
-      break;
 
-    case "training_error":
+      // Send OS notification
+      const bestAcc = state.accCurve.length > 0
+        ? (Math.max(...state.accCurve) * 100).toFixed(1) + "%"
+        : null;
+      _notify(
+        "Training Complete",
+        bestAcc
+          ? `Run finished with best accuracy: ${bestAcc}`
+          : "Training finished successfully.",
+      );
+
+      // Process next queued run
+      processQueue(session_id);
+      break;
+    }
+
+    case "training_error": {
+      const errorMsg = data.error ?? "Unknown error";
       _set(session_id, {
         event: "training_error",
         active: false,
         reconnected: false,
-        error: data.error ?? "Unknown error",
+        error: errorMsg,
+        estimatedRemaining: null,
       });
 
       if (state.runId) {
         updateRun(state.runId, { status: "failed" });
       }
+
+      _notify(
+        "Training Failed",
+        errorMsg.length > 100 ? errorMsg.slice(0, 100) + "..." : errorMsg,
+      );
+
+      // Process next queued run
+      processQueue(session_id);
       break;
+    }
   }
 }
 
@@ -505,6 +581,9 @@ let _unlistenLog = null;
 export async function initTrainingListeners() {
   // Avoid double-init
   if (_unlistenEvent) return;
+
+  // Request notification permission
+  _initNotifications();
 
   _unlistenEvent = await listen("training-event", (e) => {
     const { session_id, data } = e.payload;

@@ -1,10 +1,13 @@
 import { useState, useEffect } from "preact/hooks";
 import { invoke } from "@tauri-apps/api/core";
 import { navigate, routeParams } from "../state/router.js";
-import { allRuns, loadRunScalars, loadRunHparams } from "../state/experiments.js";
+import { allRuns, loadRunScalars, loadRunHparams, updateRun } from "../state/experiments.js";
 import { currentProject } from "../state/projects.js";
 import { ChartPanel } from "../components/ChartPanel.jsx";
 import { LineChart } from "../components/LineChart.jsx";
+import { ExportDropdown } from "../components/ExportDropdown.jsx";
+import { ConfusionMatrix } from "../components/ConfusionMatrix.jsx";
+import { PerClassMetrics } from "../components/PerClassMetrics.jsx";
 
 // Convert snake_case / camelCase keys to Title Case labels
 function formatLabel(key) {
@@ -86,6 +89,71 @@ function stripPrefix(tag) {
   return idx > 0 ? tag.slice(idx + 1) : tag;
 }
 
+function TagsInput({ tags = [], runId }) {
+  const [input, setInput] = useState("");
+
+  function addTag(e) {
+    if (e.key !== "Enter" || !input.trim()) return;
+    const newTag = input.trim();
+    if (!tags.includes(newTag)) {
+      updateRun(runId, { tags: [...tags, newTag] });
+    }
+    setInput("");
+  }
+
+  function removeTag(tag) {
+    updateRun(runId, { tags: tags.filter((t) => t !== tag) });
+  }
+
+  return (
+    <div class="tag-chips">
+      {tags.map((tag) => (
+        <span key={tag} class="tag-chip">
+          {tag}
+          <button class="tag-chip-remove" onClick={() => removeTag(tag)}>
+            &times;
+          </button>
+        </span>
+      ))}
+      <input
+        type="text"
+        class="tag-input-inline"
+        placeholder="Add tag..."
+        value={input}
+        onInput={(e) => setInput(e.currentTarget.value)}
+        onKeyDown={addTag}
+      />
+    </div>
+  );
+}
+
+function NotesSection({ notes = "", runId }) {
+  const [value, setValue] = useState(notes);
+
+  useEffect(() => {
+    setValue(notes);
+  }, [notes]);
+
+  function handleBlur() {
+    if (value !== notes) {
+      updateRun(runId, { notes: value });
+    }
+  }
+
+  return (
+    <div class="run-notes-section">
+      <div class="run-notes-label">Notes</div>
+      <textarea
+        class="run-notes-textarea"
+        value={value}
+        onInput={(e) => setValue(e.currentTarget.value)}
+        onBlur={handleBlur}
+        placeholder="Add notes about this run..."
+      />
+    </div>
+  );
+}
+
 function DownloadModelButton({ runId, runName }) {
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
@@ -156,6 +224,7 @@ export function RunDetailView() {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState(null);
   const [fileHparams, setFileHparams] = useState(null);
+  const [modelInfo, setModelInfo] = useState(null);
 
   // If run has no scalars in IndexedDB, try loading from its JSONL file
   useEffect(() => {
@@ -179,14 +248,33 @@ export function RunDetailView() {
     });
   }, [runId]);
 
+  // Load model info (params, FLOPs)
+  useEffect(() => {
+    if (!run) return;
+    const project = currentProject.value;
+    if (!project?.projectPath) return;
+    invoke("parse_model_info", {
+      projectPath: project.projectPath,
+      runId: run.id,
+    })
+      .then((info) => setModelInfo(info))
+      .catch(() => setModelInfo(null));
+  }, [runId]);
+
   // Auto-select first tab when scalars become available
   const hasScalars = run?.scalars && Object.keys(run.scalars).length > 0;
   const tabs = hasScalars ? buildTabs(run.scalars) : {};
   const tabNames = Object.keys(tabs);
+  // Check for confusion matrix / per-class data in scalars
+  const confusionMatrix = run?.scalars?.["test/confusion_matrix"] || run?.testMetrics?.confusion_matrix || null;
+  const perClassMetrics = run?.scalars?.["test/per_class_metrics"] || run?.testMetrics?.per_class_metrics || null;
+  const hasClassificationData = confusionMatrix || perClassMetrics;
+
   const TAB_ORDER = ["train", "val", "test"];
   const sortedTabs = [
     ...TAB_ORDER.filter((t) => tabNames.includes(t)),
     ...tabNames.filter((t) => !TAB_ORDER.includes(t)),
+    ...(hasClassificationData ? ["classification"] : []),
   ];
 
   // Reset active tab when run changes or tabs change
@@ -221,8 +309,14 @@ export function RunDetailView() {
 
       <div class="run-detail-header">
         <h2>{run.name || run.id}</h2>
-        <DownloadModelButton runId={run.id} runName={run.name || run.id} />
+        <div style="display:flex;align-items:center;gap:8px">
+          <ExportDropdown runs={run} filenamePrefix={run.name || run.id} />
+          <DownloadModelButton runId={run.id} runName={run.name || run.id} />
+        </div>
       </div>
+
+      <TagsInput tags={run.tags || []} runId={run.id} />
+      <NotesSection notes={run.notes || ""} runId={run.id} />
 
       <div class="run-detail-meta">
         {run.model && <span class="run-meta-tag">Model: {run.model}</span>}
@@ -279,6 +373,46 @@ export function RunDetailView() {
               </div>
             </div>
           )}
+
+          {/* Model Info */}
+          {modelInfo && (modelInfo.total_params || modelInfo.model_size_mb || modelInfo.flops) && (
+            <div class="model-info-section">
+              <h3 class="run-detail-group-title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.5">
+                  <rect x="2" y="3" width="20" height="14" rx="2" />
+                  <line x1="8" y1="21" x2="16" y2="21" />
+                  <line x1="12" y1="17" x2="12" y2="21" />
+                </svg>
+                Model Info
+              </h3>
+              <div class="model-info-list">
+                {modelInfo.total_params ? (
+                  <div class="model-info-item">
+                    <span class="model-info-key">Total Params</span>
+                    <span class="model-info-val">{modelInfo.total_params}</span>
+                  </div>
+                ) : null}
+                {modelInfo.trainable_params ? (
+                  <div class="model-info-item">
+                    <span class="model-info-key">Trainable</span>
+                    <span class="model-info-val">{modelInfo.trainable_params}</span>
+                  </div>
+                ) : null}
+                {modelInfo.model_size_mb ? (
+                  <div class="model-info-item">
+                    <span class="model-info-key">Model Size</span>
+                    <span class="model-info-val">{modelInfo.model_size_mb}</span>
+                  </div>
+                ) : null}
+                {modelInfo.flops ? (
+                  <div class="model-info-item">
+                    <span class="model-info-key">FLOPs</span>
+                    <span class="model-info-val">{modelInfo.flops}</span>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Columns 2-3: Charts with tabs */}
@@ -303,24 +437,44 @@ export function RunDetailView() {
                 ))}
               </div>
 
-              <div class="run-detail-charts-grid">
-                {currentTags.map((tag) => {
-                  const points = run.scalars[tag];
-                  const data =
-                    typeof points[0] === "number"
-                      ? points
-                      : points.map((s) => s.value);
-                  return (
-                    <ChartPanel key={tag} title={stripPrefix(tag)}>
-                      <LineChart
-                        series={[{ label: stripPrefix(tag), data }]}
-                        yLabel=""
-                        xLabel="Epoch"
+              {activeTab === "classification" ? (
+                <div style="padding: 8px 0">
+                  {confusionMatrix && Array.isArray(confusionMatrix) && (
+                    <>
+                      <h3 class="run-detail-group-title">Confusion Matrix</h3>
+                      <ConfusionMatrix
+                        matrix={confusionMatrix.matrix || confusionMatrix}
+                        labels={confusionMatrix.labels || confusionMatrix.map((_, i) => `Class ${i}`)}
                       />
-                    </ChartPanel>
-                  );
-                })}
-              </div>
+                    </>
+                  )}
+                  {perClassMetrics && Array.isArray(perClassMetrics) && (
+                    <>
+                      <h3 class="run-detail-group-title" style="margin-top:20px">Per-Class Metrics</h3>
+                      <PerClassMetrics metrics={perClassMetrics} />
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div class="run-detail-charts-grid">
+                  {currentTags.map((tag) => {
+                    const points = run.scalars[tag];
+                    const data =
+                      typeof points[0] === "number"
+                        ? points
+                        : points.map((s) => s.value);
+                    return (
+                      <ChartPanel key={tag} title={stripPrefix(tag)}>
+                        <LineChart
+                          series={[{ label: stripPrefix(tag), data }]}
+                          yLabel=""
+                          xLabel="Epoch"
+                        />
+                      </ChartPanel>
+                    );
+                  })}
+                </div>
+              )}
             </>
           ) : null}
 

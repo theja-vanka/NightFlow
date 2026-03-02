@@ -11,8 +11,19 @@ import {
   trainingFastDevRun,
   trainingMetrics,
   trainingTestMetrics,
+  trainingEstimatedRemaining,
   stopTraining,
 } from "../state/training.js";
+
+function formatDuration(ms) {
+  if (ms == null || ms <= 0) return null;
+  const totalMin = Math.floor(ms / 60000);
+  if (totalMin < 1) return "< 1m";
+  const hours = Math.floor(totalMin / 60);
+  const mins = totalMin % 60;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  return `${mins}m`;
+}
 
 function ProgressBar({ value }) {
   return (
@@ -96,6 +107,10 @@ export function TrainingPanel() {
               <span class="training-stat-label">Epoch</span>
               <span class="training-stat-value">
                 {epoch + 1} / {maxEpochs}
+                {(() => {
+                  const eta = formatDuration(trainingEstimatedRemaining.value);
+                  return eta ? <span class="training-eta"> (~{eta} remaining)</span> : null;
+                })()}
               </span>
             </div>
             <div class="training-stat">

@@ -88,6 +88,7 @@ export async function loadProjects() {
         ...(p.earlyStoppingMonitor === undefined && {
           earlyStoppingMonitor: "val/loss",
         }),
+        ...(p.gpuDevices === undefined && { gpuDevices: "" }),
       };
     });
     projectList.value = updatedProjects;
@@ -474,6 +475,7 @@ const defaultData = {
   earlyStopping: true,
   earlyStoppingPatience: "",
   earlyStoppingMonitor: "val/loss",
+  gpuDevices: "",
 };
 
 export const STEP_COUNT = 6;

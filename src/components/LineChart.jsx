@@ -39,14 +39,14 @@ export function LineChart({
   );
 
   const strokes = [
-    "#5b8def",
-    "#f5a623",
-    "#e55c7a",
-    "#50c878",
-    "#b07ce8",
-    "#f06d3c",
-    "#3cc7c7",
-    "#d4a0f5",
+    "var(--chart-line-1)",
+    "var(--chart-line-2)",
+    "var(--chart-line-3)",
+    "var(--chart-line-4)",
+    "var(--chart-line-5)",
+    "var(--chart-line-6)",
+    "var(--chart-line-7)",
+    "var(--chart-line-8)",
   ];
 
   return (
@@ -63,7 +63,7 @@ export function LineChart({
           y1={toY(v)}
           x2={pad.left + cw}
           y2={toY(v)}
-          stroke="var(--border-color)"
+          stroke="var(--chart-grid)"
           stroke-width="1"
         />
       ))}
@@ -74,7 +74,7 @@ export function LineChart({
         y1={pad.top}
         x2={pad.left}
         y2={pad.top + ch}
-        stroke="var(--border-color)"
+        stroke="var(--chart-axis)"
         stroke-width="1"
       />
       <line
@@ -82,7 +82,7 @@ export function LineChart({
         y1={pad.top + ch}
         x2={pad.left + cw}
         y2={pad.top + ch}
-        stroke="var(--border-color)"
+        stroke="var(--chart-axis)"
         stroke-width="1"
       />
 

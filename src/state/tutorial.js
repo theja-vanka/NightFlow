@@ -16,19 +16,19 @@ export const tutorialSteps = [
   {
     target: ".sidebar-nav",
     title: "Navigation",
-    body: "Use these icons to switch between views — Dashboard, Experiments, Charts, Terminal, Model Viewer, and Settings.",
+    body: "Use these icons to switch between views — Dashboard, Experiments, Dataset Browser, Interpretation, Model Viewer, Terminal, and Settings. Use Ctrl+1–7 to jump between them, or Ctrl+K to see all shortcuts.",
     position: "right",
   },
   {
     target: ".sidebar-projects",
     title: "Projects",
-    body: "All your projects live here. Click a project to switch to it, or use the \"+\" button to create a new one.",
+    body: "All your projects live here. Click a project to switch to it, or use the \"+\" button to create a new one. You can export and import project configs from Settings.",
     position: "right",
   },
   {
     target: ".header",
-    title: "Header",
-    body: "Shows the current page title and gives you quick access to the theme toggle for switching between dark and light mode.",
+    title: "Header & Theme",
+    body: "Shows the current page title and project name. Use the theme toggle to switch between dark and light mode — charts automatically adapt their color palette.",
     position: "bottom",
   },
   {
@@ -40,7 +40,7 @@ export const tutorialSteps = [
   {
     target: ".ssh-status-banner",
     title: "Connect",
-    body: "Click the Connect button to establish a connection to your remote machine (or localhost). The tutorial will continue once connected.",
+    body: "Click the Connect button to establish a connection to your remote machine (or localhost). You can manage your SSH keys in Settings. The tutorial will continue once connected.",
     position: "bottom",
     waitFor: () => sshConnected.value,
   },
@@ -54,19 +54,37 @@ export const tutorialSteps = [
   {
     target: ".summary-grid",
     title: "Summary Cards",
-    body: "After syncing, these cards show an overview of your runs — total count, completed, running, failed, and your best accuracy so far.",
+    body: "After syncing, these cards show an overview of your runs — total count, running, and your best validation and test accuracy.",
     position: "top",
   },
   {
     target: ".start-training-section",
     title: "Launch Training",
-    body: "Ready to train? Configure your model, dataset, and hyperparameters here, then kick off an experiment with one click.",
+    body: "Configure your model, dataset, and hyperparameters, then start training with one click. You can also queue multiple runs to execute sequentially. An ETA will show after the first epoch, and you'll get an OS notification when training finishes.",
     position: "top",
   },
   {
     target: ".sidebar-nav",
-    title: "More Views Unlocked",
-    body: "Now that you're connected and synced, all navigation views are available — explore Experiments, Charts, Terminal, and the Model Viewer. You're all set!",
+    title: "Experiments & Run Details",
+    body: "The Experiments view lists all your runs with filtering and sorting. Click a run to see its charts, hyperparameters, model info (params & FLOPs), confusion matrix, and per-class metrics. You can tag runs, add notes, and export data as CSV or JSON.",
+    position: "right",
+  },
+  {
+    target: ".sidebar-nav",
+    title: "Dataset Browser",
+    body: "Browse your training dataset with a visual thumbnail grid. See class distribution at a glance, click a class bar to filter, and paginate through images.",
+    position: "right",
+  },
+  {
+    target: ".sidebar-nav",
+    title: "Interpretation & Augmentation",
+    body: "Use the Interpretation view to run GradCAM and other visualizations on your trained models. In Settings, you can preview what augmentation presets do to your images before training.",
+    position: "right",
+  },
+  {
+    target: ".sidebar-nav",
+    title: "You're All Set!",
+    body: "Explore all the views now that you're connected and synced. Check Settings for GPU selection, SSH key management, and project config export/import. Happy experimenting!",
     position: "right",
   },
 ];

@@ -15,6 +15,7 @@ import {
   syncDashboard,
   syncProgress,
   syncShowingCompletion,
+  syncLogs,
   datasetPathStatus,
   condaInfo,
   uvInfo,
@@ -24,6 +25,7 @@ import {
 } from "../state/dashboard.js";
 import { currentProject } from "../state/projects.js";
 import { startTraining, trainingActive } from "../state/training.js";
+import { addToQueue, projectQueue, removeFromQueue, queueLength } from "../state/queue.js";
 
 function SshStatusBanner() {
   const info = sshInfo.value;
@@ -388,6 +390,8 @@ function SyncScreen() {
   const syncing = dashboardSyncing.value;
   const progress = syncProgress.value;
   const showingCompletion = syncShowingCompletion.value;
+  const logs = syncLogs.value;
+  const latestLog = logs.length > 0 ? logs[logs.length - 1] : null;
 
   return (
     <div class="dashboard-sync-screen">
@@ -426,6 +430,21 @@ function SyncScreen() {
             "Sync"
           )}
         </button>
+        {(syncing || showingCompletion) && (
+          <div class="sync-progress-section">
+            <div class="sync-progress-bar-track">
+              <div
+                class="sync-progress-bar-fill"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            {latestLog && (
+              <p class={`sync-progress-step sync-step-${latestLog.type}`}>
+                {latestLog.message}
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -621,25 +640,41 @@ function StartTrainingButton() {
           <span style="white-space: pre-wrap; word-break: break-word; min-width: 0;">{commandDisplay}</span>
         </div>
       )}
-      <button
-        class="start-training-btn"
-        onClick={handleClick}
-        disabled={active}
-      >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
+      <div style="display:flex;gap:8px;align-items:center">
+        <button
+          class="start-training-btn"
+          onClick={handleClick}
+          disabled={active}
         >
-          <polygon points="5 3 19 12 5 21 5 3" />
-        </svg>
-        Start Training
-      </button>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polygon points="5 3 19 12 5 21 5 3" />
+          </svg>
+          Start Training
+        </button>
+        {active && (
+          <button
+            class="export-btn"
+            onClick={() => {
+              const runId = crypto.randomUUID();
+              addToQueue(project.id, { command, cwd: project.projectPath, runId });
+            }}
+          >
+            + Add to Queue
+          </button>
+        )}
+      </div>
+      {queueLength.value > 0 && (
+        <span class="queue-indicator">Queue: {queueLength.value} remaining</span>
+      )}
     </div>
   );
 }
@@ -694,6 +729,30 @@ export function DashboardView() {
             <SystemMetricsPanel />
           </div>
           <TrainingPanel />
+          {projectQueue.value.length > 0 && (
+            <div class="queue-section">
+              <div class="queue-section-title">Queued Runs</div>
+              <div class="queue-list">
+                {projectQueue.value
+                  .filter((q) => q.status === "queued")
+                  .map((q, i) => (
+                    <div key={q.id} class="queue-item">
+                      <div class="queue-item-info">
+                        <span class="queue-item-index">#{i + 1}</span>
+                        <span>Queued run</span>
+                      </div>
+                      <button
+                        class="queue-item-remove"
+                        onClick={() => removeFromQueue(q.id)}
+                        title="Remove from queue"
+                      >
+                        &times;
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
           {!trainingActive.value && <StartTrainingButton />}
           <ResyncButton />
         </>

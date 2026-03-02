@@ -167,7 +167,19 @@ export function buildConfigYaml(project, runId = "default") {
   lines.push("trainer:");
   lines.push(`  max_epochs: ${project.maxEpochs || 10}`);
   lines.push("  accelerator: auto");
-  lines.push("  devices: auto");
+  if (project.gpuDevices) {
+    // Convert "0,1" to [0, 1] YAML list
+    const gpus = project.gpuDevices.split(",").map((s) => s.trim()).filter(Boolean);
+    if (gpus.length === 1) {
+      lines.push(`  devices: [${gpus[0]}]`);
+    } else if (gpus.length > 1) {
+      lines.push(`  devices: [${gpus.join(", ")}]`);
+    } else {
+      lines.push("  devices: auto");
+    }
+  } else {
+    lines.push("  devices: auto");
+  }
 
   if (project.precision) {
     lines.push(`  precision: ${project.precision}`);

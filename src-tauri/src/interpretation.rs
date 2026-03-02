@@ -85,6 +85,14 @@ pub async fn run_interpretation(
     let methods_str = methods.join(",");
     let tc = task_class.unwrap_or_else(|| "ImageClassifier".to_string());
 
+    // Locate hparams.yaml (try direct path first, then version_0 subdirectory)
+    let hparams_base = PathBuf::from(&pp).join("logs").join(&run_id);
+    let hparams_candidates = [
+        hparams_base.join("hparams.yaml"),
+        hparams_base.join("version_0").join("hparams.yaml"),
+    ];
+    let hparams_path = hparams_candidates.iter().find(|p| p.exists());
+
     if let Some(ssh_cmd) = ssh_command {
         // ── Remote execution via SSH ────────────────────────────────────
         let parts: Vec<String> = ssh_cmd.split_whitespace().map(String::from).collect();
@@ -128,8 +136,9 @@ pub async fn run_interpretation(
             .to_string();
 
         // Run interpretation remotely
+        let hparams_arg = format!("{pp}/logs/{run_id}/hparams.yaml");
         let run_cmd = format!(
-            "{python} -m autotimm.interpret_cli --checkpoint \"{remote_ckpt}\" --image \"{image_path}\" --methods \"{methods_str}\" --output-dir \"{output_dir}\" --task-class \"{tc}\""
+            "{python} -m autotimm.interpret_cli --checkpoint \"{remote_ckpt}\" --image \"{image_path}\" --methods \"{methods_str}\" --output-dir \"{output_dir}\" --task-class \"{tc}\" --hparams-yaml \"{hparams_arg}\""
         );
 
         let output = tokio::process::Command::new(&parts[0])
@@ -141,6 +150,13 @@ pub async fn run_interpretation(
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
+            let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            // Try to extract a meaningful error from JSON output
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&stdout) {
+                if let Some(error) = val.get("error").and_then(|e| e.as_str()) {
+                    return Err(error.to_string());
+                }
+            }
             return Err(format!("Interpretation failed: {stderr}"));
         }
 
@@ -251,6 +267,11 @@ pub async fn run_interpretation(
             .arg(&output_dir)
             .arg("--task-class")
             .arg(&tc)
+            .args(if let Some(hp) = &hparams_path {
+                vec!["--hparams-yaml".to_string(), hp.to_string_lossy().to_string()]
+            } else {
+                vec![]
+            })
             .current_dir(&pp)
             .output()
             .await
@@ -259,8 +280,12 @@ pub async fn run_interpretation(
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             let stdout = String::from_utf8_lossy(&output.stdout);
-            // Try to parse stdout for partial results even on failure
+            // Try to extract a meaningful error from JSON output
             if let Ok(val) = serde_json::from_str::<serde_json::Value>(&stdout) {
+                if let Some(error) = val.get("error").and_then(|e| e.as_str()) {
+                    return Err(error.to_string());
+                }
+                // Partial results without top-level error — return them
                 return Ok(val);
             }
             return Err(format!("Interpretation failed: {stderr}"));
@@ -271,6 +296,88 @@ pub async fn run_interpretation(
             serde_json::from_str(&stdout).map_err(|e| format!("Invalid JSON output: {e}"))?;
 
         Ok(result)
+    }
+}
+
+/// Preview augmentation transforms on an image.
+/// Runs a small Python script that applies augmentation preset transforms
+/// and returns base64-encoded augmented images.
+#[command]
+pub async fn preview_augmentation(
+    project_path: String,
+    image_path: String,
+    preset: String,
+) -> Result<Vec<String>, String> {
+    let pp = expand_tilde(project_path.trim_end_matches('/').trim_end_matches('\\'));
+
+    // Resolve python: prefer project venv
+    let venv_python = PathBuf::from(&pp).join(".venv/bin/python");
+    let python = if venv_python.exists() {
+        venv_python.to_string_lossy().to_string()
+    } else {
+        crate::env::python_cmd().to_string()
+    };
+
+    let script = format!(
+        r#"
+import json, base64, io, sys
+try:
+    from PIL import Image
+    from autotimm.data.augmentation import get_transforms
+    img = Image.open("{image_path}").convert("RGB")
+    transform = get_transforms("{preset}", image_size=224, is_training=True)
+    results = []
+    for _ in range(6):
+        augmented = transform(img)
+        if hasattr(augmented, 'numpy'):
+            import numpy as np
+            from PIL import Image as PILImage
+            if augmented.shape[0] == 3:
+                arr = (augmented.permute(1, 2, 0).numpy() * 255).clip(0, 255).astype('uint8')
+            else:
+                arr = (augmented.numpy() * 255).clip(0, 255).astype('uint8')
+            pil = PILImage.fromarray(arr)
+        else:
+            pil = augmented
+        buf = io.BytesIO()
+        pil.save(buf, format='PNG')
+        b64 = base64.b64encode(buf.getvalue()).decode()
+        results.append(b64)
+    print(json.dumps(results))
+except Exception as e:
+    print(json.dumps({{"error": str(e)}}))
+    sys.exit(1)
+"#
+    );
+
+    let output = tokio::process::Command::new(&python)
+        .arg("-c")
+        .arg(&script)
+        .current_dir(&pp)
+        .output()
+        .await
+        .map_err(|e| format!("Failed to run augmentation preview: {e}"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Augmentation preview failed: {stderr}"));
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let result: serde_json::Value =
+        serde_json::from_str(&stdout).map_err(|e| format!("Invalid JSON output: {e}"))?;
+
+    if let Some(error) = result.get("error").and_then(|e| e.as_str()) {
+        return Err(error.to_string());
+    }
+
+    if let Some(arr) = result.as_array() {
+        Ok(arr
+            .iter()
+            .filter_map(|v| v.as_str().map(String::from))
+            .collect())
+    } else {
+        Err("Unexpected output format".to_string())
     }
 }
 
@@ -289,6 +396,14 @@ pub async fn export_jit_model(
     let ckpt_dir = format!("{pp}/logs/{run_id}/checkpoints");
     let output_path = format!("{pp}/logs/{run_id}/model.pt");
     let tc = task_class.unwrap_or_else(|| "ImageClassifier".to_string());
+
+    // Locate hparams.yaml
+    let hparams_base = PathBuf::from(&pp).join("logs").join(&run_id);
+    let hparams_candidates = [
+        hparams_base.join("hparams.yaml"),
+        hparams_base.join("version_0").join("hparams.yaml"),
+    ];
+    let hparams_path = hparams_candidates.iter().find(|p| p.exists());
 
     // Return cached export if it already exists
     if std::path::Path::new(&output_path).exists() {
@@ -337,9 +452,11 @@ pub async fn export_jit_model(
             .trim()
             .to_string();
 
-        // Run export remotely
+        // Run export remotely — cd into logs/{run_id}/
+        let run_dir = format!("{pp}/logs/{run_id}");
+        let hparams_arg = format!("{pp}/logs/{run_id}/hparams.yaml");
         let run_cmd = format!(
-            "{python} -m autotimm.export_jit --checkpoint \"{remote_ckpt}\" --output \"{output_path}\" --task-class \"{tc}\""
+            "cd \"{run_dir}\" && {python} -m autotimm.export_jit --checkpoint \"{remote_ckpt}\" --output \"{output_path}\" --task-class \"{tc}\" --hparams-yaml \"{hparams_arg}\""
         );
 
         let output = tokio::process::Command::new(&parts[0])
@@ -427,16 +544,25 @@ pub async fn export_jit_model(
             crate::env::python_cmd().to_string()
         };
 
-        let output = tokio::process::Command::new(&python)
-            .arg("-m")
+        // Run from logs/{run_id}/
+        let run_dir = PathBuf::from(&pp).join(format!("logs/{run_id}"));
+        let cwd = if run_dir.exists() { run_dir.clone() } else { PathBuf::from(&pp) };
+
+        let mut cmd = tokio::process::Command::new(&python);
+        cmd.arg("-m")
             .arg("autotimm.export_jit")
             .arg("--checkpoint")
             .arg(ckpt.to_string_lossy().to_string())
             .arg("--output")
             .arg(&output_path)
             .arg("--task-class")
-            .arg(&tc)
-            .current_dir(&pp)
+            .arg(&tc);
+        if let Some(hp) = &hparams_path {
+            cmd.arg("--hparams-yaml").arg(hp.to_string_lossy().to_string());
+        }
+        cmd.current_dir(&cwd);
+
+        let output = cmd
             .output()
             .await
             .map_err(|e| format!("Failed to run JIT export: {e}"))?;

@@ -1,5 +1,70 @@
 use tauri::command;
 
+use crate::home_dir;
+
+#[derive(serde::Serialize)]
+pub struct SshKeyInfo {
+    pub name: String,
+    pub key_type: String,
+    pub fingerprint: String,
+}
+
+#[command]
+pub fn list_ssh_keys() -> Result<Vec<SshKeyInfo>, String> {
+    let home = home_dir().ok_or("Could not determine home directory")?;
+    let ssh_dir = std::path::PathBuf::from(&home).join(".ssh");
+
+    if !ssh_dir.exists() {
+        return Ok(Vec::new());
+    }
+
+    let entries = std::fs::read_dir(&ssh_dir).map_err(|e| e.to_string())?;
+    let mut keys = Vec::new();
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let name = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_string();
+
+        // Only look at .pub files
+        if !name.ends_with(".pub") {
+            continue;
+        }
+
+        // Read the public key file
+        let content = match std::fs::read_to_string(&path) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+
+        let parts: Vec<&str> = content.trim().splitn(3, ' ').collect();
+        let key_type = parts.first().unwrap_or(&"unknown").to_string();
+
+        // Generate a simple fingerprint (last 16 chars of the key)
+        let fingerprint = if let Some(key_data) = parts.get(1) {
+            if key_data.len() > 20 {
+                format!("...{}", &key_data[key_data.len() - 16..])
+            } else {
+                key_data.to_string()
+            }
+        } else {
+            "unknown".to_string()
+        };
+
+        keys.push(SshKeyInfo {
+            name: name.trim_end_matches(".pub").to_string(),
+            key_type,
+            fingerprint,
+        });
+    }
+
+    keys.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(keys)
+}
+
 #[command]
 pub async fn test_ssh(ssh_command: String) -> Result<String, String> {
     let parts: Vec<String> = ssh_command.split_whitespace().map(String::from).collect();

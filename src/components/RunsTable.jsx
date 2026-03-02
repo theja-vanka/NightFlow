@@ -18,6 +18,7 @@ const columns = [
   { key: "name", label: "Run" },
   { key: "created", label: "Started" },
   { key: "status", label: "Status" },
+  { key: "tags", label: "Tags", sortable: false },
   { key: "model", label: "Model" },
   { key: "dataset", label: "Dataset" },
   { key: "bestAcc", label: "Val Acc" },
@@ -173,6 +174,15 @@ export function RunsTable() {
                 </td>
                 <td>
                   <StatusBadge status={run.status} />
+                </td>
+                <td>
+                  {run.tags && run.tags.length > 0 && (
+                    <div class="tag-chips">
+                      {run.tags.map((tag) => (
+                        <span key={tag} class="tag-chip">{tag}</span>
+                      ))}
+                    </div>
+                  )}
                 </td>
                 <td>{run.model}</td>
                 <td>{run.dataset}</td>

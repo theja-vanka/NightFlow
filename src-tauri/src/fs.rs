@@ -175,3 +175,145 @@ pub fn validate_file_path(path: String, expected_extension: Option<String>) -> P
         error: None,
     }
 }
+
+#[derive(serde::Serialize)]
+pub struct DatasetImage {
+    pub path: String,
+    pub label: String,
+}
+
+#[derive(serde::Serialize)]
+pub struct DatasetBrowseResult {
+    pub images: Vec<DatasetImage>,
+    pub total: usize,
+    pub class_counts: std::collections::HashMap<String, usize>,
+}
+
+#[command]
+pub fn browse_dataset(
+    path: String,
+    format: String,
+    limit: usize,
+    offset: usize,
+    class_filter: Option<String>,
+) -> Result<DatasetBrowseResult, String> {
+    let expanded = expand_tilde(&path);
+    let dir = std::path::PathBuf::from(&expanded);
+
+    if !dir.exists() {
+        return Err(format!("Path does not exist: {}", expanded));
+    }
+
+    let image_exts = ["jpg", "jpeg", "png", "bmp", "webp", "tiff", "gif"];
+    let mut all_images: Vec<DatasetImage> = Vec::new();
+    let mut class_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+
+    if format == "Folder" && dir.is_dir() {
+        // Collect image files from a class directory
+        let mut collect_class = |class_dir: &std::path::Path, class_name: &str| {
+            let files = match std::fs::read_dir(class_dir) {
+                Ok(f) => f,
+                Err(_) => return,
+            };
+            let mut count = 0usize;
+            for file_entry in files.flatten() {
+                let file_path = file_entry.path();
+                if !file_path.is_file() { continue; }
+                let ext = file_path.extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("")
+                    .to_lowercase();
+                if !image_exts.contains(&ext.as_str()) { continue; }
+
+                count += 1;
+                all_images.push(DatasetImage {
+                    path: file_path.to_string_lossy().to_string(),
+                    label: class_name.to_string(),
+                });
+            }
+            *class_counts.entry(class_name.to_string()).or_insert(0) += count;
+        };
+
+        // Detect structure: check if top-level subdirs contain images directly
+        // or contain further subdirs (split-based: train/test/val → class → images)
+        let top_entries: Vec<_> = std::fs::read_dir(&dir)
+            .map_err(|e| e.to_string())?
+            .flatten()
+            .filter(|e| {
+                let p = e.path();
+                p.is_dir() && !e.file_name().to_string_lossy().starts_with('.')
+            })
+            .collect();
+
+        // Peek into the first subdir to determine structure
+        let is_split_based = top_entries.iter().any(|e| {
+            let name = e.file_name().to_string_lossy().to_lowercase();
+            matches!(name.as_str(), "train" | "test" | "val" | "valid" | "validation" | "training" | "testing")
+        }) && top_entries.iter().all(|e| {
+            // Check that subdirs contain further subdirs (not images directly)
+            let sub_entries = match std::fs::read_dir(e.path()) {
+                Ok(f) => f,
+                Err(_) => return false,
+            };
+            sub_entries.flatten().any(|se| se.path().is_dir())
+        });
+
+        if is_split_based {
+            // dataset/train/class_a/img.jpg structure
+            for split_entry in top_entries {
+                let split_path = split_entry.path();
+                let class_entries = match std::fs::read_dir(&split_path) {
+                    Ok(f) => f,
+                    Err(_) => continue,
+                };
+                for class_entry in class_entries.flatten() {
+                    let class_path = class_entry.path();
+                    if !class_path.is_dir() { continue; }
+                    let class_name = class_path.file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("unknown")
+                        .to_string();
+                    if class_name.starts_with('.') { continue; }
+                    collect_class(&class_path, &class_name);
+                }
+            }
+        } else {
+            // dataset/class_a/img.jpg structure (flat ImageFolder)
+            for entry in top_entries {
+                let class_path = entry.path();
+                let class_name = class_path.file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("unknown")
+                    .to_string();
+                collect_class(&class_path, &class_name);
+            }
+        }
+    } else {
+        return Err("Only Folder format browsing is currently supported".to_string());
+    }
+
+    // Sort by label then path for stable ordering
+    all_images.sort_by(|a, b| a.label.cmp(&b.label).then(a.path.cmp(&b.path)));
+
+    // Apply class filter if provided
+    if let Some(ref filter) = class_filter {
+        if !filter.is_empty() {
+            all_images.retain(|img| img.label == *filter);
+        }
+    }
+
+    let total = all_images.len();
+
+    // Apply pagination
+    let paginated: Vec<DatasetImage> = all_images
+        .into_iter()
+        .skip(offset)
+        .take(limit)
+        .collect();
+
+    Ok(DatasetBrowseResult {
+        images: paginated,
+        total,
+        class_counts,
+    })
+}

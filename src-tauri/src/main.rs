@@ -78,6 +78,7 @@ fn close_splash(app: tauri::AppHandle) {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .manage(pty::PtyState {
             sessions: Mutex::new(HashMap::new()),
         })
@@ -106,6 +107,7 @@ fn main() {
             fs::get_cwd,
             fs::check_path_exists,
             ssh::ssh_check_path,
+            ssh::list_ssh_keys,
             env::ensure_uv,
             env::ssh_ensure_uv,
             env::check_conda,
@@ -114,6 +116,7 @@ fn main() {
             env::ssh_setup_python_env,
             fs::ensure_project_dir,
             fs::validate_folder_path,
+            fs::browse_dataset,
             fs::validate_file_path,
             training::start_training,
             training::stop_training,
@@ -126,11 +129,13 @@ fn main() {
             runs::parse_run_jsonl,
             runs::parse_csv_run,
             runs::parse_hparams_yaml,
+            runs::parse_model_info,
             system::get_system_metrics,
             system::download_model,
             interpretation::save_interpretation_image,
             interpretation::run_interpretation,
             interpretation::export_jit_model,
+            interpretation::preview_augmentation,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
