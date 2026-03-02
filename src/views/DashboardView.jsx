@@ -482,19 +482,20 @@ function buildTrainingCommand(project) {
   const useVenv = env && (env.status === "exists" || env.status === "created");
   const isConda = useVenv && env.envType === "conda";
   const isWindows = platform.value === "windows";
-  const pp = project.projectPath.endsWith("/")
+  const sep = isWindows ? "\\" : "/";
+  const pp = (project.projectPath.endsWith("/") || project.projectPath.endsWith("\\"))
     ? project.projectPath.slice(0, -1)
     : project.projectPath;
 
-  const cfg = `${pp}/config.yaml`;
+  const cfg = `${pp}${sep}config.yaml`;
 
   if (isConda) {
     // Structured sentinel: Rust resolves conda and runs each step directly.
     // Format: __STEPS__:conda:<venv_path>:<config_path>
-    return `__STEPS__:conda:${pp}/.venv:${cfg}`;
+    return `__STEPS__:conda:${pp}${sep}.venv:${cfg}`;
   } else {
     const venvPython = isWindows
-      ? `${pp}/.venv/Scripts/python.exe`
+      ? `${pp}\\.venv\\Scripts\\python.exe`
       : `${pp}/.venv/bin/python`;
     const python = useVenv ? venvPython : (isWindows ? "python" : "python3");
     // Format: __STEPS__:direct:<python_path>:<config_path>
@@ -508,21 +509,22 @@ function buildCommandDisplay(project) {
   const useVenv = env && (env.status === "exists" || env.status === "created");
   const isConda = useVenv && env.envType === "conda";
   const isWindows = platform.value === "windows";
-  const pp = project.projectPath.endsWith("/")
+  const sep = isWindows ? "\\" : "/";
+  const pp = (project.projectPath.endsWith("/") || project.projectPath.endsWith("\\"))
     ? project.projectPath.slice(0, -1)
     : project.projectPath;
 
-  const cfg = `${pp}/config.yaml`;
+  const cfg = `${pp}${sep}config.yaml`;
 
   if (isConda) {
-    const run = `conda run --live-stream -p ${pp}/.venv python -m autotimm`;
+    const run = `conda run --live-stream -p ${pp}${sep}.venv python -m autotimm`;
     return [
       `${run} fit  --config ${cfg}`,
       `${run} test --config ${cfg}`,
     ].join(" &&\n");
   } else {
     const venvPy = isWindows
-      ? `${pp}/.venv/Scripts/python.exe`
+      ? `${pp}\\.venv\\Scripts\\python.exe`
       : `${pp}/.venv/bin/python`;
     const py = useVenv ? venvPy : (isWindows ? "python" : "python3");
     return [

@@ -1,7 +1,7 @@
 import { MODEL_CATEGORIES, YOLOX_MODEL_CATEGORIES, DETECTION_MODEL_CATEGORIES, SEGMENTATION_MODEL_CATEGORIES } from "../state/projects.js";
 
 /** Strip trailing slash from a path so concatenation doesn't double up. */
-const trimSlash = (p) => (p && p.endsWith("/") ? p.slice(0, -1) : p);
+const trimSlash = (p) => (p && (p.endsWith("/") || p.endsWith("\\")) ? p.slice(0, -1) : p);
 
 const TASK_CLASS_PATHS = {
   Classification: {

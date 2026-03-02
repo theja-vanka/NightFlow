@@ -80,13 +80,16 @@ pub async fn run_interpretation(
     ssh_command: Option<String>,
 ) -> Result<serde_json::Value, String> {
     let pp = expand_tilde(project_path.trim_end_matches('/').trim_end_matches('\\'));
-    let ckpt_dir = format!("{pp}/logs/{run_id}/checkpoints");
-    let output_dir = format!("{pp}/logs/{run_id}/interpretations");
+    let pp_path = PathBuf::from(&pp);
+    let ckpt_dir = pp_path.join("logs").join(&run_id).join("checkpoints");
+    let output_dir = pp_path.join("logs").join(&run_id).join("interpretations");
+    let ckpt_dir_str = ckpt_dir.to_string_lossy().to_string();
+    let output_dir_str = output_dir.to_string_lossy().to_string();
     let methods_str = methods.join(",");
     let tc = task_class.unwrap_or_else(|| "ImageClassifier".to_string());
 
     // Locate hparams.yaml (try direct path first, then version_0 subdirectory)
-    let hparams_base = PathBuf::from(&pp).join("logs").join(&run_id);
+    let hparams_base = pp_path.join("logs").join(&run_id);
     let hparams_candidates = [
         hparams_base.join("hparams.yaml"),
         hparams_base.join("version_0").join("hparams.yaml"),
@@ -102,7 +105,7 @@ pub async fn run_interpretation(
 
         // Find checkpoint remotely
         let find_script = format!(
-            r#"find "{ckpt_dir}" -name "*.ckpt" -type f 2>/dev/null | head -1"#
+            r#"find "{ckpt_dir_str}" -name "*.ckpt" -type f 2>/dev/null | head -1"#
         );
         let find_output = tokio::process::Command::new(&parts[0])
             .args(&parts[1..])
@@ -136,9 +139,10 @@ pub async fn run_interpretation(
             .to_string();
 
         // Run interpretation remotely
-        let hparams_arg = format!("{pp}/logs/{run_id}/hparams.yaml");
+        let hparams_arg = hparams_base.join("hparams.yaml");
+        let hparams_arg_str = hparams_arg.to_string_lossy();
         let run_cmd = format!(
-            "{python} -m autotimm.interpret_cli --checkpoint \"{remote_ckpt}\" --image \"{image_path}\" --methods \"{methods_str}\" --output-dir \"{output_dir}\" --task-class \"{tc}\" --hparams-yaml \"{hparams_arg}\""
+            "{python} -m autotimm.interpret_cli --checkpoint \"{remote_ckpt}\" --image \"{image_path}\" --methods \"{methods_str}\" --output-dir \"{output_dir_str}\" --task-class \"{tc}\" --hparams-yaml \"{hparams_arg_str}\""
         );
 
         let output = tokio::process::Command::new(&parts[0])
@@ -152,10 +156,10 @@ pub async fn run_interpretation(
             let stderr = String::from_utf8_lossy(&output.stderr);
             let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
             // Try to extract a meaningful error from JSON output
-            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&stdout) {
-                if let Some(error) = val.get("error").and_then(|e| e.as_str()) {
-                    return Err(error.to_string());
-                }
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&stdout)
+                && let Some(error) = val.get("error").and_then(|e| e.as_str())
+            {
+                return Err(error.to_string());
             }
             return Err(format!("Interpretation failed: {stderr}"));
         }
@@ -192,7 +196,7 @@ pub async fn run_interpretation(
         }
 
         // SCP the output directory
-        let scp_source = format!("{host_part}:{output_dir}/*");
+        let scp_source = format!("{host_part}:{output_dir_str}/*");
         scp_args.push("-r".to_string());
         scp_args.push(scp_source);
         scp_args.push(local_output.to_string_lossy().to_string());
@@ -229,10 +233,9 @@ pub async fn run_interpretation(
         Ok(result)
     } else {
         // ── Local execution ─────────────────────────────────────────────
-        let ckpt_path_dir = std::path::Path::new(&ckpt_dir);
         let mut best_ckpt: Option<PathBuf> = None;
 
-        if let Ok(entries) = std::fs::read_dir(ckpt_path_dir) {
+        if let Ok(entries) = std::fs::read_dir(&ckpt_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if let Some(name) = path.file_name().and_then(|n| n.to_str())
@@ -247,7 +250,7 @@ pub async fn run_interpretation(
             .ok_or("No checkpoint found. Training may not have saved a model yet.")?;
 
         // Resolve python: prefer project venv, then system python
-        let venv_python = PathBuf::from(&pp).join(".venv/bin/python");
+        let venv_python = crate::env::venv_python(&PathBuf::from(&pp).join(".venv"));
         let python = if venv_python.exists() {
             venv_python.to_string_lossy().to_string()
         } else {
@@ -264,7 +267,7 @@ pub async fn run_interpretation(
             .arg("--methods")
             .arg(&methods_str)
             .arg("--output-dir")
-            .arg(&output_dir)
+            .arg(output_dir.to_string_lossy().to_string())
             .arg("--task-class")
             .arg(&tc)
             .args(if let Some(hp) = &hparams_path {
@@ -311,7 +314,7 @@ pub async fn preview_augmentation(
     let pp = expand_tilde(project_path.trim_end_matches('/').trim_end_matches('\\'));
 
     // Resolve python: prefer project venv
-    let venv_python = PathBuf::from(&pp).join(".venv/bin/python");
+    let venv_python = crate::env::venv_python(&PathBuf::from(&pp).join(".venv"));
     let python = if venv_python.exists() {
         venv_python.to_string_lossy().to_string()
     } else {
@@ -393,12 +396,16 @@ pub async fn export_jit_model(
     ssh_command: Option<String>,
 ) -> Result<String, String> {
     let pp = expand_tilde(project_path.trim_end_matches('/').trim_end_matches('\\'));
-    let ckpt_dir = format!("{pp}/logs/{run_id}/checkpoints");
-    let output_path = format!("{pp}/logs/{run_id}/model.pt");
+    let pp_path = PathBuf::from(&pp);
+    let run_logs_dir = pp_path.join("logs").join(&run_id);
+    let ckpt_dir = run_logs_dir.join("checkpoints");
+    let output_path = run_logs_dir.join("model.pt");
+    let ckpt_dir_str = ckpt_dir.to_string_lossy().to_string();
+    let output_path_str = output_path.to_string_lossy().to_string();
     let tc = task_class.unwrap_or_else(|| "ImageClassifier".to_string());
 
     // Locate hparams.yaml
-    let hparams_base = PathBuf::from(&pp).join("logs").join(&run_id);
+    let hparams_base = run_logs_dir.clone();
     let hparams_candidates = [
         hparams_base.join("hparams.yaml"),
         hparams_base.join("version_0").join("hparams.yaml"),
@@ -406,8 +413,8 @@ pub async fn export_jit_model(
     let hparams_path = hparams_candidates.iter().find(|p| p.exists());
 
     // Return cached export if it already exists
-    if std::path::Path::new(&output_path).exists() {
-        return Ok(output_path);
+    if output_path.exists() {
+        return Ok(output_path_str);
     }
 
     if let Some(ssh_cmd) = ssh_command {
@@ -419,7 +426,7 @@ pub async fn export_jit_model(
 
         // Find checkpoint remotely
         let find_script = format!(
-            r#"find "{ckpt_dir}" -name "*.ckpt" -type f 2>/dev/null | head -1"#
+            r#"find "{ckpt_dir_str}" -name "*.ckpt" -type f 2>/dev/null | head -1"#
         );
         let find_output = tokio::process::Command::new(&parts[0])
             .args(&parts[1..])
@@ -453,10 +460,10 @@ pub async fn export_jit_model(
             .to_string();
 
         // Run export remotely — cd into logs/{run_id}/
-        let run_dir = format!("{pp}/logs/{run_id}");
-        let hparams_arg = format!("{pp}/logs/{run_id}/hparams.yaml");
+        let run_dir_str = run_logs_dir.to_string_lossy();
+        let hparams_arg_str = run_logs_dir.join("hparams.yaml").to_string_lossy().to_string();
         let run_cmd = format!(
-            "cd \"{run_dir}\" && {python} -m autotimm.export_jit --checkpoint \"{remote_ckpt}\" --output \"{output_path}\" --task-class \"{tc}\" --hparams-yaml \"{hparams_arg}\""
+            "cd \"{run_dir_str}\" && {python} -m autotimm.export_jit --checkpoint \"{remote_ckpt}\" --output \"{output_path_str}\" --task-class \"{tc}\" --hparams-yaml \"{hparams_arg_str}\""
         );
 
         let output = tokio::process::Command::new(&parts[0])
@@ -501,7 +508,7 @@ pub async fn export_jit_model(
             }
         }
 
-        let scp_source = format!("{host_part}:{output_path}");
+        let scp_source = format!("{host_part}:{output_path_str}");
         scp_args.push(scp_source);
         scp_args.push(local_pt.to_string_lossy().to_string());
 
@@ -519,10 +526,9 @@ pub async fn export_jit_model(
         Ok(local_pt.to_string_lossy().to_string())
     } else {
         // ── Local execution ─────────────────────────────────────────────
-        let ckpt_path_dir = std::path::Path::new(&ckpt_dir);
         let mut best_ckpt: Option<PathBuf> = None;
 
-        if let Ok(entries) = std::fs::read_dir(ckpt_path_dir) {
+        if let Ok(entries) = std::fs::read_dir(&ckpt_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if let Some(name) = path.file_name().and_then(|n| n.to_str())
@@ -537,7 +543,7 @@ pub async fn export_jit_model(
             .ok_or("No checkpoint found. Training may not have saved a model yet.")?;
 
         // Resolve python: prefer project venv, then system python
-        let venv_python = PathBuf::from(&pp).join(".venv/bin/python");
+        let venv_python = crate::env::venv_python(&PathBuf::from(&pp).join(".venv"));
         let python = if venv_python.exists() {
             venv_python.to_string_lossy().to_string()
         } else {
@@ -545,8 +551,7 @@ pub async fn export_jit_model(
         };
 
         // Run from logs/{run_id}/
-        let run_dir = PathBuf::from(&pp).join(format!("logs/{run_id}"));
-        let cwd = if run_dir.exists() { run_dir.clone() } else { PathBuf::from(&pp) };
+        let cwd = if run_logs_dir.exists() { run_logs_dir.clone() } else { PathBuf::from(&pp) };
 
         let mut cmd = tokio::process::Command::new(&python);
         cmd.arg("-m")
@@ -554,7 +559,7 @@ pub async fn export_jit_model(
             .arg("--checkpoint")
             .arg(ckpt.to_string_lossy().to_string())
             .arg("--output")
-            .arg(&output_path)
+            .arg(&output_path_str)
             .arg("--task-class")
             .arg(&tc);
         if let Some(hp) = &hparams_path {
@@ -572,6 +577,6 @@ pub async fn export_jit_model(
             return Err(format!("JIT export failed: {stderr}"));
         }
 
-        Ok(output_path)
+        Ok(output_path_str)
     }
 }

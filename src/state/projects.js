@@ -6,7 +6,7 @@ import {
   deleteProject as dbDeleteProject,
   migrateProjectIds,
 } from "../db/database.js";
-import { restoreSyncState } from "./dashboard.js";
+import { restoreSyncState, platform } from "./dashboard.js";
 
 export const projectList = signal([]);
 export const currentProjectId = signal(null);
@@ -533,11 +533,12 @@ export const wizardCanProceed = computed(() => {
   return false;
 });
 
-const PROJECT_BASE_PATH = "~/nightflow/projects/";
+const projectBasePath = () => platform.value === "windows" ? "~\\nightflow\\projects\\" : "~/nightflow/projects/";
 
 export async function openWizard() {
-  wizardCwd.value = PROJECT_BASE_PATH;
-  wizardData.value = { ...defaultData, projectPath: PROJECT_BASE_PATH };
+  const basePath = projectBasePath();
+  wizardCwd.value = basePath;
+  wizardData.value = { ...defaultData, projectPath: basePath };
   wizardStep.value = 0;
   wizardOpen.value = true;
   // Reset validation errors

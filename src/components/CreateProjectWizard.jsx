@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useState, useRef } from "preact/hooks";
+import { platform } from "../state/dashboard.js";
 import {
   wizardOpen,
   wizardStep,
@@ -143,7 +144,7 @@ function StepName() {
       .replace(/^-+|-+$/g, "");
   };
 
-  const DEFAULT_BASE = "~/nightflow/projects/";
+  const DEFAULT_BASE = platform.value === "windows" ? "~\\nightflow\\projects\\" : "~/nightflow/projects/";
 
   const derivedPath = d.name
     ? `${DEFAULT_BASE}${sanitizeName(d.name)}`
@@ -1776,7 +1777,7 @@ function StepDataset() {
           <input
             class="wizard-input wizard-input-mono"
             type="text"
-            placeholder="/path/to/dataset"
+            placeholder={platform.value === "windows" ? "C:\\path\\to\\dataset" : "/path/to/dataset"}
             value={d.folderPath}
             onInput={handleFolderPathInput}
             onKeyDown={(e) => {
@@ -1816,7 +1817,7 @@ function StepDataset() {
             <input
               class="wizard-input wizard-input-mono"
               type="text"
-              placeholder={`/path/to/train.${fileExtension}`}
+              placeholder={platform.value === "windows" ? `C:\\path\\to\\train.${fileExtension}` : `/path/to/train.${fileExtension}`}
               value={d.trainPath}
               onInput={handleTrainPathInput}
             />
@@ -1828,7 +1829,7 @@ function StepDataset() {
             <input
               class="wizard-input wizard-input-mono"
               type="text"
-              placeholder={`/path/to/val.${fileExtension}`}
+              placeholder={platform.value === "windows" ? `C:\\path\\to\\val.${fileExtension}` : `/path/to/val.${fileExtension}`}
               value={d.valPath}
               onInput={handleValPathInput}
             />
@@ -1840,7 +1841,7 @@ function StepDataset() {
             <input
               class="wizard-input wizard-input-mono"
               type="text"
-              placeholder={`/path/to/test.${fileExtension}`}
+              placeholder={platform.value === "windows" ? `C:\\path\\to\\test.${fileExtension}` : `/path/to/test.${fileExtension}`}
               value={d.testPath}
               onInput={handleTestPathInput}
               onKeyDown={(e) => {

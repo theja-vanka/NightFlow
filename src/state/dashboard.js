@@ -85,7 +85,7 @@ export const syncLogs = computed(
 
 // ── Platform detection (cached) ──────────────────────────────────────────────
 
-export const platform = signal("linux");
+export const platform = signal("unknown");
 invoke("get_platform").then((p) => { platform.value = p; }).catch(() => {});
 
 // ── Incremented to force useTerminal to tear down and reinitialize a session ──
@@ -728,10 +728,11 @@ export async function syncConfig(
   // Use passed runId, or active training runId, or fallback to 'default'
   const finalRunId = runId || getTrainingRunId(projectId) || "default";
   const yaml = buildConfigYaml(project, finalRunId);
-  const pp = project.projectPath.endsWith("/")
+  const pp = (project.projectPath.endsWith("/") || project.projectPath.endsWith("\\"))
     ? project.projectPath.slice(0, -1)
     : project.projectPath;
-  const configPath = `${pp}/config.yaml`;
+  const sep = project.projectPath.includes("\\") ? "\\" : "/";
+  const configPath = `${pp}${sep}config.yaml`;
 
   const rawSsh = project.sshCommand;
   const isSSH =

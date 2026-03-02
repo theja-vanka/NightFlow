@@ -220,24 +220,24 @@ pub fn parse_model_info(
 
     // Also try to parse from the JSONL log
     let jsonl_path = base.join(format!("{}.jsonl", run_id));
-    if jsonl_path.exists() {
-        if let Ok(content) = std::fs::read_to_string(&jsonl_path) {
-            for line in content.lines() {
-                if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
-                    let event = json.get("event").and_then(|v| v.as_str()).unwrap_or("");
-                    if event == "training_started" {
-                        if let Some(tp) = json.get("total_params").and_then(|v| v.as_i64()) {
-                            info.total_params = Some(format_params(tp as u64));
-                        }
-                        if let Some(tp) = json.get("trainable_params").and_then(|v| v.as_i64()) {
-                            info.trainable_params = Some(format_params(tp as u64));
-                        }
-                        if let Some(tp) = json.get("non_trainable_params").and_then(|v| v.as_i64()) {
-                            info.non_trainable_params = Some(format_params(tp as u64));
-                        }
-                        if let Some(sz) = json.get("model_size_mb").and_then(|v| v.as_f64()) {
-                            info.model_size_mb = Some(format!("{:.1} MB", sz));
-                        }
+    if jsonl_path.exists()
+        && let Ok(content) = std::fs::read_to_string(&jsonl_path)
+    {
+        for line in content.lines() {
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
+                let event = json.get("event").and_then(|v| v.as_str()).unwrap_or("");
+                if event == "training_started" {
+                    if let Some(tp) = json.get("total_params").and_then(|v| v.as_i64()) {
+                        info.total_params = Some(format_params(tp as u64));
+                    }
+                    if let Some(tp) = json.get("trainable_params").and_then(|v| v.as_i64()) {
+                        info.trainable_params = Some(format_params(tp as u64));
+                    }
+                    if let Some(tp) = json.get("non_trainable_params").and_then(|v| v.as_i64()) {
+                        info.non_trainable_params = Some(format_params(tp as u64));
+                    }
+                    if let Some(sz) = json.get("model_size_mb").and_then(|v| v.as_f64()) {
+                        info.model_size_mb = Some(format!("{:.1} MB", sz));
                     }
                 }
             }
@@ -254,30 +254,30 @@ pub fn parse_model_info(
 
         for line in content.lines() {
             let line_lower = line.to_lowercase();
-            if info.total_params.is_none() && line_lower.contains("total param") {
-                if let Some(num) = extract_number(line) {
-                    info.total_params = Some(format_params(num));
-                }
+            if info.total_params.is_none() && line_lower.contains("total param")
+                && let Some(num) = extract_number(line)
+            {
+                info.total_params = Some(format_params(num));
             }
-            if info.trainable_params.is_none() && line_lower.contains("trainable param") && !line_lower.contains("non") {
-                if let Some(num) = extract_number(line) {
-                    info.trainable_params = Some(format_params(num));
-                }
+            if info.trainable_params.is_none() && line_lower.contains("trainable param") && !line_lower.contains("non")
+                && let Some(num) = extract_number(line)
+            {
+                info.trainable_params = Some(format_params(num));
             }
-            if info.non_trainable_params.is_none() && line_lower.contains("non-trainable") {
-                if let Some(num) = extract_number(line) {
-                    info.non_trainable_params = Some(format_params(num));
-                }
+            if info.non_trainable_params.is_none() && line_lower.contains("non-trainable")
+                && let Some(num) = extract_number(line)
+            {
+                info.non_trainable_params = Some(format_params(num));
             }
             if info.model_size_mb.is_none() && (line_lower.contains("model size") || line_lower.contains("total size")) {
                 // Try to extract MB value
                 if let Some(pos) = line.find("MB") {
                     let before = &line[..pos].trim();
                     let parts: Vec<&str> = before.split_whitespace().collect();
-                    if let Some(last) = parts.last() {
-                        if let Ok(mb) = last.parse::<f64>() {
-                            info.model_size_mb = Some(format!("{:.1} MB", mb));
-                        }
+                    if let Some(last) = parts.last()
+                        && let Ok(mb) = last.parse::<f64>()
+                    {
+                        info.model_size_mb = Some(format!("{:.1} MB", mb));
                     }
                 }
             }

@@ -5,6 +5,9 @@ use std::sync::{
 };
 use tauri::{Emitter, State, command};
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
 use crate::expand_tilde;
 use crate::env::{get_shell_env, resolve_conda_path};
 
@@ -263,7 +266,8 @@ pub async fn start_training(
                 }
             };
 
-            let tb_jsonl_path = format!("logs/{}/{}.jsonl", run_id, run_id);
+            let tb_jsonl_path = std::path::Path::new("logs").join(&run_id).join(format!("{}.jsonl", run_id));
+            let tb_jsonl_path = tb_jsonl_path.to_string_lossy().to_string();
             let progress_args: Vec<String> = vec![
                 "--trainer.json_progress=true".into(),
                 format!("--trainer.json_progress_log_file={}", tb_jsonl_path),
@@ -283,7 +287,7 @@ pub async fn start_training(
 
             let shell_env = get_shell_env().await;
 
-            let logs_dir = std::path::Path::new(&cwd2).join(format!("logs/{}", run_id));
+            let logs_dir = std::path::Path::new(&cwd2).join("logs").join(&run_id);
             let _ = std::fs::create_dir_all(&logs_dir);
 
             // ── Step 1: fit ─────────────────────────────────────────────────
@@ -304,6 +308,8 @@ pub async fn start_training(
             }
             #[cfg(unix)]
             unsafe { fit_cmd.pre_exec(|| { libc::setsid(); Ok(()) }); }
+            #[cfg(windows)]
+            { fit_cmd.creation_flags(0x00000200); } // CREATE_NEW_PROCESS_GROUP
 
             let mut fit_child = match fit_cmd.spawn() {
                 Ok(c) => c,
@@ -398,6 +404,8 @@ pub async fn start_training(
                 }
                 #[cfg(unix)]
                 unsafe { c.pre_exec(|| { libc::setsid(); Ok(()) }); }
+                #[cfg(windows)]
+                { c.creation_flags(0x00000200); } // CREATE_NEW_PROCESS_GROUP
                 if let Ok(mut child) = c.spawn() {
                     spawn_tail_task(
                         test_stdout_path,
@@ -442,7 +450,8 @@ pub async fn start_training(
     if !final_parts.iter().any(|a| a.contains("json_progress=")) {
         final_parts.push("--trainer.json_progress=true".into());
     }
-    let tb_jsonl_path = format!("logs/{}/{}.jsonl", run_id, run_id);
+    let tb_jsonl_path = std::path::Path::new("logs").join(&run_id).join(format!("{}.jsonl", &run_id));
+    let tb_jsonl_path = tb_jsonl_path.to_string_lossy().to_string();
     if !final_parts
         .iter()
         .any(|a| a.contains("--trainer.json_progress_log_file"))
@@ -459,7 +468,7 @@ pub async fn start_training(
     } else {
         raw_executable
     };
-    let logs_dir = std::path::Path::new(&resolved_cwd).join(format!("logs/{}", run_id));
+    let logs_dir = std::path::Path::new(&resolved_cwd).join("logs").join(&run_id);
     let _ = std::fs::create_dir_all(&logs_dir);
 
     let stdout_path = logs_dir.join("stdout.log");
@@ -482,6 +491,10 @@ pub async fn start_training(
             libc::setsid();
             Ok(())
         });
+    }
+    #[cfg(windows)]
+    {
+        cmd.creation_flags(0x00000200); // CREATE_NEW_PROCESS_GROUP
     }
 
     let child = cmd.spawn().map_err(|e| e.to_string())?;

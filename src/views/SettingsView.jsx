@@ -14,7 +14,7 @@ import {
   DETECTION_ARCHS,
   SEG_HEAD_TYPES,
 } from "../state/projects.js";
-import { sshConnected, syncConfig } from "../state/dashboard.js";
+import { sshConnected, syncConfig, platform } from "../state/dashboard.js";
 import { allRuns } from "../state/experiments.js";
 import { DeleteProjectDialog } from "../components/DeleteProjectDialog.jsx";
 import { clearAllData } from "../db/database.js";
@@ -80,7 +80,7 @@ function isDirty(draft, source) {
   return false;
 }
 
-const PATH_BASE = "~/nightflow/projects/";
+const pathBase = () => platform.value === "windows" ? "~\\nightflow\\projects\\" : "~/nightflow/projects/";
 const sanitizeForPath = (n) =>
   n
     .toLowerCase()
@@ -309,7 +309,8 @@ export function SettingsView() {
   }
 
   function ensureTrailingSlash(p) {
-    return p && !p.endsWith("/") ? p + "/" : p;
+    if (!p || p.endsWith("/") || p.endsWith("\\")) return p;
+    return p + (platform.value === "windows" ? "\\" : "/");
   }
 
   async function handleSave() {
@@ -356,8 +357,8 @@ export function SettingsView() {
     : null;
 
   const derivedProjectPath = draft.name
-    ? `${PATH_BASE}${sanitizeForPath(draft.name)}`
-    : PATH_BASE;
+    ? `${pathBase()}${sanitizeForPath(draft.name)}`
+    : pathBase();
 
   return (
     <div class="settings-view">
@@ -650,7 +651,7 @@ export function SettingsView() {
                           class="settings-input settings-input-mono"
                           type="text"
                           value={draft.folderPath || ""}
-                          placeholder="/path/to/dataset"
+                          placeholder={platform.value === "windows" ? "C:\\path\\to\\dataset" : "/path/to/dataset"}
                           disabled={locked}
                           onInput={(e) => set("folderPath", e.target.value)}
                         />
@@ -673,7 +674,7 @@ export function SettingsView() {
                           class="settings-input settings-input-mono"
                           type="text"
                           value={draft.trainPath || ""}
-                          placeholder={`/path/to/train.${draft.datasetFormat.toLowerCase()}`}
+                          placeholder={platform.value === "windows" ? `C:\\path\\to\\train.${draft.datasetFormat.toLowerCase()}` : `/path/to/train.${draft.datasetFormat.toLowerCase()}`}
                           disabled={locked}
                           onInput={(e) => set("trainPath", e.target.value)}
                         />
@@ -690,7 +691,7 @@ export function SettingsView() {
                           class="settings-input settings-input-mono"
                           type="text"
                           value={draft.valPath || ""}
-                          placeholder={`/path/to/val.${draft.datasetFormat.toLowerCase()}`}
+                          placeholder={platform.value === "windows" ? `C:\\path\\to\\val.${draft.datasetFormat.toLowerCase()}` : `/path/to/val.${draft.datasetFormat.toLowerCase()}`}
                           disabled={locked}
                           onInput={(e) => set("valPath", e.target.value)}
                         />
@@ -705,7 +706,7 @@ export function SettingsView() {
                           class="settings-input settings-input-mono"
                           type="text"
                           value={draft.testPath || ""}
-                          placeholder={`/path/to/test.${draft.datasetFormat.toLowerCase()}`}
+                          placeholder={platform.value === "windows" ? `C:\\path\\to\\test.${draft.datasetFormat.toLowerCase()}` : `/path/to/test.${draft.datasetFormat.toLowerCase()}`}
                           disabled={locked}
                           onInput={(e) => set("testPath", e.target.value)}
                         />

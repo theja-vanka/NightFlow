@@ -1,27 +1,32 @@
 import { signal, computed } from "@preact/signals";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import {
-  isPermissionGranted,
-  requestPermission,
-  sendNotification,
-} from "@tauri-apps/plugin-notification";
 import { currentProjectId, currentProject, projectList } from "./projects.js";
 import { addRun, updateRun, allRuns, generateRunName } from "./experiments.js";
 import { processQueue } from "./queue.js";
 
 // ── Notifications ──────────────────────────────────────────────────────────
+// The @tauri-apps/plugin-notification JS wrapper uses window.Notification
+// (Web Notification API) which may be unavailable in Tauri v2 webviews.
+// We invoke the Rust plugin commands directly to avoid that issue.
 
 let _notificationsAllowed = false;
 
 async function _initNotifications() {
   try {
-    let granted = await isPermissionGranted();
-    if (!granted) {
-      const perm = await requestPermission();
-      granted = perm === "granted";
+    // Check permission via Rust plugin command.
+    // Returns true, false, or null (prompt needed).
+    const granted = await invoke("plugin:notification|is_permission_granted");
+    if (granted === true) {
+      _notificationsAllowed = true;
+    } else if (granted === null) {
+      // Permission not yet decided — request it
+      const result = await invoke("plugin:notification|request_permission");
+      // Result is a PermissionState string: "granted", "denied", "prompt", etc.
+      _notificationsAllowed = result === "granted";
+    } else {
+      _notificationsAllowed = false;
     }
-    _notificationsAllowed = granted;
   } catch {
     _notificationsAllowed = false;
   }
@@ -30,7 +35,7 @@ async function _initNotifications() {
 function _notify(title, body) {
   if (!_notificationsAllowed) return;
   try {
-    sendNotification({ title, body });
+    invoke("plugin:notification|notify", { options: { title, body } }).catch(() => {});
   } catch {
     // notification may fail silently
   }
