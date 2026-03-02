@@ -15,17 +15,15 @@ let _notificationsAllowed = false;
 async function _initNotifications() {
   try {
     // Check permission via Rust plugin command.
-    // Returns true, false, or null (prompt needed).
+    // In Tauri v2, this returns a boolean (true/false).
     const granted = await invoke("plugin:notification|is_permission_granted");
-    if (granted === true) {
+    if (granted) {
       _notificationsAllowed = true;
-    } else if (granted === null) {
-      // Permission not yet decided — request it
+    } else {
+      // Permission not yet granted — request it
       const result = await invoke("plugin:notification|request_permission");
       // Result is a PermissionState string: "granted", "denied", "prompt", etc.
       _notificationsAllowed = result === "granted";
-    } else {
-      _notificationsAllowed = false;
     }
   } catch {
     _notificationsAllowed = false;
@@ -35,7 +33,7 @@ async function _initNotifications() {
 function _notify(title, body) {
   if (!_notificationsAllowed) return;
   try {
-    invoke("plugin:notification|notify", { options: { title, body } }).catch(() => {});
+    invoke("plugin:notification|notify", { options: { title, body } }).catch(() => { });
   } catch {
     // notification may fail silently
   }
@@ -57,6 +55,8 @@ const _defaultTraining = () => ({
   loss: null,
   metrics: {},
   testMetrics: {}, // metrics from autotimm test step
+  testBatch: 0,
+  testTotalBatches: 0,
   error: null,
   fastDevRun: false,
   lossCurve: [],
@@ -103,6 +103,19 @@ export const trainingFastDevRun = computed(
 export const trainingTestMetrics = computed(
   () => _get(currentProjectId.value).testMetrics,
 );
+
+export const trainingTestBatch = computed(
+  () => _get(currentProjectId.value).testBatch,
+);
+export const trainingTestTotalBatches = computed(
+  () => _get(currentProjectId.value).testTotalBatches,
+);
+
+export const trainingTestProgress = computed(() => {
+  const s = _get(currentProjectId.value);
+  if (s.testTotalBatches === 0) return 0;
+  return Math.round((s.testBatch / s.testTotalBatches) * 100);
+});
 
 export const trainingEstimatedRemaining = computed(
   () => _get(currentProjectId.value).estimatedRemaining,
@@ -243,7 +256,20 @@ function _processEvent(session_id, data) {
       break;
 
     case "testing_started":
-      _set(session_id, { event: "testing_started", testMetrics: {} });
+      _set(session_id, {
+        event: "testing_started",
+        testMetrics: {},
+        testBatch: 0,
+        testTotalBatches: data.total_batches ?? 0,
+      });
+      break;
+
+    case "test_batch_end":
+      _set(session_id, {
+        event: "test_batch_end",
+        testBatch: data.batch ?? state.testBatch,
+        testTotalBatches: data.total_batches ?? state.testTotalBatches,
+      });
       break;
 
     case "testing_complete": {
@@ -593,7 +619,14 @@ export async function initTrainingListeners() {
   _unlistenEvent = await listen("training-event", (e) => {
     const { session_id, data } = e.payload;
     const state = _get(session_id);
-    if (!state.active) return;
+    // Allow training_complete, test events, and errors through even when
+    // active is false — the Rust backend emits training_complete after both
+    // fit+test finish, and tail-task events may arrive slightly out of order.
+    const evt = data.event;
+    const alwaysAllow = evt === "training_complete" || evt === "training_error"
+      || evt === "testing_started" || evt === "test_batch_end"
+      || evt === "testing_complete";
+    if (!state.active && !alwaysAllow) return;
     _processEvent(session_id, data);
   });
 

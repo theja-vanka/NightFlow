@@ -5,9 +5,6 @@ use std::sync::{
 };
 use tauri::{Emitter, State, command};
 
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
-
 use crate::expand_tilde;
 use crate::env::{get_shell_env, resolve_conda_path};
 
@@ -99,6 +96,7 @@ fn spawn_tail_task(
     app: tauri::AppHandle,
     session_id: String,
     buf: Option<Arc<Mutex<Vec<String>>>>,
+    skip_events: Option<Vec<String>>,
 ) {
     tokio::spawn(async move {
         use std::io::{BufRead, Seek, SeekFrom};
@@ -114,6 +112,14 @@ fn spawn_tail_task(
                     for line in reader.lines().map_while(Result::ok) {
                         if is_json {
                             if let Ok(json) = serde_json::from_str::<serde_json::Value>(&line) {
+                                // Skip filtered event types (e.g. training_complete from fit stdout)
+                                if let Some(ref skip) = skip_events {
+                                    if let Some(evt) = json.get("event").and_then(|v| v.as_str()) {
+                                        if skip.iter().any(|s| s == evt) {
+                                            continue;
+                                        }
+                                    }
+                                }
                                 let _ = app.emit(
                                     "training-event",
                                     TrainingEvent {
@@ -346,6 +352,10 @@ pub async fn start_training(
                 app2.clone(),
                 sid.clone(),
                 None,
+                // Skip training_complete from fit stdout — Rust emits its own
+                // after both fit+test finish. Without this, the frontend sets
+                // active=false and drops all subsequent test events.
+                Some(vec!["training_complete".to_string()]),
             );
 
             let fit_stderr_buf: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
@@ -357,6 +367,7 @@ pub async fn start_training(
                 app2.clone(),
                 sid.clone(),
                 Some(Arc::clone(&fit_stderr_buf)),
+                None,
             );
 
             let fit_ok = fit_child.wait().await.map(|s| s.success()).unwrap_or(false);
@@ -406,26 +417,42 @@ pub async fn start_training(
                 unsafe { c.pre_exec(|| { libc::setsid(); Ok(()) }); }
                 #[cfg(windows)]
                 { c.creation_flags(0x00000200); } // CREATE_NEW_PROCESS_GROUP
-                if let Ok(mut child) = c.spawn() {
-                    spawn_tail_task(
-                        test_stdout_path,
-                        Arc::clone(&alive2),
-                        true,
-                        None,
-                        app2.clone(),
-                        sid.clone(),
-                        None,
-                    );
-                    spawn_tail_task(
-                        test_stderr_path,
-                        Arc::clone(&alive2),
-                        false,
-                        Some("[test]".to_string()),
-                        app2.clone(),
-                        sid.clone(),
-                        None,
-                    );
-                    let _ = child.wait().await;
+                match c.spawn() {
+                    Ok(mut child) => {
+                        spawn_tail_task(
+                            test_stdout_path,
+                            Arc::clone(&alive2),
+                            true,
+                            None,
+                            app2.clone(),
+                            sid.clone(),
+                            None,
+                            None,
+                        );
+                        spawn_tail_task(
+                            test_stderr_path,
+                            Arc::clone(&alive2),
+                            false,
+                            Some("[test]".to_string()),
+                            app2.clone(),
+                            sid.clone(),
+                            None,
+                            None,
+                        );
+                        let _ = child.wait().await;
+                        // Give tail tasks time to drain remaining events
+                        // before we set alive=false and emit training_complete
+                        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                    }
+                    Err(e) => {
+                        let _ = app2.emit("training-event", TrainingEvent {
+                            session_id: sid.clone(),
+                            data: serde_json::json!({
+                                "event": "training_error",
+                                "error": format!("test step failed to spawn: {}", e)
+                            }),
+                        });
+                    }
                 }
             }
 
@@ -536,6 +563,7 @@ pub async fn start_training(
         app.clone(),
         session_id.clone(),
         None,
+        None,
     );
 
     tokio::spawn(async move {
@@ -556,6 +584,7 @@ pub async fn start_training(
         None,
         app.clone(),
         session_id.clone(),
+        None,
         None,
     );
 

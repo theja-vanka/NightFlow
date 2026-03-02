@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "preact/hooks";
+import { useEffect, useState, useCallback, useRef } from "preact/hooks";
 import {
   tutorialActive,
   tutorialStep,
@@ -8,8 +8,8 @@ import {
   skipTutorial,
 } from "../state/tutorial.js";
 
-const PADDING = 8;
-const TOOLTIP_GAP = 12;
+const PADDING = 10;
+const TOOLTIP_GAP = 14;
 const VIEWPORT_MARGIN = 12;
 
 function getRect(selector) {
@@ -30,6 +30,7 @@ function clamp(val, min, max) {
 
 export function TutorialOverlay() {
   const [rect, setRect] = useState(null);
+  const tooltipRef = useRef(null);
   const active = tutorialActive.value;
   const stepIdx = tutorialStep.value;
   const step = tutorialSteps[stepIdx];
@@ -48,18 +49,25 @@ export function TutorialOverlay() {
     }
   }, [active, stepIdx]);
 
-  // Re-measure periodically for waitFor steps (target may appear late)
+  // Re-measure after step change — delay to let view navigation render
   useEffect(() => {
     if (!active) return;
+
+    // Immediate attempt, then retry after a frame for view transitions
     measure();
+    const rafId = requestAnimationFrame(() => {
+      measure();
+    });
+
     window.addEventListener("resize", measure);
 
-    // For waitFor steps, poll for the target element in case it mounts later
+    // For waitFor steps or missing targets, poll until element appears
     let pollId;
-    if (step?.waitFor && !rect) {
-      pollId = setInterval(measure, 500);
+    if (step?.waitFor || !document.querySelector(step?.target)) {
+      pollId = setInterval(measure, 300);
     }
     return () => {
+      cancelAnimationFrame(rafId);
       window.removeEventListener("resize", measure);
       if (pollId) clearInterval(pollId);
     };
@@ -71,34 +79,45 @@ export function TutorialOverlay() {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
 
-  // Compute tooltip position
-  const tooltipW = 300;
-  const tooltipH = 180; // estimated
-  let tooltipX, tooltipY;
+  // Measure actual tooltip height when available, fallback to estimate
+  const tooltipW = Math.min(300, vw - VIEWPORT_MARGIN * 2);
+  const tooltipH = tooltipRef.current?.offsetHeight || 190;
 
-  switch (step.position) {
-    case "right":
-      tooltipX = rect.x + rect.w + TOOLTIP_GAP;
-      tooltipY = rect.y;
-      break;
-    case "left":
-      tooltipX = rect.x - tooltipW - TOOLTIP_GAP;
-      tooltipY = rect.y;
-      break;
-    case "bottom":
-      tooltipX = rect.x;
-      tooltipY = rect.y + rect.h + TOOLTIP_GAP;
-      break;
-    case "top":
-      tooltipX = rect.x;
-      tooltipY = rect.y - tooltipH - TOOLTIP_GAP;
-      break;
-    default:
-      tooltipX = rect.x + rect.w + TOOLTIP_GAP;
-      tooltipY = rect.y;
+  // Compute tooltip position based on preferred side,
+  // then fall back if it would clip the viewport
+  let tooltipX, tooltipY;
+  const positions = [step.position, "right", "bottom", "left", "top"];
+
+  for (const pos of positions) {
+    switch (pos) {
+      case "right":
+        tooltipX = rect.x + rect.w + TOOLTIP_GAP;
+        tooltipY = rect.y;
+        break;
+      case "left":
+        tooltipX = rect.x - tooltipW - TOOLTIP_GAP;
+        tooltipY = rect.y;
+        break;
+      case "bottom":
+        tooltipX = rect.x;
+        tooltipY = rect.y + rect.h + TOOLTIP_GAP;
+        break;
+      case "top":
+        tooltipX = rect.x;
+        tooltipY = rect.y - tooltipH - TOOLTIP_GAP;
+        break;
+      default:
+        tooltipX = rect.x + rect.w + TOOLTIP_GAP;
+        tooltipY = rect.y;
+    }
+
+    // Check if this position fits in the viewport
+    const fitsX = tooltipX >= VIEWPORT_MARGIN && tooltipX + tooltipW <= vw - VIEWPORT_MARGIN;
+    const fitsY = tooltipY >= VIEWPORT_MARGIN && tooltipY + tooltipH <= vh - VIEWPORT_MARGIN;
+    if (fitsX && fitsY) break;
   }
 
-  // Viewport clamp
+  // Final viewport clamp as safety net
   tooltipX = clamp(tooltipX, VIEWPORT_MARGIN, vw - tooltipW - VIEWPORT_MARGIN);
   tooltipY = clamp(tooltipY, VIEWPORT_MARGIN, vh - tooltipH - VIEWPORT_MARGIN);
 
@@ -121,7 +140,7 @@ export function TutorialOverlay() {
         <rect
           width="100%"
           height="100%"
-          fill="rgba(0,0,0,0.65)"
+          fill="rgba(0,0,0,0.6)"
           mask="url(#tutorial-mask)"
         />
       </svg>
@@ -137,8 +156,10 @@ export function TutorialOverlay() {
         }}
       />
 
-      {/* Tooltip */}
+      {/* Tooltip — key forces re-mount for entry animation per step */}
       <div
+        key={stepIdx}
+        ref={tooltipRef}
         class="tutorial-tooltip"
         style={{
           left: `${tooltipX}px`,
@@ -149,10 +170,10 @@ export function TutorialOverlay() {
       >
         <div class="tutorial-tooltip-header">
           <span class="tutorial-step-counter">
-            {stepIdx + 1} / {totalSteps}
+            Step {stepIdx + 1} of {totalSteps}
           </span>
           <button class="tutorial-btn-skip" onClick={skipTutorial}>
-            Skip
+            Skip tour
           </button>
         </div>
         <h3 class="tutorial-tooltip-title">{step.title}</h3>

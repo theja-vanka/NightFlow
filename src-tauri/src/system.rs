@@ -16,13 +16,25 @@ if hasattr(os, 'cpu_count'):
 try:
     if sys.platform == 'darwin':
         mem_total = int(subprocess.check_output(['sysctl', '-n', 'hw.memsize']).strip())
-        vm_stat = subprocess.check_output(['vm_stat']).decode('utf-8').split('\n')
-        pages_active = 0
-        page_size = 4096
-        for line in vm_stat:
-            if 'Pages active:' in line: pages_active = int(line.split(':')[1].strip().strip('.'))
+        vm = subprocess.check_output(['vm_stat']).decode('utf-8')
+        pages = {}
+        for line in vm.split('\n'):
+            if ':' in line:
+                key, val = line.split(':', 1)
+                val = val.strip().rstrip('.')
+                if val.isdigit():
+                    pages[key.strip()] = int(val)
+        ps = int(subprocess.check_output(['sysctl', '-n', 'vm.pagesize']).strip())
+        # Match Activity Monitor: Used = App Memory + Wired + Compressed
+        anonymous = pages.get('Anonymous pages', 0)
+        stored = pages.get('Pages stored in compressor', 0)
+        wired = pages.get('Pages wired down', 0)
+        app_mem = (anonymous - stored) * ps
+        wired_mem = wired * ps
+        compressed_mem = stored * ps
+        mem_used = app_mem + wired_mem + compressed_mem
         res['mem_total'] = mem_total
-        res['mem_used'] = pages_active * page_size
+        res['mem_used'] = max(0, min(mem_used, mem_total))
     elif sys.platform == 'win32':
         import ctypes
         class MEMORYSTATUSEX(ctypes.Structure):

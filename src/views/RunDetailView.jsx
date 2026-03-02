@@ -5,6 +5,7 @@ import { allRuns, loadRunScalars, loadRunHparams, updateRun } from "../state/exp
 import { currentProject } from "../state/projects.js";
 import { ChartPanel } from "../components/ChartPanel.jsx";
 import { LineChart } from "../components/LineChart.jsx";
+import { BarChart } from "../components/BarChart.jsx";
 import { ExportDropdown } from "../components/ExportDropdown.jsx";
 import { ConfusionMatrix } from "../components/ConfusionMatrix.jsx";
 import { PerClassMetrics } from "../components/PerClassMetrics.jsx";
@@ -218,13 +219,72 @@ function DownloadModelButton({ runId, runName }) {
   );
 }
 
+function getAugmentationSteps(preset, hp) {
+  const size = hp.image_size || hp.imageSize || 224;
+  const meanStd = "mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]";
+
+  switch (String(preset).toLowerCase()) {
+    case "default":
+      return [
+        `Random Resized Crop (${size}x${size})`,
+        "Random Horizontal Flip (p=0.5)",
+        "Color Jitter (brightness=0.2, contrast=0.2, saturation=0.2)",
+        "Convert to Tensor",
+        `Normalize (${meanStd})`
+      ];
+    case "autoaugment":
+      return [
+        `Random Resized Crop (${size}x${size})`,
+        "Random Horizontal Flip (p=0.5)",
+        "AutoAugment (policy=ImageNet)",
+        "Convert to Tensor",
+        `Normalize (${meanStd})`
+      ];
+    case "randaugment":
+      return [
+        `Random Resized Crop (${size}x${size})`,
+        "Random Horizontal Flip (p=0.5)",
+        "RandAugment (num_ops=2, magnitude=9)",
+        "Convert to Tensor",
+        `Normalize (${meanStd})`
+      ];
+    case "trivialaugment":
+      return [
+        `Random Resized Crop (${size}x${size})`,
+        "Random Horizontal Flip (p=0.5)",
+        "TrivialAugmentWide",
+        "Convert to Tensor",
+        `Normalize (${meanStd})`
+      ];
+    case "strong":
+      return [
+        `Random Resized Crop (${size}x${size})`,
+        "Horizontal Flip (p=0.5)",
+        "Affine Transform (scale=0.8-1.2, rotate=\u00b115\u00b0, translate=\u00b110%, p=0.5)",
+        "Blur / Gaussian Noise (p=0.3)",
+        "Color Jitter (brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1, p=0.8)",
+        "Coarse Dropout (holes=1-3, size=5-15%, p=0.3)",
+        `Normalize (${meanStd})`,
+        "Convert to Tensor"
+      ];
+    case "light":
+      return [
+        `Random Resized Crop (${size}x${size})`,
+        "Horizontal Flip (p=0.5)",
+        "Convert to Tensor",
+        `Normalize (${meanStd})`
+      ];
+    default:
+      return null;
+  }
+}
+
 export function RunDetailView() {
   const { runId } = routeParams.value;
   const run = allRuns.value.find((r) => r.id === runId);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState(null);
   const [fileHparams, setFileHparams] = useState(null);
-  const [modelInfo, setModelInfo] = useState(null);
 
   // If run has no scalars in IndexedDB, try loading from its JSONL file
   useEffect(() => {
@@ -248,18 +308,6 @@ export function RunDetailView() {
     });
   }, [runId]);
 
-  // Load model info (params, FLOPs)
-  useEffect(() => {
-    if (!run) return;
-    const project = currentProject.value;
-    if (!project?.projectPath) return;
-    invoke("parse_model_info", {
-      projectPath: project.projectPath,
-      runId: run.id,
-    })
-      .then((info) => setModelInfo(info))
-      .catch(() => setModelInfo(null));
-  }, [runId]);
 
   // Auto-select first tab when scalars become available
   const hasScalars = run?.scalars && Object.keys(run.scalars).length > 0;
@@ -374,45 +422,31 @@ export function RunDetailView() {
             </div>
           )}
 
-          {/* Model Info */}
-          {modelInfo && (modelInfo.total_params || modelInfo.model_size_mb || modelInfo.flops) && (
-            <div class="model-info-section">
-              <h3 class="run-detail-group-title">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.5">
-                  <rect x="2" y="3" width="20" height="14" rx="2" />
-                  <line x1="8" y1="21" x2="16" y2="21" />
-                  <line x1="12" y1="17" x2="12" y2="21" />
-                </svg>
-                Model Info
-              </h3>
-              <div class="model-info-list">
-                {modelInfo.total_params ? (
-                  <div class="model-info-item">
-                    <span class="model-info-key">Total Params</span>
-                    <span class="model-info-val">{modelInfo.total_params}</span>
-                  </div>
-                ) : null}
-                {modelInfo.trainable_params ? (
-                  <div class="model-info-item">
-                    <span class="model-info-key">Trainable</span>
-                    <span class="model-info-val">{modelInfo.trainable_params}</span>
-                  </div>
-                ) : null}
-                {modelInfo.model_size_mb ? (
-                  <div class="model-info-item">
-                    <span class="model-info-key">Model Size</span>
-                    <span class="model-info-val">{modelInfo.model_size_mb}</span>
-                  </div>
-                ) : null}
-                {modelInfo.flops ? (
-                  <div class="model-info-item">
-                    <span class="model-info-key">FLOPs</span>
-                    <span class="model-info-val">{modelInfo.flops}</span>
-                  </div>
-                ) : null}
+          {/* Augmentation Steps */}
+          {(() => {
+            const presetName = hp.augmentation_preset || hp.augmentationPreset || run.hyperparameters?.augmentationPreset || run.hyperparameters?.augmentation_preset;
+            if (!presetName) return null;
+            const steps = getAugmentationSteps(presetName, { ...run.hyperparameters, ...hp });
+            if (!steps) return null;
+
+            return (
+              <div class="run-detail-hparams" style="margin-top: 16px;">
+                <h3 class="run-detail-group-title">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.5">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                  </svg>
+                  Augmentation ({presetName})
+                </h3>
+                <ol style="padding-left: 24px; margin: 8px 0; color: var(--text-secondary); font-size: 13px;">
+                  {steps.map((step, idx) => (
+                    <li key={idx} style="margin-bottom: 6px;">{step}</li>
+                  ))}
+                </ol>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
 
         {/* Columns 2-3: Charts with tabs */}
@@ -455,26 +489,51 @@ export function RunDetailView() {
                     </>
                   )}
                 </div>
-              ) : (
-                <div class="run-detail-charts-grid">
-                  {currentTags.map((tag) => {
-                    const points = run.scalars[tag];
-                    const data =
-                      typeof points[0] === "number"
-                        ? points
-                        : points.map((s) => s.value);
-                    return (
-                      <ChartPanel key={tag} title={stripPrefix(tag)}>
-                        <LineChart
-                          series={[{ label: stripPrefix(tag), data }]}
-                          yLabel=""
-                          xLabel="Epoch"
-                        />
-                      </ChartPanel>
-                    );
-                  })}
-                </div>
-              )}
+              ) : (() => {
+                // Check if all tags in this tab are singular values (e.g. test metrics)
+                const allSingular = currentTags.every((tag) => {
+                  const pts = run.scalars[tag];
+                  return pts && pts.length <= 1;
+                });
+
+                if (allSingular && currentTags.length > 0) {
+                  // Render as a single bar chart with all metrics
+                  const barItems = currentTags.map((tag) => {
+                    const pts = run.scalars[tag];
+                    const val = pts.length === 1
+                      ? (typeof pts[0] === "number" ? pts[0] : pts[0].value)
+                      : 0;
+                    return { label: stripPrefix(tag), value: val };
+                  });
+
+                  return (
+                    <ChartPanel title={`${activeTab} metrics`}>
+                      <BarChart items={barItems} />
+                    </ChartPanel>
+                  );
+                }
+
+                return (
+                  <div class="run-detail-charts-grid">
+                    {currentTags.map((tag) => {
+                      const points = run.scalars[tag];
+                      const data =
+                        typeof points[0] === "number"
+                          ? points
+                          : points.map((s) => s.value);
+                      return (
+                        <ChartPanel key={tag} title={stripPrefix(tag)}>
+                          <LineChart
+                            series={[{ label: stripPrefix(tag), data }]}
+                            yLabel=""
+                            xLabel="Epoch"
+                          />
+                        </ChartPanel>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </>
           ) : null}
 

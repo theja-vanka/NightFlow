@@ -11,6 +11,9 @@ import {
   trainingFastDevRun,
   trainingMetrics,
   trainingTestMetrics,
+  trainingTestBatch,
+  trainingTestTotalBatches,
+  trainingTestProgress,
   trainingEstimatedRemaining,
   stopTraining,
 } from "../state/training.js";
@@ -38,11 +41,12 @@ function ProgressBar({ value }) {
 
 function StatusLabel({ event, reconnected }) {
   const labels = {
-    preparing: "Hyperparameter optimization...",
+    preparing: "Starting...",
     tuning_started: "Auto-tuning...",
     tuning_complete: "Tuning complete",
     training_started: "Starting...",
     testing_started: "Running tests...",
+    test_batch_end: "Testing",
     testing_complete: "Testing complete",
     epoch_started: "Training",
     batch_end: "Training",
@@ -153,26 +157,55 @@ export function TrainingPanel() {
         </>
       )}
 
-      {/* Test metrics displayed during or after testing */}
-      {(event === "testing_started" || event === "testing_complete") && (
-        <div class="training-panel-stats">
-          {Object.entries(trainingTestMetrics.value).map(([key, val]) => {
-            const label = key
-              .replace(/^test\//, "")
-              .replace(/_/g, " ");
-            const displayVal =
-              typeof val === "number"
-                ? val < 1 && val > -1
-                  ? val.toFixed(4)
-                  : val.toFixed(2)
-                : val;
-            return (
-              <div class="training-stat" key={key}>
-                <span class="training-stat-label">Test {label}</span>
-                <span class="training-stat-value">{displayVal}</span>
-              </div>
-            );
-          })}
+      {/* Test section */}
+      {(event === "testing_started" || event === "test_batch_end" || event === "testing_complete") && (
+        <div class={`training-test-section${event === "testing_complete" ? " training-test-section--done" : ""}`}>
+          <div class="training-test-header">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M6.5 1.75a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 .75.75V4h2.75a.75.75 0 0 1 .53 1.28l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5A.75.75 0 0 1 2.75 4H5.5V1.75Z" fill="currentColor" opacity="0.5"/>
+              <path d="M2 13.25a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1-.75-.75Z" fill="currentColor"/>
+            </svg>
+            <span class="training-test-title">Evaluation</span>
+            {event === "testing_complete" && (
+              <span class="training-test-badge">Done</span>
+            )}
+            {event !== "testing_complete" && trainingTestTotalBatches.value > 0 && (
+              <span class="training-test-counter">
+                {trainingTestBatch.value} / {trainingTestTotalBatches.value}
+              </span>
+            )}
+          </div>
+
+          {event !== "testing_complete" && (
+            <div class="training-test-track">
+              <div
+                class="training-test-fill"
+                style={{ width: `${Math.min(trainingTestProgress.value, 100)}%` }}
+              />
+            </div>
+          )}
+
+          {Object.keys(trainingTestMetrics.value).length > 0 && (
+            <div class="training-panel-stats training-test-stats">
+              {Object.entries(trainingTestMetrics.value).map(([key, val]) => {
+                const label = key
+                  .replace(/^test\//, "")
+                  .replace(/_/g, " ");
+                const displayVal =
+                  typeof val === "number"
+                    ? val < 1 && val > -1
+                      ? val.toFixed(4)
+                      : val.toFixed(2)
+                    : val;
+                return (
+                  <div class="training-stat" key={key}>
+                    <span class="training-stat-label">{label}</span>
+                    <span class="training-stat-value">{displayVal}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
