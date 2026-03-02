@@ -5,7 +5,7 @@ import { allRuns, loadRunScalars, loadRunHparams, updateRun } from "../state/exp
 import { currentProject } from "../state/projects.js";
 import { ChartPanel } from "../components/ChartPanel.jsx";
 import { LineChart } from "../components/LineChart.jsx";
-import { BarChart } from "../components/BarChart.jsx";
+
 import { ExportDropdown } from "../components/ExportDropdown.jsx";
 import { ConfusionMatrix } from "../components/ConfusionMatrix.jsx";
 import { PerClassMetrics } from "../components/PerClassMetrics.jsx";
@@ -16,6 +16,32 @@ function formatLabel(key) {
     .replace(/_/g, " ")
     .replace(/([a-z])([A-Z])/g, "$1 $2")
     .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+const METRIC_COLORS = [
+  "var(--chart-line-1)", "var(--chart-line-4)", "var(--chart-line-5)",
+  "var(--chart-line-2)", "var(--chart-line-3)", "var(--chart-line-7)",
+];
+
+function fmtMetric(v) {
+  if (v == null) return "—";
+  if (Math.abs(v) < 0.001 && v !== 0) return v.toExponential(2);
+  if (Math.abs(v) < 1) return v.toFixed(4);
+  return v.toFixed(2);
+}
+
+function BarMetricCard({ label, value, index }) {
+  const pct = Math.min(Math.abs(value) * 100, 100);
+  const color = METRIC_COLORS[index % METRIC_COLORS.length];
+  return (
+    <div class="metric-card">
+      <div class="metric-card-label">{label}</div>
+      <div class="metric-card-value" style={{ color }}>{fmtMetric(value)}</div>
+      <div class="metric-card-track">
+        <div class="metric-card-fill" style={{ width: `${pct}%`, background: color }} />
+      </div>
+    </div>
+  );
 }
 
 // Keys to exclude from hparams display (internal/noise from PyTorch Lightning)
@@ -504,18 +530,16 @@ export function RunDetailView() {
                 });
 
                 if (allSingular && currentTags.length > 0) {
-                  // Render each singular metric as its own bar chart
+                  // Render each singular metric as a compact bar card
                   return (
-                    <div class="run-detail-charts-grid">
-                      {currentTags.map((tag) => {
+                    <div class="run-detail-metric-grid">
+                      {currentTags.map((tag, i) => {
                         const pts = run.scalars[tag];
                         const val = pts.length === 1
                           ? (typeof pts[0] === "number" ? pts[0] : pts[0].value)
                           : 0;
                         return (
-                          <ChartPanel key={tag} title={stripPrefix(tag)}>
-                            <BarChart items={[{ label: stripPrefix(tag), value: val }]} />
-                          </ChartPanel>
+                          <BarMetricCard key={tag} label={stripPrefix(tag)} value={val} index={i} />
                         );
                       })}
                     </div>

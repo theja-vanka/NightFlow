@@ -31,10 +31,16 @@ function clamp(val, min, max) {
 export function TutorialOverlay() {
   const [rect, setRect] = useState(null);
   const tooltipRef = useRef(null);
+  const rectRef = useRef(null);
   const active = tutorialActive.value;
   const stepIdx = tutorialStep.value;
   const step = tutorialSteps[stepIdx];
   const isWaiting = step?.waitFor ? !step.waitFor() : false;
+
+  const missCountRef = useRef(0);
+
+  // Keep a ref so the global click handler always has the latest rect
+  rectRef.current = rect;
 
   const measure = useCallback(() => {
     if (!active) return;
@@ -42,10 +48,15 @@ export function TutorialOverlay() {
     if (!step) return;
     const r = getRect(step.target);
     if (r) {
+      missCountRef.current = 0;
       setRect(r);
     } else {
-      // Target not found — skip to next step
-      nextStep();
+      // Only skip after sustained misses (avoid skipping during transient re-renders)
+      missCountRef.current += 1;
+      if (missCountRef.current > 10) {
+        missCountRef.current = 0;
+        nextStep();
+      }
     }
   }, [active, stepIdx]);
 
@@ -121,8 +132,27 @@ export function TutorialOverlay() {
   tooltipX = clamp(tooltipX, VIEWPORT_MARGIN, vw - tooltipW - VIEWPORT_MARGIN);
   tooltipY = clamp(tooltipY, VIEWPORT_MARGIN, vh - tooltipH - VIEWPORT_MARGIN);
 
+  // Handle backdrop click: skip tutorial only if clicking outside the
+  // highlighted cutout area. Clicks inside the cutout are forwarded to
+  // the real element underneath (e.g. the Connect button).
+  const handleOverlayClick = (e) => {
+    const r = rectRef.current;
+    if (r) {
+      const cx = e.clientX, cy = e.clientY;
+      const inCutout = cx >= r.x && cx <= r.x + r.w && cy >= r.y && cy <= r.y + r.h;
+      if (inCutout) {
+        // Re-dispatch click to the real element under the cutout
+        const below = document.elementsFromPoint(cx, cy)
+          .find((el) => !el.closest(".tutorial-overlay"));
+        if (below) below.click();
+        return;
+      }
+    }
+    skipTutorial();
+  };
+
   return (
-    <div class="tutorial-overlay" onClick={skipTutorial}>
+    <div class="tutorial-overlay" onClick={handleOverlayClick}>
       <svg class="tutorial-svg" viewBox={`0 0 ${vw} ${vh}`}>
         <defs>
           <mask id="tutorial-mask">
