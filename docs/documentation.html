@@ -40,7 +40,8 @@
         }
 
         html {
-            scroll-behavior: smooth
+            scroll-behavior: smooth;
+            overflow-x: hidden
         }
 
         body {
@@ -50,6 +51,8 @@
             line-height: 1.7;
             -webkit-font-smoothing: antialiased;
             overflow-x: hidden;
+            width: 100%;
+            position: relative
         }
 
         body::before {
@@ -151,6 +154,15 @@
             border-radius: 6px
         }
 
+        .menu-toggle {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--text);
+            cursor: pointer;
+            padding: 4px;
+        }
+
         .nav-links {
             display: flex;
             gap: 24px;
@@ -177,7 +189,8 @@
         .page-header {
             padding: 120px 24px 48px;
             text-align: center;
-            position: relative
+            position: relative;
+            overflow: hidden
         }
 
         .page-header::before {
@@ -464,6 +477,30 @@
             }
         }
 
+        @media(max-width:768px) {
+            .menu-toggle {
+                display: block;
+            }
+
+            .nav-links {
+                display: none;
+                flex-direction: column;
+                position: absolute;
+                top: 56px;
+                left: 0;
+                right: 0;
+                background: rgba(10, 10, 15, .95);
+                backdrop-filter: blur(16px);
+                padding: 16px 24px;
+                border-bottom: 1px solid var(--border);
+                gap: 16px;
+            }
+
+            .nav-links.active {
+                display: flex;
+            }
+        }
+
         @media(max-width:480px) {
             .nav-links {
                 gap: 12px;
@@ -486,7 +523,15 @@
                 <img src="logo.png" alt="NightFlow" />
                 NightFlow
             </a>
-            <div class="nav-links">
+            <button class="menu-toggle" id="mobile-menu-btn" aria-label="Toggle navigation">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+            </button>
+            <div class="nav-links" id="nav-links">
                 <a href="index.html">Home</a>
                 <a href="documentation.html" class="active">Docs</a>
                 <a href="getting-started.html">Get Started</a>
@@ -903,6 +948,7 @@
     <footer>
         <p>Released under the <a href="https://github.com/theja-vanka/NightFlow/blob/main/LICENSE" target="_blank"
                 rel="noopener">Apache License 2.0</a>.</p>
+        <p style="margin-top: 8px;">Built with &hearts; by Krishnatheja Vanka</p>
         <div class="footer-links">
             <a href="index.html">Home</a>
             <a href="getting-started.html">Get Started</a>
@@ -913,20 +959,16 @@
     </footer>
 
     <script>
-        // Scroll reveal
-        const revealEls = document.querySelectorAll('.reveal');
-        if ('IntersectionObserver' in window) {
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach((entry) => {
-                    if (entry.isIntersecting) {
-                        entry.target.classList.add('visible');
-                        observer.unobserve(entry.target);
-                    }
-                });
-            }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
-            revealEls.forEach(el => observer.observe(el));
-        } else {
-            revealEls.forEach(el => el.classList.add('visible'));
+        // Scroll
+        const r = document.querySelectorAll('.reveal'); if ('IntersectionObserver' in window) { const o = new IntersectionObserver(e => { e.forEach(x => { if (x.isIntersecting) { x.target.classList.add('visible'); o.unobserve(x.target) } }) }, { threshold: .1, rootMargin: '0px 0px -40px 0px' }); r.forEach(e => o.observe(e)) } else r.forEach(e => e.classList.add('visible'));
+
+        // Mobile Menu Toggle
+        const menuBtn = document.getElementById('mobile-menu-btn');
+        const navLinks = document.getElementById('nav-links');
+        if (menuBtn && navLinks) {
+            menuBtn.addEventListener('click', () => {
+                navLinks.classList.toggle('active');
+            });
         }
 
         // Active sidebar tracking
