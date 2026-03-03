@@ -195,7 +195,7 @@ pub fn browse_dataset(
     format: String,
     limit: usize,
     offset: usize,
-    class_filter: Option<String>,
+    class_filter: Option<Vec<String>>,
 ) -> Result<DatasetBrowseResult, String> {
     let expanded = expand_tilde(&path);
     let dir = std::path::PathBuf::from(&expanded);
@@ -296,10 +296,10 @@ pub fn browse_dataset(
     all_images.sort_by(|a, b| a.label.cmp(&b.label).then(a.path.cmp(&b.path)));
 
     // Apply class filter if provided
-    if let Some(ref filter) = class_filter
-        && !filter.is_empty()
-    {
-        all_images.retain(|img| img.label == *filter);
+    if let Some(ref filters) = class_filter {
+        if !filters.is_empty() {
+            all_images.retain(|img| filters.contains(&img.label));
+        }
     }
 
     let total = all_images.len();
