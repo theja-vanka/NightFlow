@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "nightforge",
+      "name": "nightflow",
       "dependencies": {
         "@preact/signals": "^2.8.0",
         "preact": "^10.28.3",

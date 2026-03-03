@@ -6,6 +6,9 @@
   "permissions": [
     "core:default",
     "core:window:allow-close",
-    "core:window:allow-show"
+    "core:window:allow-show",
+    "core:event:default",
+    "notification:default",
+    "core:app:default"
   ]
 }

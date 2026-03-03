@@ -1,0 +1,75 @@
+import { signal, computed } from "@preact/signals";
+import { currentProjectId } from "./projects.js";
+
+// ── Run Queue ───────────────────────────────────────────────────────────────
+
+export const runQueue = signal([]);
+// Each entry: { id, projectId, config: { command, cwd, runId }, status: 'queued'|'running'|'done'|'failed' }
+
+export const queueLength = computed(
+  () => runQueue.value.filter((q) => q.status === "queued").length,
+);
+
+export const projectQueue = computed(
+  () =>
+    runQueue.value.filter(
+      (q) =>
+        q.projectId === currentProjectId.value &&
+        (q.status === "queued" || q.status === "running"),
+    ),
+);
+
+export function addToQueue(projectId, config) {
+  const entry = {
+    id: crypto.randomUUID(),
+    projectId,
+    config,
+    status: "queued",
+    createdAt: Date.now(),
+  };
+  runQueue.value = [...runQueue.value, entry];
+  return entry.id;
+}
+
+export function removeFromQueue(id) {
+  runQueue.value = runQueue.value.filter((q) => q.id !== id);
+}
+
+export function clearQueue() {
+  runQueue.value = runQueue.value.filter((q) => q.status === "running");
+}
+
+/**
+ * Called when training completes or fails for a project.
+ * Starts the next queued run if one exists.
+ */
+export async function processQueue(projectId) {
+  // Mark current running entry as done
+  runQueue.value = runQueue.value.map((q) =>
+    q.projectId === projectId && q.status === "running"
+      ? { ...q, status: "done" }
+      : q,
+  );
+
+  // Find the next queued entry for this project
+  const next = runQueue.value.find(
+    (q) => q.projectId === projectId && q.status === "queued",
+  );
+  if (!next) return;
+
+  // Mark it as running
+  runQueue.value = runQueue.value.map((q) =>
+    q.id === next.id ? { ...q, status: "running" } : q,
+  );
+
+  // Start it — dynamically import to avoid circular deps
+  const { startTraining } = await import("./training.js");
+  const { syncConfig, currentProject } = await import("./dashboard.js");
+  const { projectList } = await import("./projects.js");
+
+  const project = projectList.value.find((p) => p.id === projectId);
+  if (project && next.config) {
+    await syncConfig(project, projectId, next.config.runId);
+    startTraining(next.config.command, next.config.cwd, next.config.runId);
+  }
+}
