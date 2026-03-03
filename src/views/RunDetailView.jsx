@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { navigate, routeParams } from "../state/router.js";
 import { allRuns, loadRunScalars, loadRunHparams, updateRun } from "../state/experiments.js";
 import { currentProject } from "../state/projects.js";
+import { notify } from "../utils/notifications.js";
 import { ChartPanel } from "../components/ChartPanel.jsx";
 import { LineChart } from "../components/LineChart.jsx";
 
@@ -198,16 +199,31 @@ function DownloadModelButton({ runId, runName }) {
     try {
       const sshCmd =
         project.connectionType === "remote" ? project.sshCommand : null;
+
+      // Resolve task class for TorchScript export
+      const taskClassMap = {
+        Classification: "ImageClassifier",
+        "Multi-Label Classification": "ImageClassifier",
+        "Object Detection":
+          project.detectionArch === "yolox" ? "YOLOXDetector" : "ObjectDetector",
+        "Semantic Segmentation": "SemanticSegmentor",
+        "Instance Segmentation": "InstanceSegmentor",
+      };
+      const taskClass = taskClassMap[project.taskType] || "ImageClassifier";
+
       await invoke("download_model", {
         projectPath: project.projectPath,
         runId,
         runName: runName || runId,
+        taskClass,
         sshCommand: sshCmd,
       });
       setStatus("done");
+      notify("Model Downloaded", `TorchScript model saved to ~/Downloads/${(runName || runId)}.pt`);
     } catch (err) {
       setStatus("error");
       setError(String(err));
+      notify("Download Failed", String(err));
     }
   }
 
@@ -235,10 +251,10 @@ function DownloadModelButton({ runId, runName }) {
       >
         {icon}
         {status === "loading"
-          ? "Downloading..."
+          ? "Converting & Downloading…"
           : status === "done"
-            ? "Downloaded"
-            : "Download Model"}
+            ? "Downloaded (.pt)"
+            : "Download Model (.pt)"}
       </button>
       {error && (
         <span class="training-download-msg training-download-msg--error">
@@ -315,6 +331,8 @@ export function RunDetailView() {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState(null);
   const [fileHparams, setFileHparams] = useState(null);
+  const [hparamsOpen, setHparamsOpen] = useState(false);
+  const [augOpen, setAugOpen] = useState(false);
 
   // If run has no scalars in IndexedDB, try loading from its JSONL file
   useEffect(() => {
@@ -346,7 +364,9 @@ export function RunDetailView() {
   // Check for confusion matrix / per-class data (persisted directly or in scalars)
   const confusionMatrix = run?.confusionMatrix || run?.scalars?.["test/confusion_matrix"] || null;
   const perClassMetrics = run?.perClassMetrics || run?.scalars?.["test/per_class_metrics"] || null;
-  const hasClassificationData = confusionMatrix || perClassMetrics;
+  // confusionMatrix can be a dict {matrix, labels} or a legacy array
+  const hasCM = confusionMatrix && (Array.isArray(confusionMatrix) || confusionMatrix.matrix);
+  const hasClassificationData = hasCM || perClassMetrics;
 
   const TAB_ORDER = ["train", "val", "test"];
   const sortedTabs = [
@@ -422,61 +442,61 @@ export function RunDetailView() {
       <div class="run-detail-body">
         {/* Column 1: Hyperparameters */}
         <div class="run-detail-sidebar">
-          {hasHparams ? (
-            <div class="run-detail-hparams">
-              <h3 class="run-detail-group-title">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.5">
-                  <circle cx="12" cy="12" r="3" />
-                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                </svg>
-                Hyperparameters
-              </h3>
-              <div class="hparams-list">
-                {Object.entries(hp).map(([key, val]) => (
-                  <div key={key} class="hparams-item">
-                    <span class="hparams-key">{formatLabel(key)}</span>
-                    <span class="hparams-val">{formatHparamValue(key, val)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div class="run-detail-hparams">
-              <h3 class="run-detail-group-title">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.5">
-                  <circle cx="12" cy="12" r="3" />
-                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                </svg>
-                Hyperparameters
-              </h3>
-              <div class="run-detail-empty-sidebar">
-                No hyperparameters recorded.
-              </div>
-            </div>
-          )}
+          <div class="run-detail-hparams">
+            <h3 class="run-detail-group-title collapsible-title" onClick={() => setHparamsOpen(!hparamsOpen)}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.5">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
+              Hyperparameters
+              <svg class={`collapsible-chevron${hparamsOpen ? " open" : ""}`} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </h3>
+            {hparamsOpen && (
+              hasHparams ? (
+                <div class="hparams-list">
+                  {Object.entries(hp).map(([key, val]) => (
+                    <div key={key} class="hparams-item">
+                      <span class="hparams-key">{formatLabel(key)}</span>
+                      <span class="hparams-val">{formatHparamValue(key, val)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div class="run-detail-empty-sidebar">
+                  No hyperparameters recorded.
+                </div>
+              )
+            )}
+          </div>
 
           {/* Augmentation Steps */}
           {(() => {
-            const presetName = hp.augmentation_preset || hp.augmentationPreset;
-            if (!presetName) return null;
+            const presetName = hp.augmentation_preset || hp.augmentationPreset || "default";
             const steps = getAugmentationSteps(presetName, hp);
             if (!steps) return null;
 
             return (
-              <div class="run-detail-hparams" style="margin-top: 16px;">
-                <h3 class="run-detail-group-title">
+              <div class="run-detail-hparams">
+                <h3 class="run-detail-group-title collapsible-title" onClick={() => setAugOpen(!augOpen)}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.5">
                     <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
                     <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
                     <line x1="12" y1="22.08" x2="12" y2="12"></line>
                   </svg>
                   Augmentation ({presetName})
+                  <svg class={`collapsible-chevron${augOpen ? " open" : ""}`} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
                 </h3>
-                <ol style="padding-left: 24px; margin: 8px 0; color: var(--text-secondary); font-size: 13px;">
-                  {steps.map((step, idx) => (
-                    <li key={idx} style="margin-bottom: 6px;">{step}</li>
-                  ))}
-                </ol>
+                {augOpen && (
+                  <ol style="padding-left: 24px; margin: 8px 0; color: var(--text-secondary); font-size: 13px;">
+                    {steps.map((step, idx) => (
+                      <li key={idx} style="margin-bottom: 6px;">{step}</li>
+                    ))}
+                  </ol>
+                )}
               </div>
             );
           })()}
@@ -505,21 +525,32 @@ export function RunDetailView() {
               </div>
 
               {activeTab === "classification" ? (
-                <div style="padding: 8px 0">
-                  {confusionMatrix && Array.isArray(confusionMatrix) && (
-                    <>
-                      <h3 class="run-detail-group-title">Confusion Matrix</h3>
+                <div class="classification-tab-content">
+                  {hasCM && (
+                    <div class="classification-section">
+                      <h3 class="run-detail-group-title">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.5">
+                          <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
+                          <rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
+                        </svg>
+                        Confusion Matrix
+                      </h3>
                       <ConfusionMatrix
                         matrix={confusionMatrix.matrix || confusionMatrix}
                         labels={confusionMatrix.labels || confusionMatrix.map((_, i) => `Class ${i}`)}
                       />
-                    </>
+                    </div>
                   )}
                   {perClassMetrics && Array.isArray(perClassMetrics) && (
-                    <>
-                      <h3 class="run-detail-group-title" style="margin-top:20px">Per-Class Metrics</h3>
+                    <div class="classification-section">
+                      <h3 class="run-detail-group-title">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.5">
+                          <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" />
+                        </svg>
+                        Per-Class Metrics
+                      </h3>
                       <PerClassMetrics metrics={perClassMetrics} />
-                    </>
+                    </div>
                   )}
                 </div>
               ) : (() => {

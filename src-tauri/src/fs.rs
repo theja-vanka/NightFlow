@@ -296,10 +296,10 @@ pub fn browse_dataset(
     all_images.sort_by(|a, b| a.label.cmp(&b.label).then(a.path.cmp(&b.path)));
 
     // Apply class filter if provided
-    if let Some(ref filters) = class_filter {
-        if !filters.is_empty() {
-            all_images.retain(|img| filters.contains(&img.label));
-        }
+    if let Some(ref filters) = class_filter
+        && !filters.is_empty()
+    {
+        all_images.retain(|img| filters.contains(&img.label));
     }
 
     let total = all_images.len();

@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Contributing — NightFlow</title>
+    <meta name="description" content="How to contribute to NightFlow — fork, develop, and submit pull requests." />
+    <link rel="icon" href="favicon.ico" type="image/x-icon" />
+    <link rel="canonical" href="https://theja-vanka.github.io/NightFlow/contributing.html" />
+    <meta property="og:title" content="Contributing — NightFlow" />
+    <meta property="og:url" content="https://theja-vanka.github.io/NightFlow/contributing.html" />
+    <meta property="og:image" content="https://theja-vanka.github.io/NightFlow/logo.png" />
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0
+        }
+
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --surface2: #1a1a26;
+            --border: #2a2a3a;
+            --text: #e4e4ef;
+            --text2: #9395a5;
+            --accent: #6c5ce7;
+            --accent2: #a29bfe;
+            --green: #00b894;
+            --radius: 12px;
+            --max-w: 860px
+        }
+
+        html {
+            scroll-behavior: smooth
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background-image: radial-gradient(circle, rgba(255, 255, 255, .03) 1px, transparent 1px);
+            background-size: 32px 32px;
+            pointer-events: none
+        }
+
+        body>* {
+            position: relative;
+            z-index: 1
+        }
+
+        a {
+            color: var(--accent2);
+            text-decoration: none
+        }
+
+        a:hover {
+            text-decoration: underline
+        }
+
+        .reveal {
+            opacity: 0;
+            transform: translateY(24px);
+            transition: opacity .6s ease, transform .6s ease
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0)
+        }
+
+        @media(prefers-reduced-motion:reduce) {
+            .reveal {
+                opacity: 1;
+                transform: none
+            }
+        }
+
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: rgba(10, 10, 15, .85);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border)
+        }
+
+        .nav-inner {
+            max-width: 1080px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 56px
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--text)
+        }
+
+        .nav-brand img {
+            height: 28px;
+            border-radius: 6px
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 24px;
+            font-size: .9rem
+        }
+
+        .nav-links a {
+            color: var(--text2);
+            transition: color .2s
+        }
+
+        .nav-links a:hover {
+            color: var(--text);
+            text-decoration: none
+        }
+
+        .nav-links a.active {
+            color: var(--accent2);
+            border-bottom: 2px solid var(--accent2);
+            padding-bottom: 2px
+        }
+
+        .page-header {
+            padding: 120px 24px 48px;
+            text-align: center;
+            position: relative
+        }
+
+        .page-header::before {
+            content: '';
+            position: absolute;
+            top: -20%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 800px;
+            height: 500px;
+            background: radial-gradient(ellipse at center, rgba(108, 92, 231, .12) 0%, rgba(0, 184, 148, .06) 40%, transparent 70%);
+            pointer-events: none
+        }
+
+        .page-header h1 {
+            font-size: clamp(2rem, 4vw, 2.8rem);
+            font-weight: 800;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, var(--accent2), var(--green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text
+        }
+
+        .page-header p {
+            color: var(--text2);
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto
+        }
+
+        .content {
+            max-width: var(--max-w);
+            margin: 0 auto;
+            padding: 0 24px 80px
+        }
+
+        .content section {
+            margin-bottom: 64px
+        }
+
+        .content h2 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border)
+        }
+
+        .content h3 {
+            font-size: 1.15rem;
+            font-weight: 600;
+            margin: 28px 0 12px;
+            color: var(--accent2)
+        }
+
+        .content p {
+            color: var(--text2);
+            margin-bottom: 16px;
+            line-height: 1.8
+        }
+
+        .content ul,
+        .content ol {
+            color: var(--text2);
+            margin: 0 0 16px 20px
+        }
+
+        .content li {
+            margin-bottom: 8px
+        }
+
+        .content li strong {
+            color: var(--text)
+        }
+
+        .content code {
+            background: var(--surface2);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: .88rem;
+            color: var(--accent2)
+        }
+
+        .content pre {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            overflow-x: auto;
+            margin-bottom: 20px;
+            font-size: .88rem;
+            line-height: 1.6;
+            color: var(--text)
+        }
+
+        .info-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--accent);
+            border-radius: var(--radius);
+            padding: 20px 24px;
+            margin: 20px 0
+        }
+
+        .info-box.tip {
+            border-left-color: var(--green)
+        }
+
+        .info-box strong {
+            display: block;
+            margin-bottom: 6px;
+            color: var(--text)
+        }
+
+        .info-box p {
+            color: var(--text2);
+            margin: 0;
+            font-size: .92rem
+        }
+
+        .steps {
+            counter-reset: step;
+            margin: 24px 0
+        }
+
+        .step {
+            position: relative;
+            padding: 24px 24px 24px 72px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-bottom: 16px;
+            transition: border-color .3s, transform .3s
+        }
+
+        .step:hover {
+            border-color: rgba(108, 92, 231, .3);
+            transform: translateY(-2px)
+        }
+
+        .step::before {
+            counter-increment: step;
+            content: counter(step);
+            position: absolute;
+            left: 20px;
+            top: 24px;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(108, 92, 231, .15);
+            color: var(--accent2);
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 1.1rem
+        }
+
+        .step h3 {
+            margin: 0 0 8px;
+            color: var(--text);
+            font-size: 1.05rem
+        }
+
+        .step p {
+            color: var(--text2);
+            margin: 0;
+            font-size: .92rem
+        }
+
+        .step pre {
+            margin-top: 12px;
+            margin-bottom: 0
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0 24px;
+            font-size: .9rem
+        }
+
+        th {
+            text-align: left;
+            padding: 10px 14px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-weight: 600
+        }
+
+        td {
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            color: var(--text2)
+        }
+
+        footer {
+            border-top: 1px solid var(--border);
+            text-align: center;
+            padding: 48px 24px;
+            color: var(--text2);
+            font-size: .85rem
+        }
+
+        footer a {
+            color: var(--accent2)
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 24px;
+            justify-content: center;
+            margin-top: 14px;
+            flex-wrap: wrap
+        }
+
+        @media(max-width:480px) {
+            .nav-links {
+                gap: 12px;
+                font-size: .8rem
+            }
+
+            .page-header {
+                padding: 100px 16px 32px
+            }
+
+            .step {
+                padding-left: 60px
+            }
+
+            .step::before {
+                left: 14px;
+                width: 30px;
+                height: 30px;
+                font-size: .95rem
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav>
+        <div class="nav-inner">
+            <a href="index.html" class="nav-brand" style="text-decoration:none"><img src="logo.png" alt="NightFlow" />
+                NightFlow</a>
+            <div class="nav-links">
+                <a href="index.html">Home</a><a href="documentation.html">Docs</a><a href="getting-started.html">Get
+                    Started</a><a href="architecture.html">Architecture</a><a
+                    href="https://github.com/theja-vanka/NightFlow" target="_blank" rel="noopener">GitHub</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="page-header">
+        <h1>Contributing</h1>
+        <p>NightFlow is open source and welcomes contributions of all kinds — code, docs, bug reports, and ideas.</p>
+    </header>
+
+    <div class="content">
+
+        <!-- HOW TO CONTRIBUTE -->
+        <section id="how" class="reveal">
+            <h2>How to Contribute</h2>
+            <div class="steps">
+                <div class="step">
+                    <h3>Fork the Repository</h3>
+                    <p>Click the <strong>Fork</strong> button on <a href="https://github.com/theja-vanka/NightFlow"
+                            target="_blank">GitHub</a> to create your own copy.</p>
+                </div>
+                <div class="step">
+                    <h3>Create a Feature Branch</h3>
+                    <pre>git checkout -b feat/your-feature</pre>
+                </div>
+                <div class="step">
+                    <h3>Make Your Changes</h3>
+                    <p>Write code, fix bugs, improve docs — whatever you'd like to contribute.</p>
+                </div>
+                <div class="step">
+                    <h3>Commit with a Clear Message</h3>
+                    <pre>git commit -m 'feat: add your feature'</pre>
+                </div>
+                <div class="step">
+                    <h3>Push and Open a Pull Request</h3>
+                    <pre>git push origin feat/your-feature</pre>
+                    <p style="margin-top:8px">Then open a PR on GitHub. Describe what you changed and why.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- DEV SETUP -->
+        <section id="dev-setup" class="reveal">
+            <h2>Development Setup</h2>
+            <p>See the full <a href="getting-started.html">Getting Started</a> guide for detailed prerequisites and
+                installation steps. Quick summary:</p>
+            <pre>git clone https://github.com/theja-vanka/NightFlow.git && cd NightFlow
+npm install --legacy-peer-deps   # or: bun install
+npx tauri dev                    # or: bunx tauri dev</pre>
+
+            <div class="info-box tip">
+                <strong>💡 Hot Reload</strong>
+                <p>The frontend supports Vite HMR — changes to JSX/CSS are reflected instantly. Rust backend changes
+                    require a recompile (automatic in <code>tauri dev</code>).</p>
+            </div>
+        </section>
+
+        <!-- CODE STYLE -->
+        <section id="code-style" class="reveal">
+            <h2>Code Style & Linting</h2>
+            <h3>Frontend (JavaScript / JSX)</h3>
+            <ul>
+                <li>ESLint is configured — run <code>npm run lint</code> or <code>bun run lint</code></li>
+                <li>Use <strong>Preact</strong> imports, not React (e.g., <code>import { h } from 'preact'</code>)</li>
+                <li>Use <strong>Signals</strong> for state management, not useState/useReducer</li>
+                <li>Vanilla CSS — no Tailwind or CSS-in-JS</li>
+            </ul>
+
+            <h3>Backend (Rust)</h3>
+            <ul>
+                <li>Run <code>cargo clippy</code> to check for common issues</li>
+                <li>Run <code>cargo fmt</code> to format code</li>
+                <li>Follow Rust Edition 2024 idioms</li>
+                <li>All Tauri commands should have proper error handling</li>
+            </ul>
+        </section>
+
+        <!-- COMMIT CONVENTIONS -->
+        <section id="commits" class="reveal">
+            <h2>Commit Conventions</h2>
+            <p>We follow <a href="https://www.conventionalcommits.org/" target="_blank">Conventional Commits</a>:</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Prefix</th>
+                        <th>Purpose</th>
+                        <th>Example</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>feat:</code></td>
+                        <td>New feature</td>
+                        <td>feat: add confusion matrix export</td>
+                    </tr>
+                    <tr>
+                        <td><code>fix:</code></td>
+                        <td>Bug fix</td>
+                        <td>fix: resolve SSH timeout on slow networks</td>
+                    </tr>
+                    <tr>
+                        <td><code>docs:</code></td>
+                        <td>Documentation</td>
+                        <td>docs: update architecture diagram</td>
+                    </tr>
+                    <tr>
+                        <td><code>refactor:</code></td>
+                        <td>Code refactor</td>
+                        <td>refactor: extract chart utils</td>
+                    </tr>
+                    <tr>
+                        <td><code>chore:</code></td>
+                        <td>Tooling / deps</td>
+                        <td>chore: bump Tauri to v2.3</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- ISSUES -->
+        <section id="issues" class="reveal">
+            <h2>Reporting Issues</h2>
+            <p>Found a bug or have a feature request? <a href="https://github.com/theja-vanka/NightFlow/issues/new"
+                    target="_blank">Open an issue</a> with:</p>
+            <ul>
+                <li><strong>Bug reports:</strong> steps to reproduce, expected vs. actual behavior, OS/platform, and
+                    error logs if available</li>
+                <li><strong>Feature requests:</strong> describe the problem you're trying to solve, proposed solution,
+                    and any alternatives considered</li>
+            </ul>
+        </section>
+
+        <!-- PROJECT STRUCTURE -->
+        <section id="structure" class="reveal">
+            <h2>Project Structure</h2>
+            <p>See the <a href="architecture.html">Architecture</a> page for a full breakdown. Key directories:</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Directory</th>
+                        <th>Contents</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>src/</code></td>
+                        <td>Frontend — views, components, state, DB, utils</td>
+                    </tr>
+                    <tr>
+                        <td><code>src-tauri/</code></td>
+                        <td>Rust backend — Tauri commands, config</td>
+                    </tr>
+                    <tr>
+                        <td><code>public/</code></td>
+                        <td>Static assets (Netron, icons)</td>
+                    </tr>
+                    <tr>
+                        <td><code>docs/</code></td>
+                        <td>Documentation site (GitHub Pages)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- LICENSE -->
+        <section id="license" class="reveal">
+            <h2>License</h2>
+            <p>NightFlow is distributed under the <strong>Apache License 2.0</strong>. By contributing, you agree that
+                your contributions will be licensed under the same license.</p>
+            <p>📄 <a href="https://github.com/theja-vanka/NightFlow/blob/main/LICENSE" target="_blank">Read the full
+                    license →</a></p>
+        </section>
+
+    </div>
+
+    <footer>
+        <p>Released under the <a href="https://github.com/theja-vanka/NightFlow/blob/main/LICENSE"
+                target="_blank">Apache License 2.0</a>.</p>
+        <div class="footer-links"><a href="index.html">Home</a><a href="documentation.html">Docs</a><a
+                href="getting-started.html">Get Started</a><a href="architecture.html">Architecture</a><a
+                href="https://github.com/theja-vanka/NightFlow" target="_blank">GitHub</a></div>
+    </footer>
+
+    <script>
+        const r = document.querySelectorAll('.reveal'); if ('IntersectionObserver' in window) { const o = new IntersectionObserver(e => { e.forEach(x => { if (x.isIntersecting) { x.target.classList.add('visible'); o.unobserve(x.target) } }) }, { threshold: .1, rootMargin: '0px 0px -40px 0px' }); r.forEach(e => o.observe(e)) } else r.forEach(e => e.classList.add('visible'));
+    </script>
+</body>
+
+</html>

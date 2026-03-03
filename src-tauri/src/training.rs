@@ -5,6 +5,9 @@ use std::sync::{
 };
 use tauri::{Emitter, State, command};
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
 use crate::expand_tilde;
 use crate::env::{get_shell_env, resolve_conda_path};
 
@@ -51,10 +54,21 @@ fn is_pid_alive(pid: u32) -> bool {
     {
         unsafe { libc::kill(pid as i32, 0) == 0 }
     }
-    #[cfg(not(unix))]
+    #[cfg(windows)]
     {
-        let _ = pid;
-        true
+        use windows_sys::Win32::System::Threading::{OpenProcess, GetExitCodeProcess, PROCESS_QUERY_LIMITED_INFORMATION};
+        use windows_sys::Win32::Foundation::CloseHandle;
+        const STILL_ACTIVE: u32 = 259; // STATUS_PENDING
+        unsafe {
+            let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+            if handle == 0 {
+                return false;
+            }
+            let mut exit_code: u32 = 0;
+            let ok = GetExitCodeProcess(handle, &mut exit_code);
+            CloseHandle(handle);
+            ok != 0 && exit_code == STILL_ACTIVE
+        }
     }
 }
 

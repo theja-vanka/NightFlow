@@ -84,6 +84,28 @@ export function TutorialOverlay() {
     };
   }, [active, stepIdx, measure]);
 
+  // Auto-advance when a waitFor condition becomes true
+  useEffect(() => {
+    if (!active || !step?.waitFor) return;
+
+    // If already satisfied, advance after a brief delay so the user sees the transition
+    if (step.waitFor()) {
+      const timeout = setTimeout(() => nextStep(), 600);
+      return () => clearTimeout(timeout);
+    }
+
+    // Poll until the waitFor condition is met
+    const pollId = setInterval(() => {
+      if (step.waitFor()) {
+        clearInterval(pollId);
+        // Small delay to let the UI settle after the action completes
+        setTimeout(() => nextStep(), 600);
+      }
+    }, 500);
+
+    return () => clearInterval(pollId);
+  }, [active, stepIdx]);
+
   if (!active || !rect) return null;
 
   const totalSteps = tutorialSteps.length;

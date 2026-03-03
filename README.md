@@ -2,10 +2,10 @@
 
 <img src="assets/night_flow.png" width="160" alt="NightFlow logo" />
 
-### _Your experiments. Your hardware. Your flow._
+### _Train, manage, and interpret image models — on your own terms._
 
-A premium, native desktop application for professional deep-learning<br>
-experiment management, visualization, and auto-training in computer vision.
+The open-source desktop alternative to AWS Rekognition Custom Labels,<br>
+Google AutoML Vision, and Azure Custom Vision.
 
 <br>
 
@@ -18,105 +18,155 @@ experiment management, visualization, and auto-training in computer vision.
 
 ![macOS](https://img.shields.io/badge/macOS-ARM64_|_x64-000000?style=for-the-badge&logo=apple&logoColor=white)
 ![Windows](https://img.shields.io/badge/Windows-x64-0078D4?style=for-the-badge&logo=windows11&logoColor=white)
-![Linux](https://img.shields.io/badge/Linux-x64-FCC624?style=for-the-badge&logo=linux&logoColor=black)
+![Linux](https://img.shields.io/badge/Linux_(Debian/Ubuntu)-x64-FCC624?style=for-the-badge&logo=linux&logoColor=black)
 
 [![Tauri](https://img.shields.io/badge/Tauri-v2-24C8D8?style=flat-square&logo=tauri&logoColor=white)](https://v2.tauri.app)
 [![Rust](https://img.shields.io/badge/Rust-2024_Edition-DEA584?style=flat-square&logo=rust&logoColor=black)](https://www.rust-lang.org)
 [![Preact](https://img.shields.io/badge/Preact-Signals-673AB8?style=flat-square&logo=preact&logoColor=white)](https://preactjs.com)
 [![Vite](https://img.shields.io/badge/Vite-7.x-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vitejs.dev)
-[![xterm.js](https://img.shields.io/badge/xterm.js-WebGL-1a1a2e?style=flat-square)]()
-[![Tokio](https://img.shields.io/badge/Tokio-Async_IO-232323?style=flat-square)](https://tokio.rs)
 
 <br>
 
-[Features](#features) · [Architecture](#architecture) · [Quick Start](#quick-start) · [Download](#download) · [Contributing](#contributing)
+[Overview](#overview) · [Features](#features) · [How It Compares](#how-it-compares) · [Quick Start](#quick-start) · [Download](#download) · [Architecture](#architecture) · [Contributing](#contributing)
 
 </div>
 
-<br>
+---
 
-## Why NightFlow?
+## Overview
 
-Deep-learning research should be **fluid and focused**. NightFlow brings order to the chaos of local and remote experiment management with a beautiful, high-performance **native** interface.
+NightFlow is a **native desktop application** purpose-built for **automated deep-learning on images**. It wraps a complete image model training pipeline — from dataset ingestion and augmentation through training, metric visualization, and model export — inside a fast, privacy-first interface that runs entirely on your own hardware.
 
-| | |
-| :--- | :--- |
-| **Private by Design** | Your datasets and weights never leave your hardware. No cloud accounts, no telemetry — ever. |
-| **Native Performance** | Built with **Rust** and **Tauri v2** for a lightweight, snappy experience — no Electron bloat. |
-| **Unified Workflow** | Manage projects, track metrics, and run remote training via SSH — all in one place. |
+Whether you're training an image classifier, an object detector, or a segmentation model, NightFlow handles:
 
-<br>
+- **Automated model training** with auto-tuning of learning rate and batch size
+- **Full experiment lifecycle management** — project organization, run history, metric tracking, and comparison
+- **Model interpretation and explainability** — GradCAM, Integrated Gradients, Attention Rollout, and more
+- **Remote GPU training via SSH** — run jobs on powerful servers without leaving the app
+- **Production export** — TorchScript and ONNX output for deployment anywhere
+
+No cloud accounts. No per-hour charges. No data leaving your machine.
+
+---
+
+## How It Compares
+
+| | Cloud AutoML | NightFlow |
+| :--- | :---: | :---: |
+| **Data privacy** | Images uploaded to third-party servers | Data never leaves your device |
+| **Cost** | $3–$5+ per training hour, plus inference fees | Free and open-source |
+| **Vendor lock-in** | Proprietary formats, cloud-only deployment | Export to TorchScript, ONNX — deploy anywhere |
+| **Transparency** | Black-box training, limited tuning | Full control: 1 000+ backbones, every hyperparameter |
+| **Internet** | Required | Works completely offline |
+| **Experiment management** | External tooling needed | Built-in charts, run history, and comparison |
+
+---
 
 ## Features
 
 <table>
 <tr>
-<td width="50%" align="center">
-<br>
-<b>Organize & Track</b>
-<br><br>
-<code>Project Hub</code> · Structured ML projects with dedicated configs<br>
-<code>Experiment Tracking</code> · Real-time metric logs and full run history<br>
-<code>Project Dashboard</code> · Instant health overview and status cards
-<br><br>
+<td width="50%" valign="top">
+
+### Auto Deep Learning
+
+- **One-click training** — guided project wizard from raw images to trained model
+- **Auto-tuning** — automatic learning-rate and batch-size discovery
+- **1 000+ backbones** — ResNet, EfficientNet, ViT, ConvNeXt, Swin, and more via timm
+- **Smart augmentation** — built-in presets with live preview before training
+- **Multi-task** — classification, object detection, semantic & instance segmentation
+
 </td>
-<td width="50%" align="center">
-<br>
-<b>Visualize & Analyze</b>
-<br><br>
-<code>Interactive Charts</code> · High-fidelity loss and accuracy plots<br>
-<code>Deep Interpretation</code> · Integrated model analysis tools<br>
-<code>Netron Inside</code> · Visual architecture inspector built-in
-<br><br>
+<td width="50%" valign="top">
+
+### Experiment Management
+
+- **Project hub** — organize datasets, configs, and runs per project
+- **Real-time metrics** — live loss, accuracy, and custom metric streams
+- **Run history** — searchable table of every experiment with hyperparameters
+- **Run comparison** — side-by-side metric charts across experiments
+- **Dashboard** — instant project health overview and status cards
+
 </td>
 </tr>
 <tr>
-<td width="50%" align="center">
-<br>
-<b>Connect & Run</b>
-<br><br>
-<code>Pro Terminal</code> · Full xterm.js PTY with WebGL acceleration<br>
-<code>SSH Mastery</code> · One-click remote server management<br>
-<code>Native Tooling</code> · Direct filesystem and process interaction
-<br><br>
+<td width="50%" valign="top">
+
+### Visualization & Interpretation
+
+- **Interactive charts** — high-fidelity training and validation plots
+- **Model interpretation** — GradCAM, GradCAM++, Integrated Gradients, SmoothGrad, Attention Rollout, Attention Flow
+- **Confusion matrix** — per-class performance breakdown
+- **Dataset browser** — visual explorer with class-level filtering
+- **Netron integration** — built-in architecture visualization
+
 </td>
-<td width="50%" align="center">
-<br>
-<b>Built with Trust</b>
-<br><br>
-<code>100% Offline</code> · Zero internet dependency<br>
-<code>No Telemetry</code> · We don't track you. Period.<br>
-<code>Local Storage</code> · Data persists in IndexedDB on your device
-<br><br>
+<td width="50%" valign="top">
+
+### Infrastructure & Deployment
+
+- **Integrated terminal** — full PTY with WebGL-accelerated rendering
+- **Remote training via SSH** — train on GPU servers seamlessly
+- **System metrics** — live CPU, memory, and GPU utilization
+- **Model export** — TorchScript (.pt) and ONNX (.onnx) for production
+- **Checkpoint management** — best-model selection and remote download
+
 </td>
 </tr>
 </table>
 
-<br>
+<table>
+<tr>
+<td width="100%" align="center">
+
+### Private by Design
+
+All data stays on your device. No cloud accounts, no telemetry, no tracking. Storage is local IndexedDB. The entire application works offline.
+
+</td>
+</tr>
+</table>
+
+---
+
+## Who Is It For?
+
+| Audience | Value |
+| :--- | :--- |
+| **Data Scientists & ML Engineers** | Stop paying per training hour. Run unlimited experiments on your own GPU with full hyperparameter control, real-time streaming metrics, and built-in model interpretation. |
+| **Startups & Small Teams** | Get the AutoML experience of enterprise cloud platforms without cloud bills. The guided project wizard takes you from raw images to a deployable model — no code required. |
+| **Researchers** | Reproducible experiments with configurable seeds, deterministic training, full run history, and side-by-side comparison — all in a fast native app. |
+| **Privacy-Sensitive Organizations** | Healthcare, defense, finance — any domain where data cannot leave the organization. NightFlow processes everything locally. |
+
+---
 
 ## Architecture
 
-NightFlow leverages a modern, dual-layer architecture for maximum efficiency and safety.
+NightFlow is built with **Tauri v2** (Rust) and **Preact** — delivering native performance at a fraction of the footprint of Electron-based alternatives.
 
 ```mermaid
 graph TD
     subgraph Frontend["Frontend · Preact + Signals"]
         UI["User Interface"] --> State["Reactive State"]
         State --> DB[("IndexedDB")]
-        UI --> Terminal["xterm.js"]
+        UI --> Terminal["xterm.js · WebGL"]
+        UI --> Charts["Interactive Charts"]
+        UI --> Netron["Netron Viewer"]
     end
 
     subgraph Backend["Backend · Rust + Tauri v2"]
         Tauri["Tauri Core"] --> PTY["Portable PTY"]
         Tauri --> FS["File System"]
         Tauri --> SSH["SSH · Tokio"]
+        Tauri --> Training["Training Manager"]
+        Tauri --> Interpret["Interpretation Engine"]
     end
 
     UI <== "IPC" ==> Tauri
 ```
 
 <details>
-<summary><b>Tech Stack at a Glance</b></summary>
+<summary><b>Tech Stack</b></summary>
 <br>
 
 | Layer | Technology | Purpose |
@@ -126,14 +176,14 @@ graph TD
 | **Styling** | Vanilla CSS | Custom design system |
 | **Bundler** | Vite | Fast HMR and builds |
 | **Desktop Runtime** | Tauri v2 | Native window, IPC, and system APIs |
-| **Backend Language** | Rust (Edition 2024) | Memory-safe, high-performance core |
+| **Backend** | Rust (Edition 2024) | Memory-safe, high-performance core |
 | **PTY** | portable-pty | Cross-platform pseudo-terminal |
 | **Async Runtime** | Tokio | Non-blocking I/O and SSH |
 | **Storage** | IndexedDB | Client-side persistent storage |
 
 </details>
 
-<br>
+---
 
 ## Quick Start
 
@@ -145,10 +195,17 @@ graph TD
 | **Bun** | Latest |
 | **Rust** | Stable (Edition 2024) |
 
+> [!NOTE]
+> **Debian / Ubuntu** — install Tauri system dependencies first:
+> ```bash
+> sudo apt-get update && sudo apt-get install -y \
+>   libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev \
+>   patchelf libgtk-3-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev
+> ```
+
 ### Setup
 
 ```bash
-# Clone the repository
 git clone https://github.com/theja-vanka/NightFlow.git && cd NightFlow
 ```
 
@@ -156,26 +213,20 @@ git clone https://github.com/theja-vanka/NightFlow.git && cd NightFlow
 <tr>
 <td width="50%">
 
-#### Using npm
+#### npm
 
 ```bash
-# Install dependencies
 npm install --legacy-peer-deps
-
-# Launch in developer mode
 npx tauri dev
 ```
 
 </td>
 <td width="50%">
 
-#### Using Bun
+#### Bun
 
 ```bash
-# Install dependencies
 bun install
-
-# Launch in developer mode
 bunx tauri dev
 ```
 
@@ -184,44 +235,44 @@ bunx tauri dev
 </table>
 
 > [!TIP]
-> **First run** may take a few minutes while Rust compiles the backend. Subsequent builds are incremental and fast.
+> **First run** may take a few minutes while Rust compiles the backend. Subsequent launches are incremental and fast.
 
-### Development Scripts
+### Development Commands
 
 | Action | npm | Bun |
 | :--- | :--- | :--- |
-| Start Vite dev server | `npm run dev` | `bun run dev` |
+| Frontend dev server | `npm run dev` | `bun run dev` |
 | Build frontend | `npm run build` | `bun run build` |
-| Launch full app (dev) | `npx tauri dev` | `bunx tauri dev` |
+| Launch full app | `npx tauri dev` | `bunx tauri dev` |
 | Build distributables | `npx tauri build` | `bunx tauri build` |
-| Lint source | `npm run lint` | `bun run lint` |
+| Lint | `npm run lint` | `bun run lint` |
 
-<br>
+---
 
 ## Download
 
-| Platform | Arch | Format |
+| Platform | Architecture | Formats |
 | :--- | :--- | :--- |
 | **macOS** | ARM64 / x64 | `.dmg` |
-| **Windows** | x64 | `.exe` |
-| **Linux** | x64 | `.AppImage` |
+| **Windows** | x64 | `.exe` (NSIS) |
+| **Linux** | x64 | `.deb` · `.AppImage` |
 
 > [!TIP]
-> Grab the latest build from the **[Releases](../../releases/latest)** page.
+> Download the latest release from the **[Releases](../../releases/latest)** page.
 
-<br>
+---
 
 ## Contributing
 
-Contributions, issues, and feature requests are welcome. Feel free to check the [issues page](../../issues).
+Contributions, issues, and feature requests are welcome. See the [issues page](../../issues) to get started.
 
 1. **Fork** the repository
-2. **Create** a feature branch — `git checkout -b feat/amazing-feature`
-3. **Commit** your changes — `git commit -m 'feat: add amazing feature'`
-4. **Push** to the branch — `git push origin feat/amazing-feature`
+2. **Create** a feature branch — `git checkout -b feat/your-feature`
+3. **Commit** your changes — `git commit -m 'feat: add your feature'`
+4. **Push** to the branch — `git push origin feat/your-feature`
 5. **Open** a Pull Request
 
-<br>
+---
 
 ## License
 
@@ -234,7 +285,7 @@ Distributed under the **Apache License 2.0**. See [`LICENSE`](LICENSE) for detai
 
 **Built by [Krishnatheja Vanka](https://github.com/theja-vanka)**
 
-<sub>If you find NightFlow useful, consider giving it a star on GitHub.</sub>
+<sub>If NightFlow saves you time or cloud bills, consider giving it a star.</sub>
 
 <br>
 </div>

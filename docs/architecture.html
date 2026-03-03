@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Architecture — NightFlow</title>
+    <meta name="description"
+        content="Technical architecture of NightFlow — Tauri v2, Preact, Rust, and the full stack explained." />
+    <link rel="icon" href="favicon.ico" type="image/x-icon" />
+    <link rel="canonical" href="https://theja-vanka.github.io/NightFlow/architecture.html" />
+    <meta property="og:title" content="Architecture — NightFlow" />
+    <meta property="og:url" content="https://theja-vanka.github.io/NightFlow/architecture.html" />
+    <meta property="og:image" content="https://theja-vanka.github.io/NightFlow/logo.png" />
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0
+        }
+
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --surface2: #1a1a26;
+            --border: #2a2a3a;
+            --text: #e4e4ef;
+            --text2: #9395a5;
+            --accent: #6c5ce7;
+            --accent2: #a29bfe;
+            --green: #00b894;
+            --radius: 12px;
+            --max-w: 860px
+        }
+
+        html {
+            scroll-behavior: smooth
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background-image: radial-gradient(circle, rgba(255, 255, 255, .03) 1px, transparent 1px);
+            background-size: 32px 32px;
+            pointer-events: none
+        }
+
+        body>* {
+            position: relative;
+            z-index: 1
+        }
+
+        a {
+            color: var(--accent2);
+            text-decoration: none
+        }
+
+        a:hover {
+            text-decoration: underline
+        }
+
+        .reveal {
+            opacity: 0;
+            transform: translateY(24px);
+            transition: opacity .6s ease, transform .6s ease
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0)
+        }
+
+        @media(prefers-reduced-motion:reduce) {
+            .reveal {
+                opacity: 1;
+                transform: none
+            }
+        }
+
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: rgba(10, 10, 15, .85);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border)
+        }
+
+        .nav-inner {
+            max-width: 1080px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 56px
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--text)
+        }
+
+        .nav-brand img {
+            height: 28px;
+            border-radius: 6px
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 24px;
+            font-size: .9rem
+        }
+
+        .nav-links a {
+            color: var(--text2);
+            transition: color .2s
+        }
+
+        .nav-links a:hover {
+            color: var(--text);
+            text-decoration: none
+        }
+
+        .nav-links a.active {
+            color: var(--accent2);
+            border-bottom: 2px solid var(--accent2);
+            padding-bottom: 2px
+        }
+
+        .page-header {
+            padding: 120px 24px 48px;
+            text-align: center;
+            position: relative
+        }
+
+        .page-header::before {
+            content: '';
+            position: absolute;
+            top: -20%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 800px;
+            height: 500px;
+            background: radial-gradient(ellipse at center, rgba(108, 92, 231, .12) 0%, rgba(0, 184, 148, .06) 40%, transparent 70%);
+            pointer-events: none
+        }
+
+        .page-header h1 {
+            font-size: clamp(2rem, 4vw, 2.8rem);
+            font-weight: 800;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, var(--accent2), var(--green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text
+        }
+
+        .page-header p {
+            color: var(--text2);
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto
+        }
+
+        .content {
+            max-width: var(--max-w);
+            margin: 0 auto;
+            padding: 0 24px 80px
+        }
+
+        .content section {
+            margin-bottom: 64px
+        }
+
+        .content h2 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border)
+        }
+
+        .content h3 {
+            font-size: 1.15rem;
+            font-weight: 600;
+            margin: 28px 0 12px;
+            color: var(--accent2)
+        }
+
+        .content p {
+            color: var(--text2);
+            margin-bottom: 16px;
+            line-height: 1.8
+        }
+
+        .content ul {
+            color: var(--text2);
+            margin: 0 0 16px 20px
+        }
+
+        .content li {
+            margin-bottom: 8px
+        }
+
+        .content li strong {
+            color: var(--text)
+        }
+
+        .content code {
+            background: var(--surface2);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: .88rem;
+            color: var(--accent2)
+        }
+
+        .content pre {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            overflow-x: auto;
+            margin-bottom: 20px;
+            font-size: .85rem;
+            line-height: 1.6;
+            color: var(--text2)
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0 24px;
+            font-size: .9rem
+        }
+
+        th {
+            text-align: left;
+            padding: 10px 14px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-weight: 600
+        }
+
+        td {
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            color: var(--text2)
+        }
+
+        .info-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--accent);
+            border-radius: var(--radius);
+            padding: 20px 24px;
+            margin: 20px 0
+        }
+
+        .info-box.tip {
+            border-left-color: var(--green)
+        }
+
+        .info-box strong {
+            display: block;
+            margin-bottom: 6px;
+            color: var(--text)
+        }
+
+        .info-box p {
+            color: var(--text2);
+            margin: 0;
+            font-size: .92rem
+        }
+
+        /* Arch diagram */
+        .arch-diagram {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 32px;
+            margin: 24px 0;
+            overflow-x: auto
+        }
+
+        .arch-row {
+            display: flex;
+            gap: 24px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px
+        }
+
+        .arch-box {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px 24px;
+            min-width: 140px;
+            text-align: center;
+            transition: border-color .3s, transform .3s
+        }
+
+        .arch-box:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px)
+        }
+
+        .arch-box .label {
+            font-size: .75rem;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: var(--text2);
+            margin-bottom: 6px
+        }
+
+        .arch-box .name {
+            font-weight: 700;
+            font-size: .95rem;
+            color: var(--text)
+        }
+
+        .arch-box .sub {
+            font-size: .8rem;
+            color: var(--text2);
+            margin-top: 4px
+        }
+
+        .arch-connector {
+            text-align: center;
+            color: var(--accent2);
+            font-size: 1.4rem;
+            margin: 8px 0
+        }
+
+        .arch-layer-label {
+            text-align: center;
+            font-size: .8rem;
+            text-transform: uppercase;
+            letter-spacing: .1em;
+            color: var(--accent2);
+            margin-bottom: 12px;
+            font-weight: 600
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin: 20px 0
+        }
+
+        .grid-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            transition: border-color .3s, transform .3s
+        }
+
+        .grid-card:hover {
+            border-color: rgba(108, 92, 231, .3);
+            transform: translateY(-2px)
+        }
+
+        .grid-card h4 {
+            font-size: .95rem;
+            margin-bottom: 6px;
+            color: var(--text)
+        }
+
+        .grid-card p {
+            font-size: .85rem;
+            color: var(--text2);
+            margin: 0
+        }
+
+        footer {
+            border-top: 1px solid var(--border);
+            text-align: center;
+            padding: 48px 24px;
+            color: var(--text2);
+            font-size: .85rem
+        }
+
+        footer a {
+            color: var(--accent2)
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 24px;
+            justify-content: center;
+            margin-top: 14px;
+            flex-wrap: wrap
+        }
+
+        @media(max-width:480px) {
+            .nav-links {
+                gap: 12px;
+                font-size: .8rem
+            }
+
+            .page-header {
+                padding: 100px 16px 32px
+            }
+
+            .arch-row {
+                flex-direction: column;
+                align-items: center
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav>
+        <div class="nav-inner">
+            <a href="index.html" class="nav-brand" style="text-decoration:none"><img src="logo.png" alt="NightFlow" />
+                NightFlow</a>
+            <div class="nav-links">
+                <a href="index.html">Home</a><a href="documentation.html">Docs</a><a href="getting-started.html">Get
+                    Started</a><a href="architecture.html" class="active">Architecture</a><a
+                    href="https://github.com/theja-vanka/NightFlow" target="_blank" rel="noopener">GitHub</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="page-header">
+        <h1>Architecture</h1>
+        <p>How NightFlow is built — from the Preact frontend to the Rust backend, and everything in between.</p>
+    </header>
+
+    <div class="content">
+
+        <!-- HIGH-LEVEL -->
+        <section id="overview" class="reveal">
+            <h2>High-Level Overview</h2>
+            <p>NightFlow is a <strong>Tauri v2</strong> desktop application. The frontend is built with <strong>Preact +
+                    Signals</strong> for a lightweight, reactive UI. The backend is <strong>Rust</strong>, providing
+                native performance, memory safety, and access to system APIs.</p>
+
+            <div class="arch-diagram">
+                <div class="arch-layer-label">Frontend — Preact + Signals</div>
+                <div class="arch-row">
+                    <div class="arch-box">
+                        <div class="label">UI</div>
+                        <div class="name">Preact</div>
+                        <div class="sub">Reactive Components</div>
+                    </div>
+                    <div class="arch-box">
+                        <div class="label">State</div>
+                        <div class="name">Signals</div>
+                        <div class="sub">Reactive Store</div>
+                    </div>
+                    <div class="arch-box">
+                        <div class="label">Terminal</div>
+                        <div class="name">xterm.js</div>
+                        <div class="sub">WebGL Renderer</div>
+                    </div>
+                    <div class="arch-box">
+                        <div class="label">Charts</div>
+                        <div class="name">Canvas</div>
+                        <div class="sub">Interactive Plots</div>
+                    </div>
+                    <div class="arch-box">
+                        <div class="label">Viewer</div>
+                        <div class="name">Netron</div>
+                        <div class="sub">Model Viz</div>
+                    </div>
+                </div>
+
+                <div class="arch-connector">⇅ IPC (Tauri Commands)</div>
+
+                <div class="arch-layer-label">Backend — Rust + Tauri v2</div>
+                <div class="arch-row">
+                    <div class="arch-box">
+                        <div class="label">Core</div>
+                        <div class="name">Tauri</div>
+                        <div class="sub">Window, IPC, APIs</div>
+                    </div>
+                    <div class="arch-box">
+                        <div class="label">Terminal</div>
+                        <div class="name">portable-pty</div>
+                        <div class="sub">Cross-platform PTY</div>
+                    </div>
+                    <div class="arch-box">
+                        <div class="label">Async</div>
+                        <div class="name">Tokio</div>
+                        <div class="sub">SSH, I/O</div>
+                    </div>
+                    <div class="arch-box">
+                        <div class="label">FS</div>
+                        <div class="name">std::fs</div>
+                        <div class="sub">File Operations</div>
+                    </div>
+                </div>
+
+                <div class="arch-connector">⇅</div>
+
+                <div class="arch-layer-label">Storage</div>
+                <div class="arch-row">
+                    <div class="arch-box">
+                        <div class="label">Client</div>
+                        <div class="name">IndexedDB</div>
+                        <div class="sub">Projects, Runs, Metrics</div>
+                    </div>
+                    <div class="arch-box">
+                        <div class="label">Files</div>
+                        <div class="name">Local FS</div>
+                        <div class="sub">Models, Datasets, Exports</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TECH STACK -->
+        <section id="tech-stack" class="reveal">
+            <h2>Tech Stack</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Layer</th>
+                        <th>Technology</th>
+                        <th>Purpose</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>UI Framework</strong></td>
+                        <td>Preact + Signals</td>
+                        <td>Lightweight reactive rendering (3KB core)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Terminal</strong></td>
+                        <td>xterm.js + WebGL addon</td>
+                        <td>Hardware-accelerated pseudo-terminal</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Styling</strong></td>
+                        <td>Vanilla CSS</td>
+                        <td>Custom design system, no framework overhead</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Bundler</strong></td>
+                        <td>Vite 7.x</td>
+                        <td>Fast HMR and optimized production builds</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Desktop Runtime</strong></td>
+                        <td>Tauri v2</td>
+                        <td>Native window, IPC, system APIs, auto-update</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Backend</strong></td>
+                        <td>Rust (Edition 2024)</td>
+                        <td>Memory-safe, high-performance core</td>
+                    </tr>
+                    <tr>
+                        <td><strong>PTY</strong></td>
+                        <td>portable-pty</td>
+                        <td>Cross-platform pseudo-terminal for local/SSH</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Async Runtime</strong></td>
+                        <td>Tokio</td>
+                        <td>Non-blocking I/O, SSH connections</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Storage</strong></td>
+                        <td>IndexedDB</td>
+                        <td>Client-side persistent storage (Dexie.js)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Model Viewer</strong></td>
+                        <td>Netron</td>
+                        <td>Embedded neural network architecture viewer</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- FRONTEND -->
+        <section id="frontend" class="reveal">
+            <h2>Frontend Architecture</h2>
+            <p>The frontend is a single-page application built with Preact. Routing is handled client-side with a simple
+                signal-based router.</p>
+
+            <h3>Key Modules</h3>
+            <div class="grid-2">
+                <div class="grid-card">
+                    <h4>Views</h4>
+                    <p>Dashboard, Charts, Run Detail, Compare Runs, Dataset Browser, Interpretation, Netron, Terminal,
+                        Settings</p>
+                </div>
+                <div class="grid-card">
+                    <h4>Components</h4>
+                    <p>Reusable UI: Sidebar, Header, Charts (Line/Bar), RunsTable, Confusion Matrix, Training Panel,
+                        System Metrics</p>
+                </div>
+                <div class="grid-card">
+                    <h4>State</h4>
+                    <p>Preact Signals for reactive state. Each domain (projects, runs, metrics, settings) has its own
+                        signal store.</p>
+                </div>
+                <div class="grid-card">
+                    <h4>Database</h4>
+                    <p>IndexedDB via Dexie.js. All data (projects, runs, metrics, settings) persists locally with zero
+                        server dependency.</p>
+                </div>
+            </div>
+
+            <h3>Why Preact?</h3>
+            <ul>
+                <li><strong>3KB core</strong> — a fraction of React's bundle size</li>
+                <li><strong>Signals</strong> — fine-grained reactivity without re-rendering entire component trees</li>
+                <li><strong>React compatibility</strong> — can use React ecosystem libraries via preact/compat</li>
+                <li><strong>Fast startup</strong> — critical for a native desktop app</li>
+            </ul>
+        </section>
+
+        <!-- BACKEND -->
+        <section id="backend" class="reveal">
+            <h2>Backend Architecture</h2>
+            <p>The Rust backend handles all system-level operations. It communicates with the frontend via Tauri's IPC
+                system (commands and events).</p>
+
+            <h3>Core Responsibilities</h3>
+            <ul>
+                <li><strong>PTY Management</strong> — spawning and managing pseudo-terminals for local shell and SSH
+                </li>
+                <li><strong>File System</strong> — reading datasets, managing checkpoints, handling model exports</li>
+                <li><strong>SSH</strong> — async SSH connections via Tokio for remote training workflows</li>
+                <li><strong>Training Orchestration</strong> — launching Python training scripts, streaming output</li>
+                <li><strong>Interpretation Engine</strong> — triggering model interpretation (GradCAM, etc.) and
+                    returning results</li>
+                <li><strong>System Metrics</strong> — CPU, memory, and GPU utilization monitoring</li>
+            </ul>
+
+            <h3>Why Rust?</h3>
+            <ul>
+                <li><strong>Memory safety</strong> — no segfaults, no data races, guaranteed at compile time</li>
+                <li><strong>Performance</strong> — native speed, no garbage collector pauses</li>
+                <li><strong>Tiny binary</strong> — NightFlow ships as a single binary (~15MB vs 100MB+ for Electron)
+                </li>
+                <li><strong>Tokio</strong> — first-class async runtime for non-blocking I/O</li>
+            </ul>
+        </section>
+
+        <!-- IPC -->
+        <section id="ipc" class="reveal">
+            <h2>IPC Layer</h2>
+            <p>Communication between frontend and backend uses Tauri's command system:</p>
+            <ul>
+                <li><strong>Commands</strong> — frontend invokes Rust functions (e.g.,
+                    <code>invoke('start_training', { config })</code>)</li>
+                <li><strong>Events</strong> — backend emits typed events the frontend subscribes to (e.g., training
+                    progress, PTY output)</li>
+                <li><strong>Streaming</strong> — real-time data (metrics, terminal output) is pushed via event listeners
+                </li>
+            </ul>
+            <div class="info-box tip">
+                <strong>💡 Type Safety</strong>
+                <p>Tauri v2 generates TypeScript bindings from Rust command signatures, ensuring type-safe IPC across
+                    the stack.</p>
+            </div>
+        </section>
+
+        <!-- PROJECT STRUCTURE -->
+        <section id="structure" class="reveal">
+            <h2>Project Structure</h2>
+            <pre>NightFlow/
+├── src/                  # Frontend source
+│   ├── views/            # Page-level components (Dashboard, Charts, etc.)
+│   ├── components/       # Reusable UI components
+│   ├── state/            # Preact Signal stores
+│   ├── db/               # IndexedDB (Dexie) layer
+│   ├── hooks/            # Custom Preact hooks
+│   ├── utils/            # Shared utilities
+│   ├── app.jsx           # App shell + router
+│   ├── main.jsx          # Entry point
+│   └── style.css         # Global styles
+├── src-tauri/            # Rust backend
+│   ├── src/main.rs       # Tauri app, commands, event handlers
+│   ├── Cargo.toml        # Rust dependencies
+│   └── tauri.conf.json   # Tauri configuration
+├── public/               # Static assets (Netron, icons)
+├── docs/                 # Documentation site (this!)
+├── index.html            # Vite entry HTML
+└── vite.config.js        # Vite configuration</pre>
+        </section>
+
+        <!-- BUILD -->
+        <section id="build" class="reveal">
+            <h2>Build & Release</h2>
+            <p>NightFlow uses <strong>GitHub Actions</strong> for CI/CD:</p>
+            <ul>
+                <li><strong>Frontend build</strong> — Vite compiles and bundles the Preact app</li>
+                <li><strong>Backend build</strong> — Cargo compiles the Rust binary with <code>--release</code>
+                    optimizations</li>
+                <li><strong>Packaging</strong> — Tauri bundles everything into platform-specific installers</li>
+                <li><strong>Release</strong> — Artifacts are uploaded to GitHub Releases automatically</li>
+            </ul>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Platform</th>
+                        <th>Format</th>
+                        <th>Typical Size</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>macOS</td>
+                        <td><code>.dmg</code></td>
+                        <td>~15 MB</td>
+                    </tr>
+                    <tr>
+                        <td>Windows</td>
+                        <td><code>.exe</code> (NSIS)</td>
+                        <td>~12 MB</td>
+                    </tr>
+                    <tr>
+                        <td>Linux</td>
+                        <td><code>.deb</code> / <code>.AppImage</code></td>
+                        <td>~14 MB</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+    </div>
+
+    <footer>
+        <p>Released under the <a href="https://github.com/theja-vanka/NightFlow/blob/main/LICENSE"
+                target="_blank">Apache License 2.0</a>.</p>
+        <div class="footer-links"><a href="index.html">Home</a><a href="documentation.html">Docs</a><a
+                href="getting-started.html">Get Started</a><a href="contributing.html">Contributing</a><a
+                href="https://github.com/theja-vanka/NightFlow" target="_blank">GitHub</a></div>
+    </footer>
+
+    <script>
+        const r = document.querySelectorAll('.reveal'); if ('IntersectionObserver' in window) { const o = new IntersectionObserver(e => { e.forEach(x => { if (x.isIntersecting) { x.target.classList.add('visible'); o.unobserve(x.target) } }) }, { threshold: .1, rootMargin: '0px 0px -40px 0px' }); r.forEach(e => o.observe(e)) } else r.forEach(e => e.classList.add('visible'));
+    </script>
+</body>
+
+</html>

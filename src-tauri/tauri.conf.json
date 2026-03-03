@@ -6,14 +6,18 @@
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
-    "beforeDevCommand": "bun run dev",
-    "beforeBuildCommand": "bun run build"
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
   },
   "bundle": {
     "active": true,
     "targets": [
       "dmg",
-      "app"
+      "app",
+      "nsis",
+      "msi",
+      "deb",
+      "appimage"
     ],
     "icon": [
       "icons/32x32.png",
@@ -23,7 +27,16 @@
       "icons/icon.icns",
       "icons/icon.ico",
       "icons/icon.png"
-    ]
+    ],
+    "linux": {
+      "deb": {
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0",
+          "libayatana-appindicator3-1"
+        ]
+      }
+    }
   },
   "app": {
     "macOSPrivateApi": true,

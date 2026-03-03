@@ -4,40 +4,10 @@ import { listen } from "@tauri-apps/api/event";
 import { currentProjectId, currentProject, projectList } from "./projects.js";
 import { addRun, updateRun, allRuns, generateRunName, resolveBackboneName } from "./experiments.js";
 import { processQueue } from "./queue.js";
+import { initNotifications, notify } from "../utils/notifications.js";
 
-// ── Notifications ──────────────────────────────────────────────────────────
-// The @tauri-apps/plugin-notification JS wrapper uses window.Notification
-// (Web Notification API) which may be unavailable in Tauri v2 webviews.
-// We invoke the Rust plugin commands directly to avoid that issue.
-
-let _notificationsAllowed = false;
-
-async function _initNotifications() {
-  try {
-    // Check permission via Rust plugin command.
-    // In Tauri v2, this returns a boolean (true/false).
-    const granted = await invoke("plugin:notification|is_permission_granted");
-    if (granted) {
-      _notificationsAllowed = true;
-    } else {
-      // Permission not yet granted — request it
-      const result = await invoke("plugin:notification|request_permission");
-      // Result is a PermissionState string: "granted", "denied", "prompt", etc.
-      _notificationsAllowed = result === "granted";
-    }
-  } catch {
-    _notificationsAllowed = false;
-  }
-}
-
-function _notify(title, body) {
-  if (!_notificationsAllowed) return;
-  try {
-    invoke("plugin:notification|notify", { options: { title, body } }).catch(() => { });
-  } catch {
-    // notification may fail silently
-  }
-}
+// Alias for backward compat within this file
+const _notify = notify;
 
 // ── Per-project training state ───────────────────────────────────────────────
 
@@ -315,6 +285,14 @@ function _processEvent(session_id, data) {
         if (perClassMetrics) updates.perClassMetrics = perClassMetrics;
         updateRun(state.runId, updates);
       }
+
+      // Send OS notification for testing completion
+      _notify(
+        "Testing Complete",
+        testAcc != null
+          ? `Test accuracy: ${(testAcc * 100).toFixed(1)}%`
+          : "Model evaluation finished.",
+      );
       break;
     }
 
@@ -663,7 +641,7 @@ export async function initTrainingListeners() {
   if (_unlistenEvent) return;
 
   // Request notification permission
-  _initNotifications();
+  initNotifications();
 
   _unlistenEvent = await listen("training-event", (e) => {
     const { session_id, data } = e.payload;
