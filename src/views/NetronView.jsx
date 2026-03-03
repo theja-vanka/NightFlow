@@ -44,7 +44,7 @@ async function handleLoad() {
       sshCommand,
     });
 
-    modelSrc.value = `https://netron.app/?url=${encodeURIComponent(convertFileSrc(ptPath))}`;
+    modelSrc.value = `/netron/index.html?url=${encodeURIComponent(convertFileSrc(ptPath))}`;
   } catch (err) {
     error.value = typeof err === "string" ? err : err.message || "Export failed";
   } finally {
