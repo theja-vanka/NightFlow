@@ -11,6 +11,9 @@ use std::os::windows::process::CommandExt;
 use crate::expand_tilde;
 use crate::env::{get_shell_env, resolve_conda_path};
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
 const TRAINING_META_FILE: &str = ".nightflow_training.json";
 const TRAINING_LOG_FILE_DEFAULT: &str = "training_events.jsonl";
 
