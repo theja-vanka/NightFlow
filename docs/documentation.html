@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Documentation — NightFlow</title>
+    <meta name="description"
+        content="Complete user guide for NightFlow — learn how to manage projects, train models, visualize experiments, and interpret results." />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://theja-vanka.github.io/NightFlow/documentation.html" />
+    <meta property="og:title" content="Documentation — NightFlow" />
+    <meta property="og:description"
+        content="Complete user guide for NightFlow — projects, training, metrics, interpretation, and more." />
+    <meta property="og:url" content="https://theja-vanka.github.io/NightFlow/documentation.html" />
+    <meta property="og:image" content="https://theja-vanka.github.io/NightFlow/logo.png" />
+    <link rel="icon" href="favicon.ico" type="image/x-icon" />
+
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0
+        }
+
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --surface2: #1a1a26;
+            --border: #2a2a3a;
+            --text: #e4e4ef;
+            --text2: #9395a5;
+            --accent: #6c5ce7;
+            --accent2: #a29bfe;
+            --green: #00b894;
+            --radius: 12px;
+            --max-w: 860px;
+        }
+
+        html {
+            scroll-behavior: smooth
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background-image: radial-gradient(circle, rgba(255, 255, 255, .03) 1px, transparent 1px);
+            background-size: 32px 32px;
+            pointer-events: none
+        }
+
+        body>* {
+            position: relative;
+            z-index: 1
+        }
+
+        a {
+            color: var(--accent2);
+            text-decoration: none
+        }
+
+        a:hover {
+            text-decoration: underline
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(24px)
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0)
+            }
+        }
+
+        .reveal {
+            opacity: 0;
+            transform: translateY(24px);
+            transition: opacity .6s ease, transform .6s ease
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0)
+        }
+
+        @media(prefers-reduced-motion:reduce) {
+
+            *,
+            *::before,
+            *::after {
+                animation-duration: .01ms !important;
+                transition-duration: .01ms !important
+            }
+
+            .reveal {
+                opacity: 1;
+                transform: none
+            }
+        }
+
+        /* ── NAV ── */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: rgba(10, 10, 15, .85);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border)
+        }
+
+        .nav-inner {
+            max-width: 1080px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 56px
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--text)
+        }
+
+        .nav-brand img {
+            height: 28px;
+            width: auto;
+            border-radius: 6px
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 24px;
+            font-size: .9rem
+        }
+
+        .nav-links a {
+            color: var(--text2);
+            transition: color .2s
+        }
+
+        .nav-links a:hover {
+            color: var(--text);
+            text-decoration: none
+        }
+
+        .nav-links a.active {
+            color: var(--accent2);
+            border-bottom: 2px solid var(--accent2);
+            padding-bottom: 2px
+        }
+
+        /* ── PAGE HEADER ── */
+        .page-header {
+            padding: 120px 24px 48px;
+            text-align: center;
+            position: relative
+        }
+
+        .page-header::before {
+            content: '';
+            position: absolute;
+            top: -20%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 800px;
+            height: 500px;
+            background: radial-gradient(ellipse at center, rgba(108, 92, 231, .12) 0%, rgba(0, 184, 148, .06) 40%, transparent 70%);
+            pointer-events: none
+        }
+
+        .page-header h1 {
+            font-size: clamp(2rem, 4vw, 2.8rem);
+            font-weight: 800;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, var(--accent2), var(--green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text
+        }
+
+        .page-header p {
+            color: var(--text2);
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto
+        }
+
+        /* ── DOCS LAYOUT ── */
+        .docs-layout {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px 80px;
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            gap: 48px
+        }
+
+        .docs-sidebar {
+            position: sticky;
+            top: 80px;
+            align-self: start;
+            max-height: calc(100vh - 100px);
+            overflow-y: auto
+        }
+
+        .docs-sidebar h3 {
+            font-size: .75rem;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--text2);
+            margin: 24px 0 8px;
+            padding: 0 12px
+        }
+
+        .docs-sidebar h3:first-child {
+            margin-top: 0
+        }
+
+        .docs-sidebar a {
+            display: block;
+            padding: 6px 12px;
+            border-radius: 6px;
+            color: var(--text2);
+            font-size: .88rem;
+            transition: all .2s
+        }
+
+        .docs-sidebar a:hover {
+            color: var(--text);
+            background: var(--surface2);
+            text-decoration: none
+        }
+
+        .docs-sidebar a.active {
+            color: var(--accent2);
+            background: rgba(108, 92, 231, .1)
+        }
+
+        .docs-content {
+            min-width: 0
+        }
+
+        .docs-content section {
+            margin-bottom: 64px
+        }
+
+        .docs-content h2 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border)
+        }
+
+        .docs-content h3 {
+            font-size: 1.15rem;
+            font-weight: 600;
+            margin: 28px 0 12px;
+            color: var(--accent2)
+        }
+
+        .docs-content p {
+            color: var(--text2);
+            margin-bottom: 16px;
+            line-height: 1.8
+        }
+
+        .docs-content ul,
+        .docs-content ol {
+            color: var(--text2);
+            margin: 0 0 16px 20px
+        }
+
+        .docs-content li {
+            margin-bottom: 8px;
+            line-height: 1.7
+        }
+
+        .docs-content li strong {
+            color: var(--text)
+        }
+
+        .docs-content code {
+            background: var(--surface2);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: .88rem;
+            color: var(--accent2)
+        }
+
+        .docs-content pre {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            overflow-x: auto;
+            margin-bottom: 20px;
+            font-size: .88rem;
+            line-height: 1.6
+        }
+
+        .docs-content pre code {
+            background: none;
+            padding: 0;
+            color: var(--text)
+        }
+
+        .info-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--accent);
+            border-radius: var(--radius);
+            padding: 20px 24px;
+            margin: 20px 0
+        }
+
+        .info-box.tip {
+            border-left-color: var(--green)
+        }
+
+        .info-box strong {
+            display: block;
+            margin-bottom: 6px;
+            color: var(--text)
+        }
+
+        .info-box p {
+            color: var(--text2);
+            margin: 0;
+            font-size: .92rem
+        }
+
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin: 20px 0 28px
+        }
+
+        .feature-list-item {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            transition: border-color .3s, transform .3s
+        }
+
+        .feature-list-item:hover {
+            border-color: rgba(108, 92, 231, .3);
+            transform: translateY(-2px)
+        }
+
+        .feature-list-item h4 {
+            font-size: .95rem;
+            margin-bottom: 6px;
+            color: var(--text)
+        }
+
+        .feature-list-item p {
+            font-size: .85rem;
+            color: var(--text2);
+            margin: 0;
+            line-height: 1.6
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0 24px;
+            font-size: .9rem
+        }
+
+        th {
+            text-align: left;
+            padding: 10px 14px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-weight: 600
+        }
+
+        td {
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            color: var(--text2)
+        }
+
+        /* ── FOOTER ── */
+        footer {
+            border-top: 1px solid var(--border);
+            text-align: center;
+            padding: 48px 24px;
+            color: var(--text2);
+            font-size: .85rem
+        }
+
+        footer a {
+            color: var(--accent2)
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 24px;
+            justify-content: center;
+            margin-top: 14px;
+            flex-wrap: wrap
+        }
+
+        @media(max-width:900px) {
+            .docs-layout {
+                grid-template-columns: 1fr;
+                gap: 24px
+            }
+
+            .docs-sidebar {
+                position: relative;
+                top: 0;
+                max-height: none;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 4px;
+                border: 1px solid var(--border);
+                border-radius: var(--radius);
+                padding: 16px;
+                background: var(--surface)
+            }
+
+            .docs-sidebar h3 {
+                width: 100%;
+                margin: 12px 0 4px
+            }
+
+            .docs-sidebar h3:first-child {
+                margin-top: 0
+            }
+
+            .docs-sidebar a {
+                font-size: .82rem;
+                padding: 6px 10px
+            }
+        }
+
+        @media(max-width:480px) {
+            .nav-links {
+                gap: 12px;
+                font-size: .8rem
+            }
+
+            .page-header {
+                padding: 100px 16px 32px
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- NAV -->
+    <nav>
+        <div class="nav-inner">
+            <a href="index.html" class="nav-brand" style="text-decoration:none">
+                <img src="logo.png" alt="NightFlow" />
+                NightFlow
+            </a>
+            <div class="nav-links">
+                <a href="index.html">Home</a>
+                <a href="documentation.html" class="active">Docs</a>
+                <a href="getting-started.html">Get Started</a>
+                <a href="architecture.html">Architecture</a>
+                <a href="https://github.com/theja-vanka/NightFlow" target="_blank" rel="noopener">GitHub</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- PAGE HEADER -->
+    <header class="page-header">
+        <h1>Documentation</h1>
+        <p>Everything you need to know about building, training, and managing deep learning experiments with NightFlow.
+        </p>
+    </header>
+
+    <!-- DOCS LAYOUT -->
+    <div class="docs-layout">
+
+        <!-- SIDEBAR -->
+        <aside class="docs-sidebar">
+            <h3>Getting Started</h3>
+            <a href="#overview">Overview</a>
+            <a href="#concepts">Core Concepts</a>
+            <h3>Features</h3>
+            <a href="#dashboard">Dashboard</a>
+            <a href="#project-wizard">Project Wizard</a>
+            <a href="#training">Training</a>
+            <a href="#experiments">Experiment Tracking</a>
+            <a href="#charts">Charts & Visualization</a>
+            <a href="#interpretation">Model Interpretation</a>
+            <a href="#dataset-browser">Dataset Browser</a>
+            <a href="#netron">Netron Integration</a>
+            <a href="#terminal">Terminal</a>
+            <h3>Advanced</h3>
+            <a href="#export">Model Export</a>
+            <a href="#settings">Settings</a>
+            <a href="#shortcuts">Keyboard Shortcuts</a>
+        </aside>
+
+        <!-- CONTENT -->
+        <main class="docs-content">
+
+            <!-- OVERVIEW -->
+            <section id="overview" class="reveal">
+                <h2>Overview</h2>
+                <p>NightFlow is a native desktop application purpose-built for automated deep learning on images. It
+                    wraps a complete image model training pipeline — from dataset ingestion and augmentation through
+                    training, metric visualization, and model export — inside a fast, privacy-first interface that runs
+                    entirely on your own hardware.</p>
+
+                <div class="info-box tip">
+                    <strong>💡 Privacy First</strong>
+                    <p>No cloud accounts, no telemetry, no tracking. All your data — datasets, models, metrics — stays
+                        on your machine. The entire application works offline.</p>
+                </div>
+
+                <p>Whether you're training an image classifier, an object detector, or a segmentation model, NightFlow
+                    handles the full lifecycle:</p>
+                <ul>
+                    <li><strong>Automated model training</strong> with auto-tuning of learning rate and batch size</li>
+                    <li><strong>Experiment lifecycle management</strong> — project organization, run history, metric
+                        tracking, and comparison</li>
+                    <li><strong>Model interpretation and explainability</strong> — GradCAM, Integrated Gradients,
+                        Attention Rollout, and more</li>
+                    <li><strong>Remote GPU training via SSH</strong> — run jobs on powerful servers without leaving the
+                        app</li>
+                    <li><strong>Production export</strong> — TorchScript and ONNX output for deployment anywhere</li>
+                </ul>
+            </section>
+
+            <!-- CORE CONCEPTS -->
+            <section id="concepts" class="reveal">
+                <h2>Core Concepts</h2>
+                <p>Understanding these concepts will help you navigate NightFlow effectively.</p>
+
+                <div class="feature-list">
+                    <div class="feature-list-item">
+                        <h4>📁 Projects</h4>
+                        <p>A project is the top-level container. It holds your dataset configuration, model settings,
+                            training parameters, and all associated runs.</p>
+                    </div>
+                    <div class="feature-list-item">
+                        <h4>🏃 Runs</h4>
+                        <p>Each time you train a model, NightFlow creates a run. Runs capture every hyperparameter,
+                            metric, and checkpoint so experiments are reproducible.</p>
+                    </div>
+                    <div class="feature-list-item">
+                        <h4>📊 Metrics</h4>
+                        <p>Training and validation metrics (loss, accuracy, custom metrics) are streamed in real time
+                            and persisted for later comparison across runs.</p>
+                    </div>
+                    <div class="feature-list-item">
+                        <h4>🧠 Models</h4>
+                        <p>NightFlow supports 1,000+ backbones from the timm library — ResNet, EfficientNet, ViT,
+                            ConvNeXt, Swin, and many more.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- DASHBOARD -->
+            <section id="dashboard" class="reveal">
+                <h2>Dashboard</h2>
+                <p>The Dashboard is your command center. It provides an instant overview of all your projects and their
+                    current status.</p>
+
+                <h3>Status Cards</h3>
+                <p>Each project displays a summary card showing:</p>
+                <ul>
+                    <li>Project name and task type (classification, detection, segmentation)</li>
+                    <li>Number of runs and their status (completed, running, failed)</li>
+                    <li>Best metric achieved across all runs</li>
+                    <li>Last training date and duration</li>
+                </ul>
+
+                <h3>Quick Actions</h3>
+                <p>From the dashboard you can create new projects, resume training, or jump into any existing project's
+                    detail view with a single click.</p>
+            </section>
+
+            <!-- PROJECT WIZARD -->
+            <section id="project-wizard" class="reveal">
+                <h2>Project Wizard</h2>
+                <p>The guided project wizard walks you through every step of setting up a new experiment — no code
+                    required.</p>
+
+                <h3>Step 1: Dataset Configuration</h3>
+                <p>Point NightFlow to your image directory. The wizard will auto-detect your folder structure and class
+                    labels. Supported structures include ImageFolder (one subfolder per class) and common annotation
+                    formats for detection and segmentation.</p>
+
+                <h3>Step 2: Model Selection</h3>
+                <p>Choose from 1,000+ backbone architectures. The wizard provides recommendations based on your dataset
+                    size and task. You can filter by model family, parameter count, and accuracy benchmarks.</p>
+
+                <h3>Step 3: Augmentation</h3>
+                <p>Select from built-in augmentation presets or configure individual transforms. The wizard includes a
+                    live preview showing augmented samples before training begins.</p>
+
+                <h3>Step 4: Training Configuration</h3>
+                <p>Configure hyperparameters including:</p>
+                <ul>
+                    <li><strong>Learning rate</strong> — set manually or use auto-discovery (LR Finder)</li>
+                    <li><strong>Batch size</strong> — set manually or let NightFlow find the optimal size for your GPU
+                    </li>
+                    <li><strong>Epochs</strong> — with optional early stopping</li>
+                    <li><strong>Optimizer</strong> — SGD, Adam, AdamW, and more</li>
+                    <li><strong>Scheduler</strong> — Cosine, Step, OneCycle, etc.</li>
+                </ul>
+
+                <div class="info-box">
+                    <strong>🔧 Auto-Tuning</strong>
+                    <p>Enable auto-tuning to let NightFlow automatically discover the optimal learning rate and batch
+                        size before training begins. This typically improves convergence and final accuracy.</p>
+                </div>
+            </section>
+
+            <!-- TRAINING -->
+            <section id="training" class="reveal">
+                <h2>Training</h2>
+                <p>Once configured, launch training from the dashboard or the project wizard. NightFlow orchestrates the
+                    full pipeline.</p>
+
+                <h3>Local Training</h3>
+                <p>Training runs directly on your machine using your local GPU (NVIDIA CUDA or Apple Metal) or CPU.
+                    NightFlow shows real-time system metrics — CPU, memory, and GPU utilization — throughout the
+                    process.</p>
+
+                <h3>Remote Training via SSH</h3>
+                <p>Connect to any remote server with SSH and train on powerful GPUs without leaving the app. NightFlow
+                    handles:</p>
+                <ul>
+                    <li>SSH connection and authentication (password or key-based)</li>
+                    <li>Syncing your project configuration to the remote server</li>
+                    <li>Launching and monitoring the training process</li>
+                    <li>Streaming metrics back to your desktop in real time</li>
+                    <li>Downloading checkpoints when training completes</li>
+                </ul>
+
+                <h3>Real-Time Metrics</h3>
+                <p>During training, live metrics are streamed to the charts view — loss, accuracy, and any custom
+                    metrics. You can monitor training progress without waiting for it to complete.</p>
+            </section>
+
+            <!-- EXPERIMENTS -->
+            <section id="experiments" class="reveal">
+                <h2>Experiment Tracking</h2>
+                <p>NightFlow provides built-in experiment management — no external tools like Weights & Biases or MLflow
+                    needed.</p>
+
+                <h3>Runs Table</h3>
+                <p>Every experiment is recorded in a searchable, sortable table showing:</p>
+                <ul>
+                    <li>Run ID and status (completed, running, failed)</li>
+                    <li>Model backbone and task type</li>
+                    <li>All hyperparameters (learning rate, batch size, optimizer, etc.)</li>
+                    <li>Final metrics (loss, accuracy, custom metrics)</li>
+                    <li>Training duration and timestamps</li>
+                </ul>
+
+                <h3>Run Detail View</h3>
+                <p>Click any run to open a detailed view with full metric charts, per-class performance breakdowns,
+                    confusion matrices, and the ability to export or interpret the trained model.</p>
+
+                <h3>Run Comparison</h3>
+                <p>Select multiple runs and compare them side-by-side with overlaid metric charts. Easily identify which
+                    hyperparameter changes led to improvements.</p>
+            </section>
+
+            <!-- CHARTS -->
+            <section id="charts" class="reveal">
+                <h2>Charts & Visualization</h2>
+                <p>NightFlow renders high-fidelity interactive charts for all your training metrics.</p>
+
+                <h3>Available Charts</h3>
+                <ul>
+                    <li><strong>Loss curves</strong> — training and validation loss over epochs</li>
+                    <li><strong>Accuracy plots</strong> — top-1 and top-5 accuracy trends</li>
+                    <li><strong>Learning rate schedule</strong> — visualize LR changes across training</li>
+                    <li><strong>Custom metrics</strong> — any metric logged during training</li>
+                    <li><strong>Confusion matrix</strong> — per-class prediction breakdown</li>
+                    <li><strong>Per-class metrics</strong> — precision, recall, F1 for each class</li>
+                </ul>
+
+                <h3>Interaction</h3>
+                <p>Charts support hover tooltips, zoom, and pan. You can also overlay multiple runs on the same chart
+                    for direct comparison.</p>
+            </section>
+
+            <!-- INTERPRETATION -->
+            <section id="interpretation" class="reveal">
+                <h2>Model Interpretation</h2>
+                <p>Understand <em>what</em> your model learned and <em>why</em> it makes specific predictions. NightFlow
+                    includes six built-in interpretation methods.</p>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Method</th>
+                            <th>Type</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>GradCAM</strong></td>
+                            <td>Gradient</td>
+                            <td>Class-discriminative localization using gradients flowing into the final convolutional
+                                layer</td>
+                        </tr>
+                        <tr>
+                            <td><strong>GradCAM++</strong></td>
+                            <td>Gradient</td>
+                            <td>Weighted variant that better localizes multiple instances of the same class</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Integrated Gradients</strong></td>
+                            <td>Attribution</td>
+                            <td>Axiomatic pixel-level attribution by integrating gradients along the path from a
+                                baseline</td>
+                        </tr>
+                        <tr>
+                            <td><strong>SmoothGrad</strong></td>
+                            <td>Attribution</td>
+                            <td>Noise-averaged gradient saliency for sharper, less noisy attribution maps</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Attention Rollout</strong></td>
+                            <td>Attention</td>
+                            <td>Aggregated attention across all layers of a Vision Transformer</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Attention Flow</strong></td>
+                            <td>Attention</td>
+                            <td>Graph-based maximum-flow computation through the attention graph</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="info-box tip">
+                    <strong>💡 When to Use What</strong>
+                    <p>Use GradCAM/GradCAM++ for convolutional models (ResNet, EfficientNet). Use Attention Rollout/Flow
+                        for Vision Transformers (ViT, Swin). Integrated Gradients and SmoothGrad work with any
+                        architecture.</p>
+                </div>
+            </section>
+
+            <!-- DATASET BROWSER -->
+            <section id="dataset-browser" class="reveal">
+                <h2>Dataset Browser</h2>
+                <p>Visually explore your dataset before and after training. The browser provides:</p>
+                <ul>
+                    <li><strong>Grid view</strong> — browse all images in your dataset with thumbnails</li>
+                    <li><strong>Class filtering</strong> — filter by class label to inspect specific categories</li>
+                    <li><strong>Image preview</strong> — click to view full-resolution images with metadata</li>
+                    <li><strong>Dataset statistics</strong> — class distribution, sample counts, and balance metrics
+                    </li>
+                </ul>
+            </section>
+
+            <!-- NETRON -->
+            <section id="netron" class="reveal">
+                <h2>Netron Integration</h2>
+                <p>NightFlow includes a built-in <a href="https://netron.app" target="_blank" rel="noopener">Netron</a>
+                    viewer for visualizing neural network architectures directly inside the app.</p>
+                <ul>
+                    <li>Load any exported model (TorchScript <code>.pt</code> or ONNX <code>.onnx</code>)</li>
+                    <li>Explore layer-by-layer architecture with detailed operator information</li>
+                    <li>Inspect tensor shapes, parameter counts, and layer properties</li>
+                    <li>No browser or external tool needed</li>
+                </ul>
+            </section>
+
+            <!-- TERMINAL -->
+            <section id="terminal" class="reveal">
+                <h2>Terminal</h2>
+                <p>A full-featured pseudo-terminal is built into NightFlow, powered by xterm.js with WebGL-accelerated
+                    rendering.</p>
+                <ul>
+                    <li><strong>Local shell</strong> — run any command without leaving the app</li>
+                    <li><strong>SSH sessions</strong> — connect to remote servers for training or file management</li>
+                    <li><strong>Hardware-accelerated</strong> — WebGL rendering for smooth, high-performance output</li>
+                    <li><strong>Full PTY support</strong> — interactive programs, command completion, scroll history
+                    </li>
+                </ul>
+            </section>
+
+            <!-- MODEL EXPORT -->
+            <section id="export" class="reveal">
+                <h2>Model Export</h2>
+                <p>Export your trained models for production deployment in two industry-standard formats:</p>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Format</th>
+                            <th>Extension</th>
+                            <th>Use Case</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>TorchScript</strong></td>
+                            <td><code>.pt</code></td>
+                            <td>PyTorch-native deployment, mobile (iOS/Android via PyTorch Mobile)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>ONNX</strong></td>
+                            <td><code>.onnx</code></td>
+                            <td>Universal format — ONNX Runtime, TensorRT, CoreML conversion, edge devices</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <p>Export is available from the run detail view. Select the best checkpoint and choose your output
+                    format.</p>
+            </section>
+
+            <!-- SETTINGS -->
+            <section id="settings" class="reveal">
+                <h2>Settings</h2>
+                <p>Configure NightFlow to match your workflow:</p>
+                <ul>
+                    <li><strong>SSH connections</strong> — manage saved remote server configurations</li>
+                    <li><strong>Python environment</strong> — set the path to your Python/conda environment</li>
+                    <li><strong>Default hyperparameters</strong> — set project-wide defaults for common settings</li>
+                    <li><strong>Import / Export</strong> — back up and restore your entire NightFlow configuration,
+                        projects, and run history</li>
+                    <li><strong>Notifications</strong> — configure native OS notifications for key events</li>
+                </ul>
+            </section>
+
+            <!-- KEYBOARD SHORTCUTS -->
+            <section id="shortcuts" class="reveal">
+                <h2>Keyboard Shortcuts</h2>
+                <p>Navigate NightFlow faster with built-in keyboard shortcuts:</p>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Shortcut</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>Ctrl/⌘ + N</code></td>
+                            <td>New Project</td>
+                        </tr>
+                        <tr>
+                            <td><code>Ctrl/⌘ + T</code></td>
+                            <td>Toggle Terminal</td>
+                        </tr>
+                        <tr>
+                            <td><code>Ctrl/⌘ + ,</code></td>
+                            <td>Open Settings</td>
+                        </tr>
+                        <tr>
+                            <td><code>Ctrl/⌘ + D</code></td>
+                            <td>Go to Dashboard</td>
+                        </tr>
+                        <tr>
+                            <td><code>?</code></td>
+                            <td>Show Keyboard Shortcuts</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- FOOTER -->
+    <footer>
+        <p>Released under the <a href="https://github.com/theja-vanka/NightFlow/blob/main/LICENSE" target="_blank"
+                rel="noopener">Apache License 2.0</a>.</p>
+        <div class="footer-links">
+            <a href="index.html">Home</a>
+            <a href="getting-started.html">Get Started</a>
+            <a href="architecture.html">Architecture</a>
+            <a href="contributing.html">Contributing</a>
+            <a href="https://github.com/theja-vanka/NightFlow" target="_blank" rel="noopener">GitHub</a>
+        </div>
+    </footer>
+
+    <script>
+        // Scroll reveal
+        const revealEls = document.querySelectorAll('.reveal');
+        if ('IntersectionObserver' in window) {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+            revealEls.forEach(el => observer.observe(el));
+        } else {
+            revealEls.forEach(el => el.classList.add('visible'));
+        }
+
+        // Active sidebar tracking
+        const sidebarLinks = document.querySelectorAll('.docs-sidebar a');
+        const sections = document.querySelectorAll('.docs-content section[id]');
+        if ('IntersectionObserver' in window) {
+            const sectionObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        sidebarLinks.forEach(l => l.classList.remove('active'));
+                        const active = document.querySelector(`.docs-sidebar a[href="#${entry.target.id}"]`);
+                        if (active) active.classList.add('active');
+                    }
+                });
+            }, { threshold: 0.2, rootMargin: '-80px 0px -60% 0px' });
+            sections.forEach(s => sectionObserver.observe(s));
+        }
+    </script>
+
+</body>
+
+</html>

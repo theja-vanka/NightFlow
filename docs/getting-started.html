@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Getting Started — NightFlow</title>
+    <meta name="description" content="Install NightFlow and train your first model in minutes." />
+    <link rel="icon" href="favicon.ico" type="image/x-icon" />
+    <link rel="canonical" href="https://theja-vanka.github.io/NightFlow/getting-started.html" />
+    <meta property="og:title" content="Getting Started — NightFlow" />
+    <meta property="og:url" content="https://theja-vanka.github.io/NightFlow/getting-started.html" />
+    <meta property="og:image" content="https://theja-vanka.github.io/NightFlow/logo.png" />
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0
+        }
+
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --surface2: #1a1a26;
+            --border: #2a2a3a;
+            --text: #e4e4ef;
+            --text2: #9395a5;
+            --accent: #6c5ce7;
+            --accent2: #a29bfe;
+            --green: #00b894;
+            --radius: 12px;
+            --max-w: 860px
+        }
+
+        html {
+            scroll-behavior: smooth
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background-image: radial-gradient(circle, rgba(255, 255, 255, .03) 1px, transparent 1px);
+            background-size: 32px 32px;
+            pointer-events: none
+        }
+
+        body>* {
+            position: relative;
+            z-index: 1
+        }
+
+        a {
+            color: var(--accent2);
+            text-decoration: none
+        }
+
+        a:hover {
+            text-decoration: underline
+        }
+
+        .reveal {
+            opacity: 0;
+            transform: translateY(24px);
+            transition: opacity .6s ease, transform .6s ease
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0)
+        }
+
+        @media(prefers-reduced-motion:reduce) {
+            .reveal {
+                opacity: 1;
+                transform: none
+            }
+        }
+
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: rgba(10, 10, 15, .85);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border)
+        }
+
+        .nav-inner {
+            max-width: 1080px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 56px
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--text)
+        }
+
+        .nav-brand img {
+            height: 28px;
+            border-radius: 6px
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 24px;
+            font-size: .9rem
+        }
+
+        .nav-links a {
+            color: var(--text2);
+            transition: color .2s
+        }
+
+        .nav-links a:hover {
+            color: var(--text);
+            text-decoration: none
+        }
+
+        .nav-links a.active {
+            color: var(--accent2);
+            border-bottom: 2px solid var(--accent2);
+            padding-bottom: 2px
+        }
+
+        .page-header {
+            padding: 120px 24px 48px;
+            text-align: center;
+            position: relative
+        }
+
+        .page-header::before {
+            content: '';
+            position: absolute;
+            top: -20%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 800px;
+            height: 500px;
+            background: radial-gradient(ellipse at center, rgba(108, 92, 231, .12) 0%, rgba(0, 184, 148, .06) 40%, transparent 70%);
+            pointer-events: none
+        }
+
+        .page-header h1 {
+            font-size: clamp(2rem, 4vw, 2.8rem);
+            font-weight: 800;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, var(--accent2), var(--green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text
+        }
+
+        .page-header p {
+            color: var(--text2);
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto
+        }
+
+        .content {
+            max-width: var(--max-w);
+            margin: 0 auto;
+            padding: 0 24px 80px
+        }
+
+        .content section {
+            margin-bottom: 64px
+        }
+
+        .content h2 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border)
+        }
+
+        .content h3 {
+            font-size: 1.15rem;
+            font-weight: 600;
+            margin: 28px 0 12px;
+            color: var(--accent2)
+        }
+
+        .content p {
+            color: var(--text2);
+            margin-bottom: 16px;
+            line-height: 1.8
+        }
+
+        .content ul {
+            color: var(--text2);
+            margin: 0 0 16px 20px
+        }
+
+        .content li {
+            margin-bottom: 8px
+        }
+
+        .content li strong {
+            color: var(--text)
+        }
+
+        .content code {
+            background: var(--surface2);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: .88rem;
+            color: var(--accent2)
+        }
+
+        .content pre {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            overflow-x: auto;
+            margin-bottom: 20px;
+            font-size: .88rem;
+            line-height: 1.6
+        }
+
+        .content pre code {
+            background: none;
+            padding: 0;
+            color: var(--text)
+        }
+
+        .info-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--accent);
+            border-radius: var(--radius);
+            padding: 20px 24px;
+            margin: 20px 0
+        }
+
+        .info-box.tip {
+            border-left-color: var(--green)
+        }
+
+        .info-box.warn {
+            border-left-color: #fdcb6e
+        }
+
+        .info-box strong {
+            display: block;
+            margin-bottom: 6px;
+            color: var(--text)
+        }
+
+        .info-box p {
+            color: var(--text2);
+            margin: 0;
+            font-size: .92rem
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0 24px;
+            font-size: .9rem
+        }
+
+        th {
+            text-align: left;
+            padding: 10px 14px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-weight: 600
+        }
+
+        td {
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            color: var(--text2)
+        }
+
+        .steps {
+            counter-reset: step;
+            margin: 24px 0
+        }
+
+        .step {
+            position: relative;
+            padding: 24px 24px 24px 72px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-bottom: 16px;
+            transition: border-color .3s, transform .3s
+        }
+
+        .step:hover {
+            border-color: rgba(108, 92, 231, .3);
+            transform: translateY(-2px)
+        }
+
+        .step::before {
+            counter-increment: step;
+            content: counter(step);
+            position: absolute;
+            left: 20px;
+            top: 24px;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(108, 92, 231, .15);
+            color: var(--accent2);
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 1.1rem
+        }
+
+        .step h3 {
+            margin: 0 0 8px;
+            color: var(--text);
+            font-size: 1.05rem
+        }
+
+        .step p {
+            color: var(--text2);
+            margin: 0;
+            font-size: .92rem
+        }
+
+        .step pre {
+            margin-top: 12px;
+            margin-bottom: 0
+        }
+
+        .tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 0;
+            border-bottom: 1px solid var(--border)
+        }
+
+        .tab {
+            padding: 10px 20px;
+            font-size: .9rem;
+            cursor: pointer;
+            color: var(--text2);
+            border: none;
+            background: none;
+            border-bottom: 2px solid transparent;
+            transition: all .2s
+        }
+
+        .tab:hover {
+            color: var(--text)
+        }
+
+        .tab.active {
+            color: var(--accent2);
+            border-bottom-color: var(--accent2)
+        }
+
+        .tab-content {
+            display: none;
+            padding: 20px 0
+        }
+
+        .tab-content.active {
+            display: block
+        }
+
+        .next-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+            margin-top: 20px
+        }
+
+        .next-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            text-decoration: none;
+            transition: border-color .3s, transform .3s;
+            display: block
+        }
+
+        .next-card:hover {
+            border-color: rgba(108, 92, 231, .4);
+            transform: translateY(-2px);
+            text-decoration: none
+        }
+
+        .next-card strong {
+            color: var(--text);
+            font-size: .95rem;
+            display: block
+        }
+
+        .next-card p {
+            color: var(--text2);
+            font-size: .85rem;
+            margin: 6px 0 0
+        }
+
+        footer {
+            border-top: 1px solid var(--border);
+            text-align: center;
+            padding: 48px 24px;
+            color: var(--text2);
+            font-size: .85rem
+        }
+
+        footer a {
+            color: var(--accent2)
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 24px;
+            justify-content: center;
+            margin-top: 14px;
+            flex-wrap: wrap
+        }
+
+        @media(max-width:480px) {
+            .nav-links {
+                gap: 12px;
+                font-size: .8rem
+            }
+
+            .page-header {
+                padding: 100px 16px 32px
+            }
+
+            .step {
+                padding-left: 60px
+            }
+
+            .step::before {
+                left: 14px;
+                width: 30px;
+                height: 30px;
+                font-size: .95rem
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav>
+        <div class="nav-inner">
+            <a href="index.html" class="nav-brand" style="text-decoration:none"><img src="logo.png" alt="NightFlow" />
+                NightFlow</a>
+            <div class="nav-links">
+                <a href="index.html">Home</a><a href="documentation.html">Docs</a><a href="getting-started.html"
+                    class="active">Get Started</a><a href="architecture.html">Architecture</a><a
+                    href="https://github.com/theja-vanka/NightFlow" target="_blank" rel="noopener">GitHub</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="page-header">
+        <h1>Getting Started</h1>
+        <p>Install NightFlow and train your first image model in minutes — no cloud, no account, no code.</p>
+    </header>
+
+    <div class="content">
+
+        <section id="prerequisites" class="reveal">
+            <h2>Prerequisites</h2>
+            <p>To build from source you need:</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Requirement</th>
+                        <th>Version</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Node.js</strong></td>
+                        <td>22+</td>
+                        <td>Frontend build</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Bun</strong></td>
+                        <td>Latest</td>
+                        <td>Alternative to npm</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Rust</strong></td>
+                        <td>Stable (2024)</td>
+                        <td>Tauri backend</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Python</strong></td>
+                        <td>3.9+</td>
+                        <td>Runtime for training</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="info-box warn"><strong>⚠️ Debian / Ubuntu</strong>
+                <p>Install Tauri system deps first:</p>
+            </div>
+            <pre><code>sudo apt-get update && sudo apt-get install -y \
+  libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev \
+  patchelf libgtk-3-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev</code></pre>
+        </section>
+
+        <section id="installation" class="reveal">
+            <h2>Installation</h2>
+            <h3>Option A: Download a Pre-built Release</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Platform</th>
+                        <th>Architecture</th>
+                        <th>Formats</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>macOS</strong></td>
+                        <td>ARM64 / x64</td>
+                        <td><code>.dmg</code></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Windows</strong></td>
+                        <td>x64</td>
+                        <td><code>.exe</code></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Linux</strong></td>
+                        <td>x64</td>
+                        <td><code>.deb</code> · <code>.AppImage</code></td>
+                    </tr>
+                </tbody>
+            </table>
+            <p>👉 <a href="https://github.com/theja-vanka/NightFlow/releases/latest" target="_blank">Download Latest
+                    Release →</a></p>
+
+            <h3>Option B: Build from Source</h3>
+            <div class="steps">
+                <div class="step">
+                    <h3>Clone the Repository</h3>
+                    <pre><code>git clone https://github.com/theja-vanka/NightFlow.git && cd NightFlow</code></pre>
+                </div>
+                <div class="step">
+                    <h3>Install Dependencies</h3>
+                    <div class="tabs" data-tabs="install"><button class="tab active" data-tab="npm">npm</button><button
+                            class="tab" data-tab="bun">Bun</button></div>
+                    <div class="tab-content active" data-tab-content="npm" data-tabs="install">
+                        <pre><code>npm install --legacy-peer-deps</code></pre>
+                    </div>
+                    <div class="tab-content" data-tab-content="bun" data-tabs="install">
+                        <pre><code>bun install</code></pre>
+                    </div>
+                </div>
+                <div class="step">
+                    <h3>Launch Dev Mode</h3>
+                    <div class="tabs" data-tabs="dev"><button class="tab active" data-tab="npm-dev">npm</button><button
+                            class="tab" data-tab="bun-dev">Bun</button></div>
+                    <div class="tab-content active" data-tab-content="npm-dev" data-tabs="dev">
+                        <pre><code>npx tauri dev</code></pre>
+                    </div>
+                    <div class="tab-content" data-tab-content="bun-dev" data-tabs="dev">
+                        <pre><code>bunx tauri dev</code></pre>
+                    </div>
+                </div>
+            </div>
+            <div class="info-box tip"><strong>💡 First Run</strong>
+                <p>First launch may take a few minutes while Rust compiles. Subsequent launches are fast.</p>
+            </div>
+        </section>
+
+        <section id="first-project" class="reveal">
+            <h2>Your First Project</h2>
+            <div class="steps">
+                <div class="step">
+                    <h3>Create a New Project</h3>
+                    <p>Click <strong>"New Project"</strong> on the dashboard or press <code>Ctrl/⌘ + N</code>.</p>
+                </div>
+                <div class="step">
+                    <h3>Configure Your Dataset</h3>
+                    <p>Point to your image directory. NightFlow auto-detects folder structure and class labels
+                        (ImageFolder format).</p>
+                </div>
+                <div class="step">
+                    <h3>Choose a Model</h3>
+                    <p>Pick a backbone — try <code>resnet18</code> for quick tests or <code>convnext_tiny</code> for
+                        higher accuracy.</p>
+                </div>
+                <div class="step">
+                    <h3>Configure & Train</h3>
+                    <p>Set hyperparameters or enable <strong>auto-tuning</strong>. Click <strong>"Start
+                            Training"</strong> and watch metrics stream live.</p>
+                </div>
+                <div class="step">
+                    <h3>Analyze Results</h3>
+                    <p>Explore metric charts, confusion matrices, per-class breakdown, and GradCAM interpretation.</p>
+                </div>
+                <div class="step">
+                    <h3>Export Your Model</h3>
+                    <p>Export to <strong>TorchScript</strong> or <strong>ONNX</strong> for production deployment.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="dev-commands" class="reveal">
+            <h2>Development Commands</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Action</th>
+                        <th>npm</th>
+                        <th>Bun</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Frontend dev server</td>
+                        <td><code>npm run dev</code></td>
+                        <td><code>bun run dev</code></td>
+                    </tr>
+                    <tr>
+                        <td>Build frontend</td>
+                        <td><code>npm run build</code></td>
+                        <td><code>bun run build</code></td>
+                    </tr>
+                    <tr>
+                        <td>Launch full app</td>
+                        <td><code>npx tauri dev</code></td>
+                        <td><code>bunx tauri dev</code></td>
+                    </tr>
+                    <tr>
+                        <td>Build distributables</td>
+                        <td><code>npx tauri build</code></td>
+                        <td><code>bunx tauri build</code></td>
+                    </tr>
+                    <tr>
+                        <td>Lint</td>
+                        <td><code>npm run lint</code></td>
+                        <td><code>bun run lint</code></td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section id="next-steps" class="reveal">
+            <h2>Next Steps</h2>
+            <div class="next-cards">
+                <a href="documentation.html" class="next-card"><strong>📖 Full Documentation</strong>
+                    <p>Deep dive into every feature.</p>
+                </a>
+                <a href="architecture.html" class="next-card"><strong>🏗️ Architecture</strong>
+                    <p>Understand the tech stack.</p>
+                </a>
+                <a href="contributing.html" class="next-card"><strong>🤝 Contributing</strong>
+                    <p>Help make NightFlow better.</p>
+                </a>
+            </div>
+        </section>
+    </div>
+
+    <footer>
+        <p>Released under the <a href="https://github.com/theja-vanka/NightFlow/blob/main/LICENSE"
+                target="_blank">Apache License 2.0</a>.</p>
+        <div class="footer-links"><a href="index.html">Home</a><a href="documentation.html">Docs</a><a
+                href="architecture.html">Architecture</a><a href="contributing.html">Contributing</a><a
+                href="https://github.com/theja-vanka/NightFlow" target="_blank">GitHub</a></div>
+    </footer>
+
+    <script>
+        const r = document.querySelectorAll('.reveal'); if ('IntersectionObserver' in window) { const o = new IntersectionObserver(e => { e.forEach(x => { if (x.isIntersecting) { x.target.classList.add('visible'); o.unobserve(x.target) } }) }, { threshold: .1, rootMargin: '0px 0px -40px 0px' }); r.forEach(e => o.observe(e)) } else r.forEach(e => e.classList.add('visible'));
+        document.querySelectorAll('.tabs').forEach(t => { t.querySelectorAll('.tab').forEach(b => { b.addEventListener('click', () => { const g = t.dataset.tabs; t.querySelectorAll('.tab').forEach(x => x.classList.remove('active')); b.classList.add('active'); const c = t.closest('.step') || t.parentElement; c.querySelectorAll(`.tab-content[data-tabs="${g}"]`).forEach(x => x.classList.remove('active')); c.querySelector(`.tab-content[data-tab-content="${b.dataset.tab}"]`).classList.add('active') }) }) });
+    </script>
+</body>
+
+</html>

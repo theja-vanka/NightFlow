@@ -1,6 +1,7 @@
 import { signal } from "@preact/signals";
 import { invoke } from "@tauri-apps/api/core";
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { notify } from "../utils/notifications.js";
 import {
   completedRuns,
   selectedRunId,
@@ -45,8 +46,10 @@ async function handleLoad() {
     });
 
     modelSrc.value = `/netron/index.html?url=${encodeURIComponent(convertFileSrc(ptPath))}`;
+    notify("Model Loaded", "Model exported and loaded into Netron viewer.");
   } catch (err) {
     error.value = typeof err === "string" ? err : err.message || "Export failed";
+    notify("Model Export Failed", error.value);
   } finally {
     loading.value = false;
   }

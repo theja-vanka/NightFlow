@@ -169,6 +169,7 @@ pub async fn download_model(
     project_path: String,
     run_id: String,
     run_name: String,
+    task_class: Option<String>,
     ssh_command: Option<String>,
 ) -> Result<DownloadModelResult, String> {
     let home = home_dir().unwrap_or_else(|| if cfg!(windows) { std::env::var("TEMP").unwrap_or_else(|_| r"C:\Temp".to_string()) } else { "/tmp".to_string() });
@@ -178,7 +179,16 @@ pub async fn download_model(
     let _ = std::fs::create_dir_all(&downloads);
 
     let pp = project_path.trim_end_matches('/').trim_end_matches('\\');
-    let ckpt_dir = format!("{pp}/logs/{run_id}/checkpoints");
+    let pp_path = std::path::PathBuf::from(&pp);
+    let run_logs_dir_path = pp_path.join("logs").join(&run_id);
+    let run_logs_dir = run_logs_dir_path.to_string_lossy().to_string();
+    let ckpt_dir = run_logs_dir_path.join("checkpoints").to_string_lossy().to_string();
+    let model_pt_path = run_logs_dir_path.join("model.pt").to_string_lossy().to_string();
+    let hparams_path = run_logs_dir_path.join("hparams.yaml").to_string_lossy().to_string();
+    let tc = task_class.unwrap_or_else(|| "ImageClassifier".to_string());
+
+    let dest_name = format!("{}.pt", run_name);
+    let dest = downloads_path.join(&dest_name).to_string_lossy().to_string();
 
     if let Some(ssh_cmd) = ssh_command {
         let parts: Vec<String> = ssh_cmd.split_whitespace().map(String::from).collect();
@@ -186,24 +196,68 @@ pub async fn download_model(
             return Err("Invalid SSH command".to_string());
         }
 
-        let find_script = format!(
-            r#"find "{ckpt_dir}" -name "*.ckpt" -type f 2>/dev/null | head -1"#
+        // Check if model.pt already exists remotely
+        let check_script = format!(
+            r#"test -f "{model_pt_path}" && echo "EXISTS" || echo "MISSING""#
         );
-        let find_output = tokio::process::Command::new(&parts[0])
+        let check_output = tokio::process::Command::new(&parts[0])
             .args(&parts[1..])
-            .arg(&find_script)
+            .arg(&check_script)
             .output()
             .await
             .map_err(|e| format!("SSH failed: {e}"))?;
+        let check_result = String::from_utf8_lossy(&check_output.stdout).trim().to_string();
 
-        let remote_path = String::from_utf8_lossy(&find_output.stdout).trim().to_string();
-        if remote_path.is_empty() {
-            return Err("No checkpoint file found. Training may not have saved a model yet.".to_string());
+        if check_result != "EXISTS" {
+            // Find checkpoint remotely
+            let find_script = format!(
+                r#"find "{ckpt_dir}" -name "*.ckpt" -type f 2>/dev/null | head -1"#
+            );
+            let find_output = tokio::process::Command::new(&parts[0])
+                .args(&parts[1..])
+                .arg(&find_script)
+                .output()
+                .await
+                .map_err(|e| format!("SSH failed: {e}"))?;
+
+            let remote_ckpt = String::from_utf8_lossy(&find_output.stdout).trim().to_string();
+            if remote_ckpt.is_empty() {
+                return Err("No checkpoint file found. Training may not have saved a model yet.".to_string());
+            }
+
+            // Resolve python (prefer venv)
+            let venv_python_path = crate::env::venv_python(&std::path::PathBuf::from(&pp).join(".venv"));
+            let venv_python = venv_python_path.to_string_lossy().to_string();
+            let python_check = format!(
+                "if [ -x \"{venv_python}\" ]; then echo \"{venv_python}\"; else echo python3; fi"
+            );
+            let py_output = tokio::process::Command::new(&parts[0])
+                .args(&parts[1..])
+                .arg(&python_check)
+                .output()
+                .await
+                .map_err(|e| format!("SSH python check failed: {e}"))?;
+            let python = String::from_utf8_lossy(&py_output.stdout).trim().to_string();
+
+            // Run TorchScript export remotely
+            let export_cmd = format!(
+                "cd \"{run_logs_dir}\" && {python} -m autotimm.export_jit --checkpoint \"{remote_ckpt}\" --output \"{model_pt_path}\" --task-class \"{tc}\" --hparams-yaml \"{hparams_path}\""
+            );
+
+            let export_output = tokio::process::Command::new(&parts[0])
+                .args(&parts[1..])
+                .arg(&export_cmd)
+                .output()
+                .await
+                .map_err(|e| format!("SSH JIT export failed: {e}"))?;
+
+            if !export_output.status.success() {
+                let stderr = String::from_utf8_lossy(&export_output.stderr);
+                return Err(format!("TorchScript conversion failed: {stderr}"));
+            }
         }
 
-        let dest_name = format!("{}.ckpt", run_name);
-        let dest = format!("{downloads}/{dest_name}");
-
+        // SCP the model.pt file to Downloads
         let mut scp_args: Vec<String> = Vec::new();
         let mut host_part = String::new();
         let mut i = 1;
@@ -226,7 +280,7 @@ pub async fn download_model(
             }
         }
 
-        let scp_source = format!("{host_part}:{remote_path}");
+        let scp_source = format!("{host_part}:{model_pt_path}");
         scp_args.push(scp_source);
         scp_args.push(dest.clone());
 
@@ -247,33 +301,62 @@ pub async fn download_model(
             message: format!("Saved to ~/Downloads/{dest_name}"),
         })
     } else {
-        let ckpt_path = std::path::Path::new(&ckpt_dir);
-        let mut best_ckpt: Option<std::path::PathBuf> = None;
+        let model_pt = std::path::Path::new(&model_pt_path);
 
-        if let Ok(entries) = std::fs::read_dir(ckpt_path) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if let Some(name) = path.file_name().and_then(|n| n.to_str())
-                    && name.ends_with(".ckpt")
-                {
-                    best_ckpt = Some(path);
+        if !model_pt.exists() {
+            // Find .ckpt file
+            let ckpt_path = std::path::Path::new(&ckpt_dir);
+            let mut best_ckpt: Option<std::path::PathBuf> = None;
+
+            if let Ok(entries) = std::fs::read_dir(ckpt_path) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if let Some(name) = path.file_name().and_then(|n| n.to_str())
+                        && name.ends_with(".ckpt")
+                    {
+                        best_ckpt = Some(path);
+                    }
                 }
             }
+
+            let ckpt_src = best_ckpt.ok_or("No checkpoint file found. Training may not have saved a model yet.".to_string())?;
+            let ckpt_src_str = ckpt_src.to_string_lossy().to_string();
+
+            // Build hparams arg if the file exists
+            let hparams_file = std::path::Path::new(&hparams_path);
+            let mut args = vec![
+                "-m".to_string(),
+                "autotimm.export_jit".to_string(),
+                "--checkpoint".to_string(), ckpt_src_str,
+                "--output".to_string(), model_pt_path.clone(),
+                "--task-class".to_string(), tc,
+            ];
+            if hparams_file.exists() {
+                args.push("--hparams-yaml".to_string());
+                args.push(hparams_path);
+            }
+
+            let export_output = tokio::process::Command::new(python_cmd())
+                .args(&args)
+                .current_dir(&run_logs_dir)
+                .output()
+                .await
+                .map_err(|e| format!("TorchScript export failed: {e}"))?;
+
+            if !export_output.status.success() {
+                let stderr = String::from_utf8_lossy(&export_output.stderr);
+                return Err(format!("TorchScript conversion failed: {stderr}"));
+            }
         }
 
-        match best_ckpt {
-            Some(src) => {
-                let dest_name = format!("{}.ckpt", run_name);
-                let dest = format!("{downloads}/{dest_name}");
-                std::fs::copy(&src, &dest)
-                    .map_err(|e| format!("Copy failed: {e}"))?;
-                Ok(DownloadModelResult {
-                    success: true,
-                    path: dest,
-                    message: format!("Saved to ~/Downloads/{dest_name}"),
-                })
-            }
-            None => Err("No checkpoint file found. Training may not have saved a model yet.".to_string()),
-        }
+        // Copy model.pt to Downloads
+        std::fs::copy(&model_pt_path, &dest)
+            .map_err(|e| format!("Copy failed: {e}"))?;
+
+        Ok(DownloadModelResult {
+            success: true,
+            path: dest,
+            message: format!("Saved to ~/Downloads/{dest_name}"),
+        })
     }
 }

@@ -1,5 +1,6 @@
 import { signal, computed } from "@preact/signals";
 import { invoke } from "@tauri-apps/api/core";
+import { notify } from "../utils/notifications.js";
 import {
   projectRuns,
   loadRuns,
@@ -86,7 +87,7 @@ export const syncLogs = computed(
 // ── Platform detection (cached) ──────────────────────────────────────────────
 
 export const platform = signal("unknown");
-invoke("get_platform").then((p) => { platform.value = p; }).catch(() => {});
+invoke("get_platform").then((p) => { platform.value = p; }).catch(() => { });
 
 // ── Incremented to force useTerminal to tear down and reinitialize a session ──
 
@@ -334,9 +335,11 @@ export async function toggleSshConnection() {
       // 3. Mark connected — test_ssh already verified reachability
       setSshConnected(true, projectId);
       setSshConnecting(false, projectId);
+      notify("Connected", `SSH connection established to ${rawSsh.trim()}`);
     } else {
       // Local: mark connected immediately
       setSshConnected(true, projectId);
+      notify("Connected", "Local environment ready");
     }
 
     // Bump key so useTerminal reinitializes for this project
@@ -371,6 +374,7 @@ export async function syncDashboard() {
   try {
     await Promise.race([doSync(projectId, abortController), syncTimeout]);
     addSyncLog(projectId, "Sync completed successfully ✓", "success");
+    notify("Sync Complete", "Project synced successfully. Ready to train.");
 
     // Show 100% completion for 500ms
     _setState(projectId, {
@@ -408,6 +412,7 @@ export async function syncDashboard() {
     } else {
       console.error("[syncDashboard] timeout or error:", err);
       addSyncLog(projectId, `Sync failed: ${err.message}`, "error");
+      notify("Sync Failed", err.message);
     }
     _setState(projectId, {
       syncing: false,
