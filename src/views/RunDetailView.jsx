@@ -10,6 +10,7 @@ import { LineChart } from "../components/LineChart.jsx";
 import { ExportDropdown } from "../components/ExportDropdown.jsx";
 import { ConfusionMatrix } from "../components/ConfusionMatrix.jsx";
 import { PerClassMetrics } from "../components/PerClassMetrics.jsx";
+import { InferenceTab } from "../components/InferenceTab.jsx";
 
 // Convert snake_case / camelCase keys to Title Case labels
 function formatLabel(key) {
@@ -373,11 +374,12 @@ export function RunDetailView() {
     ...TAB_ORDER.filter((t) => tabNames.includes(t)),
     ...tabNames.filter((t) => !TAB_ORDER.includes(t)),
     ...(hasClassificationData ? ["classification"] : []),
+    "inference",
   ];
 
   // Reset active tab when run changes or tabs change
   useEffect(() => {
-    if (sortedTabs.length > 0 && (!activeTab || !tabs[activeTab])) {
+    if (sortedTabs.length > 0 && (!activeTab || (!tabs[activeTab] && activeTab !== "classification" && activeTab !== "inference"))) {
       setActiveTab(sortedTabs[0]);
     }
   }, [runId, sortedTabs.join(",")]);
@@ -510,7 +512,7 @@ export function RunDetailView() {
             </div>
           )}
 
-          {hasScalars && sortedTabs.length > 0 ? (
+          {sortedTabs.length > 0 && (
             <>
               <div class="run-detail-tabs">
                 {sortedTabs.map((tab) => (
@@ -524,7 +526,9 @@ export function RunDetailView() {
                 ))}
               </div>
 
-              {activeTab === "classification" ? (
+              {activeTab === "inference" ? (
+                <InferenceTab run={run} project={currentProject.value} />
+              ) : activeTab === "classification" ? (
                 <div class="classification-tab-content">
                   {hasCM && (
                     <div class="classification-section">
@@ -553,7 +557,7 @@ export function RunDetailView() {
                     </div>
                   )}
                 </div>
-              ) : (() => {
+              ) : hasScalars ? (() => {
                 // Check if all tags in this tab are singular values (e.g. test metrics)
                 const allSingular = currentTags.every((tag) => {
                   const pts = run.scalars[tag];
@@ -597,14 +601,12 @@ export function RunDetailView() {
                     })}
                   </div>
                 );
-              })()}
+              })() : !loading ? (
+                <div class="run-detail-empty">
+                  No metric data available for this run.
+                </div>
+              ) : null}
             </>
-          ) : null}
-
-          {!loading && !hasScalars && (
-            <div class="run-detail-empty">
-              No metric data available for this run.
-            </div>
           )}
         </div>
       </div>

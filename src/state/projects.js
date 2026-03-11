@@ -458,6 +458,7 @@ const defaultData = {
   trainPath: "",
   valPath: "",
   testPath: "",
+  imageFolderPath: "",
   numClasses: "",
   powerUserMode: false,
   maxEpochs: 10,
@@ -605,6 +606,9 @@ export function wizardCreate() {
     trainPath: d.trainPath.trim(),
     valPath: d.valPath.trim(),
     testPath: d.testPath.trim(),
+    imageFolderPath: d.imageFolderPath.trim()
+      ? d.imageFolderPath.trim().replace(/\/*$/, "/")
+      : "",
     numClasses: d.numClasses !== "" ? d.numClasses : "",
     powerUserMode: false,
     maxEpochs: 10,

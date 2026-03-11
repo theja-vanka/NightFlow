@@ -26,6 +26,12 @@ export default defineConfig({
         main: resolve(__dirname, "index.html"),
         splashscreen: resolve(__dirname, "splashscreen.html"),
       },
+      output: {
+        manualChunks: {
+          xterm: ["@xterm/xterm", "@xterm/addon-fit", "@xterm/addon-web-links", "@xterm/addon-webgl"],
+          netron: ["netron"],
+        },
+      },
     },
   },
 });

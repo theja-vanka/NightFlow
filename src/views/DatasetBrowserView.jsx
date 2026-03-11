@@ -20,9 +20,12 @@ export function DatasetBrowserView() {
   const [selectedClasses, setSelectedClasses] = useState(new Set());
   const [lightbox, setLightbox] = useState(null);
 
-  const datasetPath =
-    project?.folderPath || project?.trainPath || "";
+  const isCsvOrJsonl = project?.datasetFormat === "CSV" || project?.datasetFormat === "JSONL";
+  const datasetPath = isCsvOrJsonl
+    ? (project?.trainPath || "")
+    : (project?.folderPath || project?.trainPath || "");
   const datasetFormat = project?.datasetFormat || "Folder";
+  const imageFolderPath = project?.imageFolderPath || "";
 
   // Serialize selectedClasses to a stable string for dependency tracking
   const filterKey = [...selectedClasses].sort().join("\0");
@@ -38,6 +41,7 @@ export function DatasetBrowserView() {
       limit: PAGE_SIZE,
       offset,
       classFilter,
+      imageFolder: imageFolderPath || null,
     })
       .then((result) => {
         setData(result);
@@ -47,7 +51,7 @@ export function DatasetBrowserView() {
         setError(String(err));
         setLoading(false);
       });
-  }, [datasetPath, datasetFormat, offset, filterKey]);
+  }, [datasetPath, datasetFormat, offset, filterKey, imageFolderPath]);
 
   // Close lightbox on Escape
   useEffect(() => {

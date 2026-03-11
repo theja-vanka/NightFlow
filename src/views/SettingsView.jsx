@@ -5,6 +5,7 @@ import {
   currentProject,
   updateProject,
   openDeleteDialog,
+  addProject,
   TASK_TYPES,
   MODEL_CATEGORIES,
   YOLOX_MODEL_CATEGORIES,
@@ -867,7 +868,6 @@ export function SettingsView() {
                         const text = await file.text();
                         const config = JSON.parse(text);
                         // Assign new ID
-                        const { addProject } = await import("../state/projects.js");
                         config.id = String(
                           Math.max(0, ...projectList.value.map((p) => Number(p.id) || 0)) + 1,
                         );

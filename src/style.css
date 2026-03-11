@@ -32,38 +32,50 @@
   --chart-grid: #2d2d2d;
   --chart-axis: #2d2d2d;
   --chart-text: #b0b0b0;
+  --syn-keyword: #c586c0;
+  --syn-string: #ce9178;
+  --syn-comment: #6a9955;
+  --syn-number: #b5cea8;
+  --syn-builtin: #dcdcaa;
+  --syn-decorator: #d7ba7d;
 }
 
 [data-theme="light"] {
-  --bg-primary: #ffffff;
-  --bg-secondary: #fafafa;
-  --bg-surface: #f5f5f5;
-  --bg-input: #fafafa;
-  --text-primary: #0a0a0a;
-  --text-secondary: #454545;
-  --text-muted: #8a8a8a;
-  --border-color: #e5e5e5;
-  --border-focus: #0a0a0a;
-  --btn-bg: #0a0a0a;
-  --btn-text: #fafafa;
-  --btn-hover: #262626;
-  --accent: #0a0a0a;
-  --shadow-color: rgba(0, 0, 0, 0.06);
-  --toggle-bg: #e5e5e5;
-  --toggle-knob: #0a0a0a;
-  --term-bg: #f5f5f5;
-  --term-toolbar-bg: #ebebeb;
-  --chart-line-1: #3b6fd4;
-  --chart-line-2: #d48a1a;
-  --chart-line-3: #c43a5a;
-  --chart-line-4: #2d9e52;
-  --chart-line-5: #8a52c4;
-  --chart-line-6: #d45a2e;
-  --chart-line-7: #1f9e9e;
-  --chart-line-8: #a06ad4;
-  --chart-grid: #e5e5e5;
-  --chart-axis: #e5e5e5;
-  --chart-text: #454545;
+  --bg-primary: #f2f2f2;
+  --bg-secondary: #e8e8e8;
+  --bg-surface: #ffffff;
+  --bg-input: #ffffff;
+  --text-primary: #141414;
+  --text-secondary: #3b3b3b;
+  --text-muted: #6b6b6b;
+  --border-color: #c8c8c8;
+  --border-focus: #141414;
+  --btn-bg: #141414;
+  --btn-text: #f2f2f2;
+  --btn-hover: #303030;
+  --accent: #141414;
+  --shadow-color: rgba(0, 0, 0, 0.10);
+  --toggle-bg: #c8c8c8;
+  --toggle-knob: #141414;
+  --term-bg: #e8e8e8;
+  --term-toolbar-bg: #dcdcdc;
+  --chart-line-1: #2b5cb5;
+  --chart-line-2: #b87614;
+  --chart-line-3: #a82e48;
+  --chart-line-4: #238542;
+  --chart-line-5: #7340a8;
+  --chart-line-6: #b84820;
+  --chart-line-7: #187e7e;
+  --chart-line-8: #8a55b5;
+  --chart-grid: #c8c8c8;
+  --chart-axis: #b0b0b0;
+  --chart-text: #3b3b3b;
+  --syn-keyword: #af00db;
+  --syn-string: #a31515;
+  --syn-comment: #008000;
+  --syn-number: #098658;
+  --syn-builtin: #795e26;
+  --syn-decorator: #8a6914;
 }
 
 /* ========================================
@@ -1582,6 +1594,15 @@ textarea {
   transition:
     border-color 0.2s ease,
     box-shadow 0.2s ease;
+  color-scheme: light dark;
+}
+
+[data-theme="dark"] .settings-input {
+  color-scheme: dark;
+}
+
+[data-theme="light"] .settings-input {
+  color-scheme: light;
 }
 
 .settings-input:focus {
@@ -1624,6 +1645,15 @@ textarea {
   transition:
     border-color 0.2s ease,
     box-shadow 0.2s ease;
+  color-scheme: light dark;
+}
+
+[data-theme="dark"] .settings-select {
+  color-scheme: dark;
+}
+
+[data-theme="light"] .settings-select {
+  color-scheme: light;
 }
 
 .settings-select:focus {
@@ -3148,6 +3178,76 @@ select.wizard-input {
   font-size: 0.78rem;
   color: #e55555;
   font-weight: 500;
+}
+
+/* ── Wizard Tutorial Tip ── */
+
+.wizard-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 12px 20px 0;
+  padding: 12px 14px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  animation: wizardTipIn 0.3s ease;
+}
+
+@keyframes wizardTipIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.wizard-tip-icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  margin-top: 1px;
+  display: flex;
+  align-items: center;
+}
+
+.wizard-tip-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.wizard-tip-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: block;
+  margin-bottom: 3px;
+}
+
+.wizard-tip-body {
+  font-size: 0.73rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.wizard-tip-dismiss {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.15rem;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  border-radius: 4px;
+  transition: color 0.2s ease;
+}
+
+.wizard-tip-dismiss:hover {
+  color: var(--text-primary);
 }
 
 .wizard-footer {
@@ -6407,3 +6507,152 @@ select.wizard-input {
   color: var(--text-primary);
   font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
 }
+
+/* ========================================
+   Inference Tab
+   ======================================== */
+
+.inference-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.inference-params {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px 20px;
+}
+
+.inference-params-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 12px 0;
+}
+
+.inference-params-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.inference-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.inference-field span {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.inference-field input,
+.inference-field select {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--text-primary);
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  transition: border-color 0.15s;
+  color-scheme: light dark;
+}
+
+[data-theme="dark"] .inference-field input,
+[data-theme="dark"] .inference-field select {
+  color-scheme: dark;
+}
+
+[data-theme="light"] .inference-field input,
+[data-theme="light"] .inference-field select {
+  color-scheme: light;
+}
+
+.inference-field input:focus,
+.inference-field select:focus {
+  outline: none;
+  border-color: var(--accent, #6c8cff);
+}
+
+.inference-field-wide {
+  grid-column: 1 / -1;
+}
+
+.inference-script-container {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.inference-script-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--bg-surface) 90%, var(--bg-primary));
+}
+
+.inference-script-filename {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+}
+
+.inference-copy-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.inference-copy-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+  background: var(--bg-primary);
+}
+
+.inference-script-code {
+  margin: 0;
+  padding: 16px 20px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  color: var(--text-primary);
+  overflow-x: auto;
+  white-space: pre;
+  tab-size: 4;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.inference-script-code code {
+  font-family: inherit;
+}
+
+/* Syntax highlighting tokens */
+.syn-kw { color: var(--syn-keyword); }
+.syn-str { color: var(--syn-string); }
+.syn-comment { color: var(--syn-comment); font-style: italic; }
+.syn-num { color: var(--syn-number); }
+.syn-builtin { color: var(--syn-builtin); }
+.syn-decorator { color: var(--syn-decorator); }

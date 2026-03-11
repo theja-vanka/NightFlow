@@ -196,11 +196,12 @@ pub fn browse_dataset(
     limit: usize,
     offset: usize,
     class_filter: Option<Vec<String>>,
+    image_folder: Option<String>,
 ) -> Result<DatasetBrowseResult, String> {
     let expanded = expand_tilde(&path);
-    let dir = std::path::PathBuf::from(&expanded);
+    let resolved_path = std::path::PathBuf::from(&expanded);
 
-    if !dir.exists() {
+    if !resolved_path.exists() {
         return Err(format!("Path does not exist: {}", expanded));
     }
 
@@ -208,7 +209,7 @@ pub fn browse_dataset(
     let mut all_images: Vec<DatasetImage> = Vec::new();
     let mut class_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
 
-    if format == "Folder" && dir.is_dir() {
+    if format == "Folder" && resolved_path.is_dir() {
         // Collect image files from a class directory
         let mut collect_class = |class_dir: &std::path::Path, class_name: &str| {
             let files = match std::fs::read_dir(class_dir) {
@@ -236,7 +237,7 @@ pub fn browse_dataset(
 
         // Detect structure: check if top-level subdirs contain images directly
         // or contain further subdirs (split-based: train/test/val → class → images)
-        let top_entries: Vec<_> = std::fs::read_dir(&dir)
+        let top_entries: Vec<_> = std::fs::read_dir(&resolved_path)
             .map_err(|e| e.to_string())?
             .flatten()
             .filter(|e| {
@@ -288,8 +289,130 @@ pub fn browse_dataset(
                 collect_class(&class_path, &class_name);
             }
         }
+    } else if format == "CSV" && resolved_path.is_file() {
+        // Parse CSV: first column = image path, second column = label
+        // If image_folder is provided, prepend it to relative image paths
+        let image_dir = image_folder
+            .as_deref()
+            .map(|f| std::path::PathBuf::from(expand_tilde(f)));
+
+        let mut rdr = csv::Reader::from_path(&resolved_path)
+            .map_err(|e| format!("Failed to read CSV: {}", e))?;
+
+        let headers = rdr.headers()
+            .map_err(|e| format!("Failed to read CSV headers: {}", e))?
+            .clone();
+
+        if headers.len() < 2 {
+            return Err("CSV must have at least 2 columns (image path and label)".to_string());
+        }
+
+        // Find image and label columns by common names, fall back to positional
+        let image_col_names = ["image_path", "image", "file", "filename", "filepath", "path", "img"];
+        let label_col_names = ["label", "class", "category", "target", "class_name"];
+
+        let image_col_idx = headers.iter().position(|h| {
+            image_col_names.contains(&h.to_lowercase().as_str())
+        }).unwrap_or(0);
+
+        let label_col_idx = headers.iter().position(|h| {
+            label_col_names.contains(&h.to_lowercase().as_str())
+        }).unwrap_or(if image_col_idx == 0 { 1 } else { 0 });
+
+        for result in rdr.records() {
+            let record = result.map_err(|e| format!("CSV parse error: {}", e))?;
+            let img_raw = record.get(image_col_idx).unwrap_or("").to_string();
+            let label = record.get(label_col_idx).unwrap_or("unknown").to_string();
+
+            if img_raw.is_empty() { continue; }
+
+            let img_path_buf = std::path::PathBuf::from(&img_raw);
+            let full_path = if img_path_buf.is_absolute() {
+                img_path_buf
+            } else if let Some(ref dir) = image_dir {
+                dir.join(&img_raw)
+            } else {
+                // Relative to the CSV file's parent directory
+                resolved_path.parent().unwrap_or(std::path::Path::new(".")).join(&img_raw)
+            };
+
+            // Only include if the file looks like an image
+            let ext = full_path.extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("")
+                .to_lowercase();
+            if !image_exts.contains(&ext.as_str()) { continue; }
+
+            *class_counts.entry(label.clone()).or_insert(0) += 1;
+            all_images.push(DatasetImage {
+                path: full_path.to_string_lossy().to_string(),
+                label,
+            });
+        }
+    } else if format == "JSONL" && resolved_path.is_file() {
+        // Parse JSONL: each line is a JSON object with image and label fields
+        // If image_folder is provided, prepend it to relative image paths
+        let image_dir = image_folder
+            .as_deref()
+            .map(|f| std::path::PathBuf::from(expand_tilde(f)));
+
+        let contents = std::fs::read_to_string(&resolved_path)
+            .map_err(|e| format!("Failed to read JSONL file: {}", e))?;
+
+        let image_keys = ["image_path", "image", "file", "filename", "filepath", "path", "img"];
+        let label_keys = ["label", "class", "category", "target", "class_name"];
+
+        for line in contents.lines() {
+            let line = line.trim();
+            if line.is_empty() { continue; }
+
+            let obj: serde_json::Value = serde_json::from_str(line)
+                .map_err(|e| format!("JSONL parse error: {}", e))?;
+
+            let obj_map = match obj.as_object() {
+                Some(m) => m,
+                None => continue,
+            };
+
+            // Find image path
+            let img_raw = image_keys.iter()
+                .find_map(|k| obj_map.get(*k).and_then(|v| v.as_str()))
+                .unwrap_or("")
+                .to_string();
+
+            // Find label
+            let label = label_keys.iter()
+                .find_map(|k| obj_map.get(*k).and_then(|v| v.as_str()))
+                .unwrap_or("unknown")
+                .to_string();
+
+            if img_raw.is_empty() { continue; }
+
+            let img_path_buf = std::path::PathBuf::from(&img_raw);
+            let full_path = if img_path_buf.is_absolute() {
+                img_path_buf
+            } else if let Some(ref dir) = image_dir {
+                dir.join(&img_raw)
+            } else {
+                // Relative to the JSONL file's parent directory
+                resolved_path.parent().unwrap_or(std::path::Path::new(".")).join(&img_raw)
+            };
+
+            // Only include if the file looks like an image
+            let ext = full_path.extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("")
+                .to_lowercase();
+            if !image_exts.contains(&ext.as_str()) { continue; }
+
+            *class_counts.entry(label.clone()).or_insert(0) += 1;
+            all_images.push(DatasetImage {
+                path: full_path.to_string_lossy().to_string(),
+                label,
+            });
+        }
     } else {
-        return Err("Only Folder format browsing is currently supported".to_string());
+        return Err(format!("Unsupported format '{}' or invalid path", format));
     }
 
     // Sort by label then path for stable ordering
