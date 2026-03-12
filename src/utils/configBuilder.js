@@ -58,6 +58,10 @@ export function buildConfigYaml(project, runId = "default") {
   lines.push("  init_args:");
   lines.push(`    ${isYolox ? "model_name" : "backbone"}: ${backbone}`);
 
+  if (project.seed !== "" && project.seed !== undefined) {
+    lines.unshift(`seed_everything: ${project.seed}`);
+  }
+
   if (project.numClasses !== "" && project.numClasses !== undefined) {
     lines.push(`    num_classes: ${project.numClasses}`);
   }
@@ -187,10 +191,6 @@ export function buildConfigYaml(project, runId = "default") {
 
   if (project.gradientClipVal !== "" && project.gradientClipVal !== undefined) {
     lines.push(`  gradient_clip_val: ${project.gradientClipVal}`);
-  }
-
-  if (project.seed !== "" && project.seed !== undefined) {
-    lines.push(`  seed: ${project.seed}`);
   }
 
   // Early stopping callback

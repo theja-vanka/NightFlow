@@ -197,6 +197,7 @@ pub fn browse_dataset(
     offset: usize,
     class_filter: Option<Vec<String>>,
     image_folder: Option<String>,
+    search: Option<String>,
 ) -> Result<DatasetBrowseResult, String> {
     let expanded = expand_tilde(&path);
     let resolved_path = std::path::PathBuf::from(&expanded);
@@ -423,6 +424,18 @@ pub fn browse_dataset(
         && !filters.is_empty()
     {
         all_images.retain(|img| filters.contains(&img.label));
+    }
+
+    // Apply search filter if provided (matches filename or label, case-insensitive)
+    if let Some(ref query) = search {
+        let q = query.to_lowercase();
+        if !q.is_empty() {
+            all_images.retain(|img| {
+                let filename = img.path.replace('\\', "/");
+                let filename = filename.rsplit('/').next().unwrap_or("");
+                filename.to_lowercase().contains(&q) || img.label.to_lowercase().contains(&q)
+            });
+        }
     }
 
     let total = all_images.len();

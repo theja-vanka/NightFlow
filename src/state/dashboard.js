@@ -363,11 +363,11 @@ export async function syncDashboard() {
   const abortController = new AbortController();
   _syncAbortControllers[projectId] = abortController;
 
-  // Set a global timeout of 5 minutes to prevent indefinite hanging
+  // Set a global timeout of 25 minutes to prevent indefinite hanging
   const syncTimeout = new Promise((_, reject) =>
     setTimeout(
-      () => reject(new Error("Sync operation timed out after 5 minutes")),
-      5 * 60 * 1000,
+      () => reject(new Error("Sync operation timed out after 25 minutes")),
+      25 * 60 * 1000,
     ),
   );
 
@@ -571,7 +571,7 @@ async function doSync(projectId, abortController) {
           })
           : invoke("setup_python_env", { projectPath: project.projectPath });
 
-        const timeout = isSSH ? 600000 : 300000; // 10 min for SSH, 5 min for local
+        const timeout = isSSH ? 1200000 : 600000; // 20 min for SSH, 10 min for local
         const envResult = await Promise.race([
           envPromise,
           new Promise((_, reject) =>

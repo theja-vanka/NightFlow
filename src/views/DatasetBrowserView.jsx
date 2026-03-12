@@ -19,6 +19,8 @@ export function DatasetBrowserView() {
   const [offset, setOffset] = useState(0);
   const [selectedClasses, setSelectedClasses] = useState(new Set());
   const [lightbox, setLightbox] = useState(null);
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const isCsvOrJsonl = project?.datasetFormat === "CSV" || project?.datasetFormat === "JSONL";
   const datasetPath = isCsvOrJsonl
@@ -26,6 +28,12 @@ export function DatasetBrowserView() {
     : (project?.folderPath || project?.trainPath || "");
   const datasetFormat = project?.datasetFormat || "Folder";
   const imageFolderPath = project?.imageFolderPath || "";
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchQuery(searchInput), 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   // Serialize selectedClasses to a stable string for dependency tracking
   const filterKey = [...selectedClasses].sort().join("\0");
@@ -42,6 +50,7 @@ export function DatasetBrowserView() {
       offset,
       classFilter,
       imageFolder: imageFolderPath || null,
+      search: searchQuery || null,
     })
       .then((result) => {
         setData(result);
@@ -51,7 +60,7 @@ export function DatasetBrowserView() {
         setError(String(err));
         setLoading(false);
       });
-  }, [datasetPath, datasetFormat, offset, filterKey, imageFolderPath]);
+  }, [datasetPath, datasetFormat, offset, filterKey, imageFolderPath, searchQuery]);
 
   // Close lightbox on Escape
   useEffect(() => {
@@ -173,15 +182,40 @@ export function DatasetBrowserView() {
 
         {/* Columns 2-3 — Image grid */}
         <div class="dataset-browser-main">
+          <div class="dataset-search-bar">
+            <svg class="dataset-search-icon" viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="8.5" cy="8.5" r="5.5" />
+              <line x1="13" y1="13" x2="18" y2="18" />
+            </svg>
+            <input
+              type="text"
+              class="dataset-search-input"
+              placeholder="Search by filename or label..."
+              value={searchInput}
+              onInput={(e) => {
+                setSearchInput(e.target.value);
+                setOffset(0);
+              }}
+            />
+            {searchInput && (
+              <button
+                class="dataset-search-clear"
+                onClick={() => { setSearchInput(""); setSearchQuery(""); setOffset(0); }}
+                title="Clear search"
+              >✕</button>
+            )}
+          </div>
           {loading ? (
             <div class="run-detail-loading">Loading dataset images...</div>
           ) : (
             <>
               {images.length === 0 && (
                 <div class="run-detail-empty">
-                  {selectedClasses.size > 0
-                    ? "No images found for the selected classes."
-                    : "No images found in this dataset."}
+                  {searchInput
+                    ? `No images matching "${searchInput}".`
+                    : selectedClasses.size > 0
+                      ? "No images found for the selected classes."
+                      : "No images found in this dataset."}
                 </div>
               )}
 
