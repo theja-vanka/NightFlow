@@ -32,12 +32,12 @@
   --chart-grid: #2d2d2d;
   --chart-axis: #2d2d2d;
   --chart-text: #b0b0b0;
-  --syn-keyword: #c586c0;
-  --syn-string: #ce9178;
-  --syn-comment: #6a9955;
-  --syn-number: #b5cea8;
-  --syn-builtin: #dcdcaa;
-  --syn-decorator: #d7ba7d;
+  --syn-keyword: #569cd6;
+  --syn-string: #9cdcfe;
+  --syn-comment: #6a737d;
+  --syn-number: #79c0ff;
+  --syn-builtin: #7ee787;
+  --syn-decorator: #d2a8ff;
 }
 
 [data-theme="light"] {
@@ -70,12 +70,12 @@
   --chart-grid: #c8c8c8;
   --chart-axis: #b0b0b0;
   --chart-text: #3b3b3b;
-  --syn-keyword: #af00db;
-  --syn-string: #a31515;
-  --syn-comment: #008000;
-  --syn-number: #098658;
-  --syn-builtin: #795e26;
-  --syn-decorator: #8a6914;
+  --syn-keyword: #0550ae;
+  --syn-string: #0a3069;
+  --syn-comment: #6e7781;
+  --syn-number: #0550ae;
+  --syn-builtin: #116329;
+  --syn-decorator: #8250df;
 }
 
 /* ========================================

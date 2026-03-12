@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "preact/hooks";
 import { invoke } from "@tauri-apps/api/core";
 import { notify } from "../utils/notifications.js";
+import { platform } from "../state/dashboard.js";
 
 /**
  * Lightweight Python syntax highlighter.
@@ -242,6 +243,8 @@ function generateInferenceScript({ taskType, backbone, numClasses, imageSize, mo
       lines.push(I(`    "CUDAExecutionProvider",`));
     } else if (dev === "mps") {
       lines.push(I(`    "CoreMLExecutionProvider",`));
+    } else if (dev === "directml") {
+      lines.push(I(`    "DmlExecutionProvider",`));
     }
     lines.push(I(`    "CPUExecutionProvider",`));
     lines.push(I(`]`));
@@ -773,7 +776,7 @@ export function InferenceTab({ run, project }) {
                 <select value={device} onChange={(e) => setDevice(e.currentTarget.value)}>
                   <option value="cuda">CUDA (GPU)</option>
                   <option value="cpu">CPU</option>
-                  <option value="mps">MPS (Apple Silicon)</option>
+                  {platform.value === "macos" && <option value="mps">MPS (Apple Silicon)</option>}
                 </select>
               </label>
             )}
@@ -783,7 +786,8 @@ export function InferenceTab({ run, project }) {
                 <select value={device} onChange={(e) => setDevice(e.currentTarget.value)}>
                   <option value="cuda">CUDA (GPU)</option>
                   <option value="cpu">CPU</option>
-                  <option value="mps">CoreML (Apple)</option>
+                  {platform.value === "macos" && <option value="mps">CoreML (Apple)</option>}
+                  {platform.value === "windows" && <option value="directml">DirectML (Windows GPU)</option>}
                 </select>
               </label>
             )}

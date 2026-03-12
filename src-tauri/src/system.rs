@@ -270,7 +270,23 @@ pub async fn download_model(
             if fmt == "tensorrt" {
                 let trt_path = model_pt_path.replace(".onnx", ".engine");
                 let trt_cmd = format!(
-                    "cd \"{run_logs_dir}\" && {python} -c \"import tensorrt as trt; logger = trt.Logger(trt.Logger.WARNING); builder = trt.Builder(logger); network = builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)); parser = trt.OnnxParser(network, logger); success = parser.parse_from_file('{model_pt_path}'); config = builder.create_builder_config(); config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 1 << 30); engine = builder.build_serialized_network(network, config); f = open('{trt_path}', 'wb'); f.write(engine); f.close(); print('{trt_path}')\""
+                    r#"cd "{run_logs_dir}" && {python} -c "
+import tensorrt as trt, sys
+logger = trt.Logger(trt.Logger.WARNING)
+builder = trt.Builder(logger)
+network = builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
+parser = trt.OnnxParser(network, logger)
+if not parser.parse_from_file('{model_pt_path}'):
+    for i in range(parser.num_errors):
+        print(parser.get_error(i), file=sys.stderr)
+    sys.exit(1)
+config = builder.create_builder_config()
+config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 1 << 30)
+engine = builder.build_serialized_network(network, config)
+with open('{trt_path}', 'wb') as f:
+    f.write(engine)
+print('{trt_path}')
+""#
                 );
 
                 let trt_output = tokio::process::Command::new(&parts[0])
@@ -315,11 +331,18 @@ pub async fn download_model(
         scp_args.push(scp_source);
         scp_args.push(dest.clone());
 
-        let scp_output = tokio::process::Command::new("scp")
+        let scp_bin = if cfg!(windows) { "scp.exe" } else { "scp" };
+        let scp_output = tokio::process::Command::new(scp_bin)
             .args(&scp_args)
             .output()
             .await
-            .map_err(|e| format!("scp failed: {e}"))?;
+            .map_err(|e| {
+                if cfg!(windows) {
+                    format!("scp failed: {e}. On Windows, ensure OpenSSH is installed (Settings > Apps > Optional Features > OpenSSH Client).")
+                } else {
+                    format!("scp failed: {e}")
+                }
+            })?;
 
         if !scp_output.status.success() {
             let stderr = String::from_utf8_lossy(&scp_output.stderr);
@@ -389,17 +412,24 @@ pub async fn download_model(
             // If TensorRT, convert ONNX to TRT engine locally
             if fmt == "tensorrt" {
                 let trt_path = model_pt_path.replace(".onnx", ".engine");
-                let trt_script = format!(
-                    "import tensorrt as trt; logger = trt.Logger(trt.Logger.WARNING); builder = trt.Builder(logger); network = builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)); parser = trt.OnnxParser(network, logger); success = parser.parse_from_file('{}'); config = builder.create_builder_config(); config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 1 << 30); engine = builder.build_serialized_network(network, config); f = open('{}', 'wb'); f.write(engine); f.close(); print('{}')",
-                    model_pt_path, trt_path, trt_path
+                // Write a temporary Python script to avoid shell quoting issues on Windows
+                let trt_script_path = run_logs_dir_path.join("_trt_convert.py");
+                let trt_script_content = format!(
+                    "import tensorrt as trt\nimport sys\nlogger = trt.Logger(trt.Logger.WARNING)\nbuilder = trt.Builder(logger)\nnetwork = builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))\nparser = trt.OnnxParser(network, logger)\nif not parser.parse_from_file(r\"{onnx}\"):\n    for i in range(parser.num_errors):\n        print(parser.get_error(i), file=sys.stderr)\n    sys.exit(1)\nconfig = builder.create_builder_config()\nconfig.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 1 << 30)\nengine = builder.build_serialized_network(network, config)\nwith open(r\"{engine}\", \"wb\") as f:\n    f.write(engine)\nprint(r\"{engine}\")\n",
+                    onnx = model_pt_path, engine = trt_path
                 );
+                std::fs::write(&trt_script_path, &trt_script_content)
+                    .map_err(|e| format!("Failed to write TensorRT conversion script: {e}"))?;
 
                 let trt_output = tokio::process::Command::new(&python)
-                    .args(&["-c", &trt_script])
+                    .arg(trt_script_path.to_string_lossy().to_string())
                     .current_dir(&run_logs_dir)
                     .output()
                     .await
                     .map_err(|e| format!("TensorRT conversion failed: {e}"))?;
+
+                // Clean up temp script
+                let _ = std::fs::remove_file(&trt_script_path);
 
                 if !trt_output.status.success() {
                     let stderr = String::from_utf8_lossy(&trt_output.stderr);
