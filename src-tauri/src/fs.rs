@@ -176,6 +176,65 @@ pub fn validate_file_path(path: String, expected_extension: Option<String>) -> P
     }
 }
 
+const SPLIT_NAMES: &[&str] = &["train", "test", "val", "valid", "validation", "training", "testing"];
+
+fn normalize_split_name(name: &str) -> &'static str {
+    match name.to_lowercase().as_str() {
+        "train" | "training" => "train",
+        "val" | "valid" | "validation" => "val",
+        "test" | "testing" => "test",
+        _ => "train",
+    }
+}
+
+#[command]
+pub fn detect_dataset_splits(path: String) -> Result<Vec<String>, String> {
+    let expanded = expand_tilde(&path);
+    let resolved = std::path::PathBuf::from(&expanded);
+
+    if !resolved.is_dir() {
+        return Ok(vec![]);
+    }
+
+    let top_entries: Vec<_> = std::fs::read_dir(&resolved)
+        .map_err(|e| e.to_string())?
+        .flatten()
+        .filter(|e| e.path().is_dir() && !e.file_name().to_string_lossy().starts_with('.'))
+        .collect();
+
+    let is_split_based = top_entries.iter().any(|e| {
+        let name = e.file_name().to_string_lossy().to_lowercase();
+        SPLIT_NAMES.contains(&name.as_str())
+    }) && top_entries.iter().all(|e| {
+        let sub = match std::fs::read_dir(e.path()) {
+            Ok(f) => f,
+            Err(_) => return false,
+        };
+        sub.flatten().any(|se| se.path().is_dir())
+    });
+
+    if !is_split_based {
+        return Ok(vec![]);
+    }
+
+    // Collect and normalize split names, preserving order: train, val, test
+    let mut splits = Vec::new();
+    let order = ["train", "val", "test"];
+    let mut found: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for entry in &top_entries {
+        let raw = entry.file_name().to_string_lossy().to_lowercase();
+        if SPLIT_NAMES.contains(&raw.as_str()) {
+            let normalized = normalize_split_name(&raw).to_string();
+            if found.insert(normalized.clone()) {
+                splits.push(normalized);
+            }
+        }
+    }
+    // Sort by canonical order
+    splits.sort_by_key(|s| order.iter().position(|o| o == s).unwrap_or(99));
+    Ok(splits)
+}
+
 #[derive(serde::Serialize)]
 pub struct DatasetImage {
     pub path: String,
@@ -189,6 +248,7 @@ pub struct DatasetBrowseResult {
     pub class_counts: std::collections::HashMap<String, usize>,
 }
 
+#[allow(clippy::too_many_arguments)]
 #[command]
 pub fn browse_dataset(
     path: String,
@@ -198,6 +258,7 @@ pub fn browse_dataset(
     class_filter: Option<Vec<String>>,
     image_folder: Option<String>,
     search: Option<String>,
+    split: Option<String>,
 ) -> Result<DatasetBrowseResult, String> {
     let expanded = expand_tilde(&path);
     let resolved_path = std::path::PathBuf::from(&expanded);
@@ -262,7 +323,20 @@ pub fn browse_dataset(
 
         if is_split_based {
             // dataset/train/class_a/img.jpg structure
-            for split_entry in top_entries {
+            // Filter to requested split if provided
+            let filtered_entries: Vec<_> = if let Some(ref requested_split) = split {
+                top_entries.into_iter().filter(|e| {
+                    let raw = e.file_name().to_string_lossy().to_lowercase();
+                    if SPLIT_NAMES.contains(&raw.as_str()) {
+                        normalize_split_name(&raw) == requested_split.as_str()
+                    } else {
+                        false
+                    }
+                }).collect()
+            } else {
+                top_entries
+            };
+            for split_entry in filtered_entries {
                 let split_path = split_entry.path();
                 let class_entries = match std::fs::read_dir(&split_path) {
                     Ok(f) => f,

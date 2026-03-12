@@ -123,6 +123,7 @@ fn main() {
             fs::ensure_project_dir,
             fs::validate_folder_path,
             fs::browse_dataset,
+            fs::detect_dataset_splits,
             fs::validate_file_path,
             training::start_training,
             training::stop_training,

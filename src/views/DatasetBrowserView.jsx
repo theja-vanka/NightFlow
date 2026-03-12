@@ -21,13 +21,42 @@ export function DatasetBrowserView() {
   const [lightbox, setLightbox] = useState(null);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeSplit, setActiveSplit] = useState("train");
+  const [detectedSplits, setDetectedSplits] = useState([]);
 
   const isCsvOrJsonl = project?.datasetFormat === "CSV" || project?.datasetFormat === "JSONL";
-  const datasetPath = isCsvOrJsonl
-    ? (project?.trainPath || "")
-    : (project?.folderPath || project?.trainPath || "");
   const datasetFormat = project?.datasetFormat || "Folder";
   const imageFolderPath = project?.imageFolderPath || "";
+
+  // For Folder format, auto-detect splits from folder structure
+  const folderPath = project?.folderPath || project?.trainPath || "";
+  useEffect(() => {
+    if (isCsvOrJsonl || !folderPath) {
+      setDetectedSplits([]);
+      return;
+    }
+    invoke("detect_dataset_splits", { path: folderPath })
+      .then((splits) => setDetectedSplits(splits || []))
+      .catch(() => setDetectedSplits([]));
+  }, [folderPath, isCsvOrJsonl]);
+
+  // Build available splits
+  let availableSplits = [];
+  let splitPaths = null;
+  if (isCsvOrJsonl) {
+    splitPaths = {};
+    if (project?.trainPath) splitPaths.train = project.trainPath;
+    if (project?.valPath) splitPaths.val = project.valPath;
+    if (project?.testPath) splitPaths.test = project.testPath;
+    availableSplits = Object.keys(splitPaths);
+  } else if (detectedSplits.length > 0) {
+    availableSplits = detectedSplits;
+  }
+
+  const effectiveSplit = availableSplits.includes(activeSplit) ? activeSplit : availableSplits[0] || "train";
+  const datasetPath = isCsvOrJsonl && splitPaths
+    ? (splitPaths[effectiveSplit] || "")
+    : folderPath;
 
   // Debounce search input
   useEffect(() => {
@@ -51,6 +80,7 @@ export function DatasetBrowserView() {
       classFilter,
       imageFolder: imageFolderPath || null,
       search: searchQuery || null,
+      split: (detectedSplits.length > 0 && !isCsvOrJsonl) ? effectiveSplit : null,
     })
       .then((result) => {
         setData(result);
@@ -60,7 +90,7 @@ export function DatasetBrowserView() {
         setError(String(err));
         setLoading(false);
       });
-  }, [datasetPath, datasetFormat, offset, filterKey, imageFolderPath, searchQuery]);
+  }, [datasetPath, datasetFormat, offset, filterKey, imageFolderPath, searchQuery, effectiveSplit, detectedSplits]);
 
   // Close lightbox on Escape
   useEffect(() => {
@@ -118,6 +148,27 @@ export function DatasetBrowserView() {
   return (
     <div class="dataset-browser-view">
       {error && <div class="training-panel-error">{error}</div>}
+
+      {/* Split tabs (Train / Val / Test) */}
+      {availableSplits.length > 1 && (
+        <div class="dataset-split-tabs">
+          {availableSplits.map((split) => (
+            <button
+              key={split}
+              class={`dataset-split-tab${effectiveSplit === split ? " active" : ""}`}
+              onClick={() => {
+                setActiveSplit(split);
+                setOffset(0);
+                setSelectedClasses(new Set());
+                setSearchInput("");
+                setSearchQuery("");
+              }}
+            >
+              {split.charAt(0).toUpperCase() + split.slice(1)}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* 3-column body: sidebar (class dist) + main (images) */}
       <div class="dataset-browser-body">
