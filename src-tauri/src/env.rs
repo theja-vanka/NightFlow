@@ -461,7 +461,7 @@ pub async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, St
             let venv_py = venv_python(&venv_path);
             let venv_py_str = venv_py.to_string_lossy().to_string();
             let _ = tokio::process::Command::new(&uv_bin)
-                .args(["pip", "install", "--upgrade", "autotimm", "--python", &venv_py_str])
+                .args(["pip", "install", "--upgrade", "autotimm[all]", "--python", &venv_py_str])
                 .current_dir(&expanded)
                 .output()
                 .await;
@@ -540,7 +540,7 @@ pub async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, St
         }
 
         let install_output = tokio::process::Command::new(&conda_bin)
-            .args(["run", "-p", ".venv", "pip", "install", "--upgrade", "autotimm"])
+            .args(["run", "-p", ".venv", "pip", "install", "--upgrade", "autotimm[all]"])
             .stdin(std::process::Stdio::null())
             .current_dir(&expanded)
             .output()
@@ -608,7 +608,7 @@ pub async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, St
     let final_venv_py = venv_python(&venv_path);
     let final_venv_py_str = final_venv_py.to_string_lossy().to_string();
     let install_output = tokio::process::Command::new(&uv_bin)
-        .args(["pip", "install", "--upgrade", "autotimm", "--python", &final_venv_py_str])
+        .args(["pip", "install", "--upgrade", "autotimm[all]", "--python", &final_venv_py_str])
         .current_dir(&expanded)
         .output()
         .await
@@ -687,9 +687,9 @@ if [ -d .venv ]; then
   AV=$(.venv/bin/python -c "import autotimm; print(autotimm.__version__)" 2>/dev/null)
   if [ -z "$AV" ] || [ -n "$CONDA_BIN" ]; then
     if [ -n "$CONDA_BIN" ]; then
-      "$CONDA_BIN" run -p .venv pip install --upgrade 'autotimm' </dev/null >/dev/null 2>&1
+      "$CONDA_BIN" run -p .venv pip install --upgrade 'autotimm[all]' </dev/null >/dev/null 2>&1
     else
-      uv pip install --upgrade 'autotimm' --python .venv/bin/python >/dev/null 2>&1
+      uv pip install --upgrade 'autotimm[all]' --python .venv/bin/python >/dev/null 2>&1
     fi
     AV=$(.venv/bin/python -c "import autotimm; print(autotimm.__version__)" 2>/dev/null)
   fi
@@ -706,7 +706,7 @@ else
       jout error "Failed to create conda env: $CONDA_ERR" "" ""
       exit 0
     fi
-    PIP_ERR=$("$CONDA_BIN" run -p .venv pip install --upgrade 'autotimm' </dev/null 2>&1)
+    PIP_ERR=$("$CONDA_BIN" run -p .venv pip install --upgrade 'autotimm[all]' </dev/null 2>&1)
     if [ $? -ne 0 ]; then
       jout error "Failed to install dependencies (conda): $PIP_ERR" "" ""
       exit 0
@@ -722,7 +722,7 @@ else
       jout error "Failed to create venv: $VENV_ERR" "" ""
       exit 0
     fi
-    PIP_ERR=$(uv pip install --upgrade 'autotimm' --python .venv/bin/python 2>&1)
+    PIP_ERR=$(uv pip install --upgrade 'autotimm[all]' --python .venv/bin/python 2>&1)
     if [ $? -ne 0 ]; then
       jout error "Failed to install dependencies: $PIP_ERR" "" ""
       exit 0
@@ -743,7 +743,7 @@ fi"#,
     cmd.arg(script);
     cmd.kill_on_drop(true);
 
-    match tokio::time::timeout(std::time::Duration::from_secs(300), cmd.output()).await {
+    match tokio::time::timeout(std::time::Duration::from_secs(1200), cmd.output()).await {
         Ok(Ok(output)) => {
             let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
             if stdout.is_empty() || !output.status.success() {
@@ -762,7 +762,7 @@ fi"#,
         Ok(Err(e)) => Err(e.to_string()),
         Err(_) => Ok(EnvSetupResult {
             status: "error".to_string(),
-            message: "SSH env setup timed out (300s)".to_string(),
+            message: "SSH env setup timed out (1200s)".to_string(),
             python_version: None,
             autotimm_version: None,
             env_type: None,

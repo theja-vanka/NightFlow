@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useState, useRef } from "preact/hooks";
+import { useState, useRef, useEffect } from "preact/hooks";
 import { platform } from "../state/dashboard.js";
 import {
   wizardOpen,
@@ -25,6 +25,40 @@ import {
   valPathError,
   testPathError,
 } from "../state/projects.js";
+import {
+  wizardTutorialActive,
+  wizardTutorialDismissed,
+  wizardStepTips,
+  maybeStartWizardTutorial,
+  dismissWizardTutorial,
+} from "../state/tutorial.js";
+
+// ── Wizard Tutorial Tip ──
+
+function WizardTip({ stepIndex }) {
+  if (wizardTutorialDismissed.value) return null;
+  const tip = wizardStepTips[stepIndex];
+  if (!tip) return null;
+
+  return (
+    <div class="wizard-tip">
+      <div class="wizard-tip-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="16" x2="12" y2="12" />
+          <line x1="12" y1="8" x2="12.01" y2="8" />
+        </svg>
+      </div>
+      <div class="wizard-tip-content">
+        <strong class="wizard-tip-title">{tip.title}</strong>
+        <p class="wizard-tip-body">{tip.body}</p>
+      </div>
+      <button class="wizard-tip-dismiss" onClick={dismissWizardTutorial} title="Dismiss tips">
+        &times;
+      </button>
+    </div>
+  );
+}
 
 // ── Step 0: SSH ──
 
@@ -1808,6 +1842,20 @@ function StepDataset() {
         />
       </div>
       {isCsvOrJsonl && (
+        <div class="wizard-folder-path-section">
+          <p class="wizard-sub-label">
+            Image Folder <span class="wizard-optional-indicator">(optional)</span>
+          </p>
+          <input
+            class="wizard-input wizard-input-mono"
+            type="text"
+            placeholder={platform.value === "windows" ? "C:\\path\\to\\images" : "/path/to/images"}
+            value={d.imageFolderPath}
+            onInput={(e) => wizardSetField("imageFolderPath", e.target.value)}
+          />
+        </div>
+      )}
+      {isCsvOrJsonl && (
         <div class="wizard-file-paths-section">
           <p class="wizard-sub-label">Dataset File Paths</p>
           <div class="wizard-file-path-group">
@@ -1878,6 +1926,7 @@ function StepConfirm() {
     d.datasetFormat === "Folder" && d.folderPath
       ? ["Folder Path", d.folderPath]
       : null,
+    isCsvOrJsonl && d.imageFolderPath ? ["Image Folder", d.imageFolderPath] : null,
     isCsvOrJsonl && d.trainPath ? ["Train Path", d.trainPath] : null,
     isCsvOrJsonl && d.valPath ? ["Val Path", d.valPath] : null,
     isCsvOrJsonl && d.testPath ? ["Test Path", d.testPath] : null,
@@ -1921,6 +1970,10 @@ export function CreateProjectWizard() {
   const isLast = step === STEP_COUNT - 1;
   const StepComponent = steps[step];
 
+  useEffect(() => {
+    maybeStartWizardTutorial();
+  }, []);
+
   return (
     <div class="wizard-overlay">
       <div class="wizard-card wizard-card-wide">
@@ -1942,6 +1995,7 @@ export function CreateProjectWizard() {
             />
           ))}
         </div>
+        <WizardTip stepIndex={step} />
         <div class="wizard-body">
           <StepComponent />
         </div>

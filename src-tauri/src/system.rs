@@ -171,6 +171,7 @@ pub async fn download_model(
     run_name: String,
     task_class: Option<String>,
     ssh_command: Option<String>,
+    export_format: Option<String>,
 ) -> Result<DownloadModelResult, String> {
     let home = home_dir().unwrap_or_else(|| if cfg!(windows) { std::env::var("TEMP").unwrap_or_else(|_| r"C:\Temp".to_string()) } else { "/tmp".to_string() });
     let downloads_path = std::path::PathBuf::from(&home).join("Downloads");
@@ -178,16 +179,25 @@ pub async fn download_model(
 
     let _ = std::fs::create_dir_all(&downloads);
 
+    let fmt = export_format.unwrap_or_else(|| "torchscript".to_string());
+    let (model_ext, export_module) = match fmt.as_str() {
+        "onnx" => (".onnx", "autotimm.export_onnx"),
+        "tensorrt" => (".onnx", "autotimm.export_onnx"), // export ONNX first, then convert to TRT
+        _ => (".pt", "autotimm.export_jit"),
+    };
+
     let pp = project_path.trim_end_matches('/').trim_end_matches('\\');
     let pp_path = std::path::PathBuf::from(&pp);
     let run_logs_dir_path = pp_path.join("logs").join(&run_id);
     let run_logs_dir = run_logs_dir_path.to_string_lossy().to_string();
     let ckpt_dir = run_logs_dir_path.join("checkpoints").to_string_lossy().to_string();
-    let model_pt_path = run_logs_dir_path.join("model.pt").to_string_lossy().to_string();
+    let model_file_name = format!("model{}", model_ext);
+    let model_pt_path = run_logs_dir_path.join(&model_file_name).to_string_lossy().to_string();
     let hparams_path = run_logs_dir_path.join("hparams.yaml").to_string_lossy().to_string();
     let tc = task_class.unwrap_or_else(|| "ImageClassifier".to_string());
 
-    let dest_name = format!("{}.pt", run_name);
+    let final_ext = if fmt == "tensorrt" { ".engine" } else { model_ext };
+    let dest_name = format!("{}{}", run_name, final_ext);
     let dest = downloads_path.join(&dest_name).to_string_lossy().to_string();
 
     if let Some(ssh_cmd) = ssh_command {
@@ -239,9 +249,9 @@ pub async fn download_model(
                 .map_err(|e| format!("SSH python check failed: {e}"))?;
             let python = String::from_utf8_lossy(&py_output.stdout).trim().to_string();
 
-            // Run TorchScript export remotely
+            // Run export remotely
             let export_cmd = format!(
-                "cd \"{run_logs_dir}\" && {python} -m autotimm.export_jit --checkpoint \"{remote_ckpt}\" --output \"{model_pt_path}\" --task-class \"{tc}\" --hparams-yaml \"{hparams_path}\""
+                "cd \"{run_logs_dir}\" && {python} -m {export_module} --checkpoint \"{remote_ckpt}\" --output \"{model_pt_path}\" --task-class \"{tc}\" --hparams-yaml \"{hparams_path}\""
             );
 
             let export_output = tokio::process::Command::new(&parts[0])
@@ -249,11 +259,47 @@ pub async fn download_model(
                 .arg(&export_cmd)
                 .output()
                 .await
-                .map_err(|e| format!("SSH JIT export failed: {e}"))?;
+                .map_err(|e| format!("SSH export failed: {e}"))?;
 
             if !export_output.status.success() {
                 let stderr = String::from_utf8_lossy(&export_output.stderr);
-                return Err(format!("TorchScript conversion failed: {stderr}"));
+                return Err(format!("{} conversion failed: {stderr}", if fmt == "onnx" || fmt == "tensorrt" { "ONNX" } else { "TorchScript" }));
+            }
+
+            // If TensorRT, convert ONNX to TRT engine remotely
+            if fmt == "tensorrt" {
+                let trt_path = model_pt_path.replace(".onnx", ".engine");
+                let trt_cmd = format!(
+                    r#"cd "{run_logs_dir}" && {python} -c "
+import tensorrt as trt, sys
+logger = trt.Logger(trt.Logger.WARNING)
+builder = trt.Builder(logger)
+network = builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
+parser = trt.OnnxParser(network, logger)
+if not parser.parse_from_file('{model_pt_path}'):
+    for i in range(parser.num_errors):
+        print(parser.get_error(i), file=sys.stderr)
+    sys.exit(1)
+config = builder.create_builder_config()
+config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 1 << 30)
+engine = builder.build_serialized_network(network, config)
+with open('{trt_path}', 'wb') as f:
+    f.write(engine)
+print('{trt_path}')
+""#
+                );
+
+                let trt_output = tokio::process::Command::new(&parts[0])
+                    .args(&parts[1..])
+                    .arg(&trt_cmd)
+                    .output()
+                    .await
+                    .map_err(|e| format!("SSH TensorRT conversion failed: {e}"))?;
+
+                if !trt_output.status.success() {
+                    let stderr = String::from_utf8_lossy(&trt_output.stderr);
+                    return Err(format!("TensorRT conversion failed: {stderr}. Ensure TensorRT is installed on the remote machine."));
+                }
             }
         }
 
@@ -280,15 +326,23 @@ pub async fn download_model(
             }
         }
 
-        let scp_source = format!("{host_part}:{model_pt_path}");
+        let remote_file = if fmt == "tensorrt" { model_pt_path.replace(".onnx", ".engine") } else { model_pt_path.clone() };
+        let scp_source = format!("{host_part}:{remote_file}");
         scp_args.push(scp_source);
         scp_args.push(dest.clone());
 
-        let scp_output = tokio::process::Command::new("scp")
+        let scp_bin = if cfg!(windows) { "scp.exe" } else { "scp" };
+        let scp_output = tokio::process::Command::new(scp_bin)
             .args(&scp_args)
             .output()
             .await
-            .map_err(|e| format!("scp failed: {e}"))?;
+            .map_err(|e| {
+                if cfg!(windows) {
+                    format!("scp failed: {e}. On Windows, ensure OpenSSH is installed (Settings > Apps > Optional Features > OpenSSH Client).")
+                } else {
+                    format!("scp failed: {e}")
+                }
+            })?;
 
         if !scp_output.status.success() {
             let stderr = String::from_utf8_lossy(&scp_output.stderr);
@@ -326,7 +380,7 @@ pub async fn download_model(
             let hparams_file = std::path::Path::new(&hparams_path);
             let mut args = vec![
                 "-m".to_string(),
-                "autotimm.export_jit".to_string(),
+                export_module.to_string(),
                 "--checkpoint".to_string(), ckpt_src_str,
                 "--output".to_string(), model_pt_path.clone(),
                 "--task-class".to_string(), tc,
@@ -336,21 +390,57 @@ pub async fn download_model(
                 args.push(hparams_path);
             }
 
-            let export_output = tokio::process::Command::new(python_cmd())
+            let venv_python = crate::env::venv_python(&std::path::PathBuf::from(&pp).join(".venv"));
+            let python = if venv_python.exists() {
+                venv_python.to_string_lossy().to_string()
+            } else {
+                python_cmd().to_string()
+            };
+
+            let export_output = tokio::process::Command::new(&python)
                 .args(&args)
                 .current_dir(&run_logs_dir)
                 .output()
                 .await
-                .map_err(|e| format!("TorchScript export failed: {e}"))?;
+                .map_err(|e| format!("{} export failed: {e}", if fmt == "onnx" || fmt == "tensorrt" { "ONNX" } else { "TorchScript" }))?;
 
             if !export_output.status.success() {
                 let stderr = String::from_utf8_lossy(&export_output.stderr);
-                return Err(format!("TorchScript conversion failed: {stderr}"));
+                return Err(format!("{} conversion failed: {stderr}", if fmt == "onnx" || fmt == "tensorrt" { "ONNX" } else { "TorchScript" }));
+            }
+
+            // If TensorRT, convert ONNX to TRT engine locally
+            if fmt == "tensorrt" {
+                let trt_path = model_pt_path.replace(".onnx", ".engine");
+                // Write a temporary Python script to avoid shell quoting issues on Windows
+                let trt_script_path = run_logs_dir_path.join("_trt_convert.py");
+                let trt_script_content = format!(
+                    "import tensorrt as trt\nimport sys\nlogger = trt.Logger(trt.Logger.WARNING)\nbuilder = trt.Builder(logger)\nnetwork = builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))\nparser = trt.OnnxParser(network, logger)\nif not parser.parse_from_file(r\"{onnx}\"):\n    for i in range(parser.num_errors):\n        print(parser.get_error(i), file=sys.stderr)\n    sys.exit(1)\nconfig = builder.create_builder_config()\nconfig.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 1 << 30)\nengine = builder.build_serialized_network(network, config)\nwith open(r\"{engine}\", \"wb\") as f:\n    f.write(engine)\nprint(r\"{engine}\")\n",
+                    onnx = model_pt_path, engine = trt_path
+                );
+                std::fs::write(&trt_script_path, &trt_script_content)
+                    .map_err(|e| format!("Failed to write TensorRT conversion script: {e}"))?;
+
+                let trt_output = tokio::process::Command::new(&python)
+                    .arg(trt_script_path.to_string_lossy().to_string())
+                    .current_dir(&run_logs_dir)
+                    .output()
+                    .await
+                    .map_err(|e| format!("TensorRT conversion failed: {e}"))?;
+
+                // Clean up temp script
+                let _ = std::fs::remove_file(&trt_script_path);
+
+                if !trt_output.status.success() {
+                    let stderr = String::from_utf8_lossy(&trt_output.stderr);
+                    return Err(format!("TensorRT conversion failed: {stderr}. Ensure TensorRT is installed (pip install tensorrt)."));
+                }
             }
         }
 
-        // Copy model.pt to Downloads
-        std::fs::copy(&model_pt_path, &dest)
+        // Copy exported model to Downloads
+        let src_path = if fmt == "tensorrt" { model_pt_path.replace(".onnx", ".engine") } else { model_pt_path.clone() };
+        std::fs::copy(&src_path, &dest)
             .map_err(|e| format!("Copy failed: {e}"))?;
 
         Ok(DownloadModelResult {

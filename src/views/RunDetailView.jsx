@@ -1,15 +1,14 @@
 import { useState, useEffect } from "preact/hooks";
-import { invoke } from "@tauri-apps/api/core";
 import { navigate, routeParams } from "../state/router.js";
 import { allRuns, loadRunScalars, loadRunHparams, updateRun } from "../state/experiments.js";
 import { currentProject } from "../state/projects.js";
-import { notify } from "../utils/notifications.js";
 import { ChartPanel } from "../components/ChartPanel.jsx";
 import { LineChart } from "../components/LineChart.jsx";
 
 import { ExportDropdown } from "../components/ExportDropdown.jsx";
 import { ConfusionMatrix } from "../components/ConfusionMatrix.jsx";
 import { PerClassMetrics } from "../components/PerClassMetrics.jsx";
+import { InferenceTab } from "../components/InferenceTab.jsx";
 
 // Convert snake_case / camelCase keys to Title Case labels
 function formatLabel(key) {
@@ -186,84 +185,6 @@ function NotesSection({ notes = "", runId }) {
   );
 }
 
-function DownloadModelButton({ runId, runName }) {
-  const [status, setStatus] = useState("idle");
-  const [error, setError] = useState("");
-
-  async function handleDownload() {
-    const project = currentProject.value;
-    if (!project) return;
-
-    setStatus("loading");
-    setError("");
-    try {
-      const sshCmd =
-        project.connectionType === "remote" ? project.sshCommand : null;
-
-      // Resolve task class for TorchScript export
-      const taskClassMap = {
-        Classification: "ImageClassifier",
-        "Multi-Label Classification": "ImageClassifier",
-        "Object Detection":
-          project.detectionArch === "yolox" ? "YOLOXDetector" : "ObjectDetector",
-        "Semantic Segmentation": "SemanticSegmentor",
-        "Instance Segmentation": "InstanceSegmentor",
-      };
-      const taskClass = taskClassMap[project.taskType] || "ImageClassifier";
-
-      await invoke("download_model", {
-        projectPath: project.projectPath,
-        runId,
-        runName: runName || runId,
-        taskClass,
-        sshCommand: sshCmd,
-      });
-      setStatus("done");
-      notify("Model Downloaded", `TorchScript model saved to ~/Downloads/${(runName || runId)}.pt`);
-    } catch (err) {
-      setStatus("error");
-      setError(String(err));
-      notify("Download Failed", String(err));
-    }
-  }
-
-  const icon =
-    status === "loading" ? (
-      <div class="download-spinner" />
-    ) : status === "done" ? (
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="20 6 9 17 4 12" />
-      </svg>
-    ) : (
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-        <polyline points="7 10 12 15 17 10" />
-        <line x1="12" y1="15" x2="12" y2="3" />
-      </svg>
-    );
-
-  return (
-    <div class="training-download-row">
-      <button
-        class="training-download-btn"
-        onClick={handleDownload}
-        disabled={status === "loading"}
-      >
-        {icon}
-        {status === "loading"
-          ? "Converting & Downloading…"
-          : status === "done"
-            ? "Downloaded (.pt)"
-            : "Download Model (.pt)"}
-      </button>
-      {error && (
-        <span class="training-download-msg training-download-msg--error">
-          {error}
-        </span>
-      )}
-    </div>
-  );
-}
 
 function getAugmentationSteps(preset, hp) {
   const size = hp.image_size || hp.imageSize || 224;
@@ -333,6 +254,17 @@ export function RunDetailView() {
   const [fileHparams, setFileHparams] = useState(null);
   const [hparamsOpen, setHparamsOpen] = useState(false);
   const [augOpen, setAugOpen] = useState(false);
+  const [inferenceOpen, setInferenceOpen] = useState(false);
+
+  // Close inference drawer on Escape
+  useEffect(() => {
+    if (!inferenceOpen) return;
+    function onKey(e) {
+      if (e.key === "Escape") setInferenceOpen(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [inferenceOpen]);
 
   // If run has no scalars in IndexedDB, try loading from its JSONL file
   useEffect(() => {
@@ -377,7 +309,7 @@ export function RunDetailView() {
 
   // Reset active tab when run changes or tabs change
   useEffect(() => {
-    if (sortedTabs.length > 0 && (!activeTab || !tabs[activeTab])) {
+    if (sortedTabs.length > 0 && (!activeTab || (!tabs[activeTab] && activeTab !== "classification"))) {
       setActiveTab(sortedTabs[0]);
     }
   }, [runId, sortedTabs.join(",")]);
@@ -410,7 +342,18 @@ export function RunDetailView() {
         <h2>{run.name || run.id}</h2>
         <div style="display:flex;align-items:center;gap:8px">
           <ExportDropdown runs={run} filenamePrefix={run.name || run.id} />
-          <DownloadModelButton runId={run.id} runName={run.name || run.id} />
+          <button
+            class="inference-drawer-trigger"
+            onClick={() => setInferenceOpen(true)}
+            title="Download model and generate inference script"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Deploy
+          </button>
         </div>
       </div>
 
@@ -510,7 +453,7 @@ export function RunDetailView() {
             </div>
           )}
 
-          {hasScalars && sortedTabs.length > 0 ? (
+          {sortedTabs.length > 0 && (
             <>
               <div class="run-detail-tabs">
                 {sortedTabs.map((tab) => (
@@ -553,7 +496,7 @@ export function RunDetailView() {
                     </div>
                   )}
                 </div>
-              ) : (() => {
+              ) : hasScalars ? (() => {
                 // Check if all tags in this tab are singular values (e.g. test metrics)
                 const allSingular = currentTags.every((tag) => {
                   const pts = run.scalars[tag];
@@ -597,15 +540,35 @@ export function RunDetailView() {
                     })}
                   </div>
                 );
-              })()}
+              })() : !loading ? (
+                <div class="run-detail-empty">
+                  No metric data available for this run.
+                </div>
+              ) : null}
             </>
-          ) : null}
-
-          {!loading && !hasScalars && (
-            <div class="run-detail-empty">
-              No metric data available for this run.
-            </div>
           )}
+        </div>
+      </div>
+
+      {/* Inference Script — slide-over drawer (always mounted, visibility toggled) */}
+      <div class={`inference-drawer-overlay${inferenceOpen ? "" : " hidden"}`} onClick={() => setInferenceOpen(false)}>
+        <div class={`inference-drawer${inferenceOpen ? "" : " hidden"}`} onClick={(e) => e.stopPropagation()}>
+          <div class="inference-drawer-header">
+            <h3 class="inference-drawer-title">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.55">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Deploy Model
+            </h3>
+            <button class="inference-drawer-close" onClick={() => setInferenceOpen(false)} title="Close (Esc)">
+              ✕
+            </button>
+          </div>
+          <div class="inference-drawer-body">
+            <InferenceTab run={run} project={currentProject.value} />
+          </div>
         </div>
       </div>
     </div>

@@ -1,5 +1,7 @@
 import { signal, computed } from "@preact/signals";
-import { currentProjectId } from "./projects.js";
+import { currentProjectId, projectList } from "./projects.js";
+import { startTraining } from "./training.js";
+import { syncConfig } from "./dashboard.js";
 
 // ── Run Queue ───────────────────────────────────────────────────────────────
 
@@ -61,11 +63,6 @@ export async function processQueue(projectId) {
   runQueue.value = runQueue.value.map((q) =>
     q.id === next.id ? { ...q, status: "running" } : q,
   );
-
-  // Start it — dynamically import to avoid circular deps
-  const { startTraining } = await import("./training.js");
-  const { syncConfig, currentProject } = await import("./dashboard.js");
-  const { projectList } = await import("./projects.js");
 
   const project = projectList.value.find((p) => p.id === projectId);
   if (project && next.config) {

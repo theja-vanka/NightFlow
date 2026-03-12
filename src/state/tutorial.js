@@ -3,6 +3,7 @@ import { sshConnected, dashboardSynced } from "./dashboard.js";
 import { navigate } from "./router.js";
 
 const STORAGE_KEY = "nightflow-tutorial-done";
+const WIZARD_TUTORIAL_KEY = "nightflow-wizard-tutorial-done";
 
 export const tutorialActive = signal(false);
 export const tutorialStep = signal(0);
@@ -144,6 +145,53 @@ function completeTutorial() {
   tutorialStep.value = 0;
   localStorage.setItem(STORAGE_KEY, "true");
   navigate("dashboard");
+}
+
+// ── Wizard Tutorial ──
+
+export const wizardTutorialActive = signal(false);
+export const wizardTutorialDismissed = signal(false);
+
+export const wizardStepTips = [
+  {
+    title: "Step 1: Connection",
+    body: "Choose where your training will run. Select Localhost for this machine, or Remote Instance to connect to a GPU server via SSH. You can test the connection before proceeding.",
+  },
+  {
+    title: "Step 2: Project Name",
+    body: "Give your project a memorable name. A project folder will be auto-created under ~/nightflow/projects/ — you can customize the path if needed.",
+  },
+  {
+    title: "Step 3: Task Type",
+    body: "Select your computer vision task: Classification for labeling images, Detection for bounding boxes, or Segmentation for pixel-level masks. This determines which models and dataset formats are available.",
+  },
+  {
+    title: "Step 4: Model Backbone",
+    body: "Pick a model size tier. Nano/Tiny models train fast and are great for prototyping. Larger tiers (Small, Base, Large) offer higher accuracy but need more GPU memory and time.",
+  },
+  {
+    title: "Step 5: Dataset",
+    body: "Tell NightFlow where your data lives and how it's organized. Choose a format (Folder, COCO, CSV, etc.), point to the dataset path, and specify the number of classes.",
+  },
+  {
+    title: "Step 6: Confirm",
+    body: "Review your project configuration. If everything looks good, click Create to set up the project. You can always change settings later from the Dashboard.",
+  },
+];
+
+export function maybeStartWizardTutorial() {
+  if (localStorage.getItem(WIZARD_TUTORIAL_KEY)) {
+    wizardTutorialDismissed.value = true;
+    return;
+  }
+  wizardTutorialActive.value = true;
+  wizardTutorialDismissed.value = false;
+}
+
+export function dismissWizardTutorial() {
+  wizardTutorialActive.value = false;
+  wizardTutorialDismissed.value = true;
+  localStorage.setItem(WIZARD_TUTORIAL_KEY, "true");
 }
 
 export function maybeStartTutorial() {

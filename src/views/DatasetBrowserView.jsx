@@ -19,10 +19,50 @@ export function DatasetBrowserView() {
   const [offset, setOffset] = useState(0);
   const [selectedClasses, setSelectedClasses] = useState(new Set());
   const [lightbox, setLightbox] = useState(null);
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeSplit, setActiveSplit] = useState("train");
+  const [detectedSplits, setDetectedSplits] = useState([]);
 
-  const datasetPath =
-    project?.folderPath || project?.trainPath || "";
+  const isCsvOrJsonl = project?.datasetFormat === "CSV" || project?.datasetFormat === "JSONL";
   const datasetFormat = project?.datasetFormat || "Folder";
+  const imageFolderPath = project?.imageFolderPath || "";
+
+  // For Folder format, auto-detect splits from folder structure
+  const folderPath = project?.folderPath || project?.trainPath || "";
+  useEffect(() => {
+    if (isCsvOrJsonl || !folderPath) {
+      setDetectedSplits([]);
+      return;
+    }
+    invoke("detect_dataset_splits", { path: folderPath })
+      .then((splits) => setDetectedSplits(splits || []))
+      .catch(() => setDetectedSplits([]));
+  }, [folderPath, isCsvOrJsonl]);
+
+  // Build available splits
+  let availableSplits = [];
+  let splitPaths = null;
+  if (isCsvOrJsonl) {
+    splitPaths = {};
+    if (project?.trainPath) splitPaths.train = project.trainPath;
+    if (project?.valPath) splitPaths.val = project.valPath;
+    if (project?.testPath) splitPaths.test = project.testPath;
+    availableSplits = Object.keys(splitPaths);
+  } else if (detectedSplits.length > 0) {
+    availableSplits = detectedSplits;
+  }
+
+  const effectiveSplit = availableSplits.includes(activeSplit) ? activeSplit : availableSplits[0] || "train";
+  const datasetPath = isCsvOrJsonl && splitPaths
+    ? (splitPaths[effectiveSplit] || "")
+    : folderPath;
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchQuery(searchInput), 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   // Serialize selectedClasses to a stable string for dependency tracking
   const filterKey = [...selectedClasses].sort().join("\0");
@@ -38,6 +78,9 @@ export function DatasetBrowserView() {
       limit: PAGE_SIZE,
       offset,
       classFilter,
+      imageFolder: imageFolderPath || null,
+      search: searchQuery || null,
+      split: (detectedSplits.length > 0 && !isCsvOrJsonl) ? effectiveSplit : null,
     })
       .then((result) => {
         setData(result);
@@ -47,7 +90,7 @@ export function DatasetBrowserView() {
         setError(String(err));
         setLoading(false);
       });
-  }, [datasetPath, datasetFormat, offset, filterKey]);
+  }, [datasetPath, datasetFormat, offset, filterKey, imageFolderPath, searchQuery, effectiveSplit, detectedSplits]);
 
   // Close lightbox on Escape
   useEffect(() => {
@@ -105,6 +148,27 @@ export function DatasetBrowserView() {
   return (
     <div class="dataset-browser-view">
       {error && <div class="training-panel-error">{error}</div>}
+
+      {/* Split tabs (Train / Val / Test) */}
+      {availableSplits.length > 1 && (
+        <div class="dataset-split-tabs">
+          {availableSplits.map((split) => (
+            <button
+              key={split}
+              class={`dataset-split-tab${effectiveSplit === split ? " active" : ""}`}
+              onClick={() => {
+                setActiveSplit(split);
+                setOffset(0);
+                setSelectedClasses(new Set());
+                setSearchInput("");
+                setSearchQuery("");
+              }}
+            >
+              {split.charAt(0).toUpperCase() + split.slice(1)}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* 3-column body: sidebar (class dist) + main (images) */}
       <div class="dataset-browser-body">
@@ -169,15 +233,40 @@ export function DatasetBrowserView() {
 
         {/* Columns 2-3 — Image grid */}
         <div class="dataset-browser-main">
+          <div class="dataset-search-bar">
+            <svg class="dataset-search-icon" viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="8.5" cy="8.5" r="5.5" />
+              <line x1="13" y1="13" x2="18" y2="18" />
+            </svg>
+            <input
+              type="text"
+              class="dataset-search-input"
+              placeholder="Search by filename or label..."
+              value={searchInput}
+              onInput={(e) => {
+                setSearchInput(e.target.value);
+                setOffset(0);
+              }}
+            />
+            {searchInput && (
+              <button
+                class="dataset-search-clear"
+                onClick={() => { setSearchInput(""); setSearchQuery(""); setOffset(0); }}
+                title="Clear search"
+              >✕</button>
+            )}
+          </div>
           {loading ? (
             <div class="run-detail-loading">Loading dataset images...</div>
           ) : (
             <>
               {images.length === 0 && (
                 <div class="run-detail-empty">
-                  {selectedClasses.size > 0
-                    ? "No images found for the selected classes."
-                    : "No images found in this dataset."}
+                  {searchInput
+                    ? `No images matching "${searchInput}".`
+                    : selectedClasses.size > 0
+                      ? "No images found for the selected classes."
+                      : "No images found in this dataset."}
                 </div>
               )}
 

@@ -5,6 +5,7 @@ import {
   currentProject,
   updateProject,
   openDeleteDialog,
+  addProject,
   TASK_TYPES,
   MODEL_CATEGORIES,
   YOLOX_MODEL_CATEGORIES,
@@ -15,9 +16,9 @@ import {
   SEG_HEAD_TYPES,
 } from "../state/projects.js";
 import { sshConnected, syncConfig, platform } from "../state/dashboard.js";
-import { allRuns } from "../state/experiments.js";
+import { allRuns, loadRuns } from "../state/experiments.js";
 import { DeleteProjectDialog } from "../components/DeleteProjectDialog.jsx";
-import { clearAllData } from "../db/database.js";
+import { clearAllData, saveRun } from "../db/database.js";
 import { downloadFile } from "../utils/exportRuns.js";
 import { projectList } from "../state/projects.js";
 import { navigate } from "../state/router.js";
@@ -818,15 +819,15 @@ export function SettingsView() {
             <div class="settings-section-header">
               <h2 class="settings-heading">Project Config</h2>
               <p class="settings-heading-desc">
-                Export or import project configuration as a JSON template
+                Export or import project configuration and runs as a JSON file
               </p>
             </div>
             <div class="settings-card">
               <div class="settings-card-row settings-row-between">
                 <div>
-                  <div class="settings-label">Export Project Config</div>
+                  <div class="settings-label">Export Project</div>
                   <div class="settings-desc">
-                    Download this project's settings as a portable JSON file
+                    Download this project's settings and runs as a portable JSON file
                   </div>
                 </div>
                 <button
@@ -835,10 +836,17 @@ export function SettingsView() {
                     const config = { ...proj };
                     // Remove internal/volatile fields
                     delete config.syncMetadata;
-                    const json = JSON.stringify(config, null, 2);
+                    const projectRuns = allRuns.value.filter(
+                      (r) => r.projectId === proj.id,
+                    );
+                    const exportPayload = {
+                      project: config,
+                      runs: projectRuns,
+                    };
+                    const json = JSON.stringify(exportPayload, null, 2);
                     downloadFile(
                       json,
-                      `${(proj.name || "project").replace(/\s+/g, "-")}-config.json`,
+                      `${(proj.name || "project").replace(/\s+/g, "-")}-export.json`,
                       "application/json",
                     );
                   }}
@@ -849,9 +857,9 @@ export function SettingsView() {
               <div class="settings-card-divider" />
               <div class="settings-card-row settings-row-between">
                 <div>
-                  <div class="settings-label">Import Project Config</div>
+                  <div class="settings-label">Import Project</div>
                   <div class="settings-desc">
-                    Create a new project from an exported JSON config
+                    Create a new project from an exported JSON file (config + runs)
                   </div>
                 </div>
                 <button
@@ -865,9 +873,12 @@ export function SettingsView() {
                       if (!file) return;
                       try {
                         const text = await file.text();
-                        const config = JSON.parse(text);
+                        const parsed = JSON.parse(text);
+                        // Support new format { project, runs } and legacy flat config
+                        const config = parsed.project ? { ...parsed.project } : parsed;
+                        const runs = Array.isArray(parsed.runs) ? parsed.runs : [];
+                        const oldId = config.id;
                         // Assign new ID
-                        const { addProject } = await import("../state/projects.js");
                         config.id = String(
                           Math.max(0, ...projectList.value.map((p) => Number(p.id) || 0)) + 1,
                         );
@@ -876,8 +887,13 @@ export function SettingsView() {
                           : "Imported Project";
                         delete config.syncMetadata;
                         await addProject(config);
+                        // Import associated runs with updated projectId
+                        for (const run of runs) {
+                          await saveRun({ ...run, projectId: config.id });
+                        }
+                        if (runs.length > 0) await loadRuns();
                       } catch (err) {
-                        console.error("Failed to import project config:", err);
+                        console.error("Failed to import project:", err);
                       }
                     };
                     input.click();
