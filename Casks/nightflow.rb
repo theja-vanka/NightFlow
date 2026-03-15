@@ -1,5 +1,5 @@
 cask "nightflow" do
-  version "0.2.0"
+  version "0.2.1"
 
   on_arm do
     url "https://github.com/theja-vanka/NightFlow/releases/download/v#{version}/NightFlow_#{version}_aarch64.dmg",
