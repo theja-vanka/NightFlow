@@ -644,6 +644,11 @@
                         <td>Netron</td>
                         <td>Embedded neural network architecture viewer</td>
                     </tr>
+                    <tr>
+                        <td><strong>External Links</strong></td>
+                        <td>tauri-plugin-opener</td>
+                        <td>Opens URLs in system default browser</td>
+                    </tr>
                 </tbody>
             </table>
         </section>
@@ -662,8 +667,8 @@
                 </div>
                 <div class="grid-card">
                     <h4>Components</h4>
-                    <p>Reusable UI: Sidebar, Header, Charts (Line/Bar), RunsTable, Confusion Matrix, Training Panel,
-                        System Metrics</p>
+                    <p>Reusable UI: Sidebar (with Buy Me a Coffee link), Header, Charts (Line/Bar), RunsTable, Confusion Matrix, Training Panel,
+                        System Metrics, Tutorial Overlay</p>
                 </div>
                 <div class="grid-card">
                     <h4>State</h4>
@@ -688,20 +693,26 @@
         <!-- BACKEND -->
         <section id="backend" class="reveal">
             <h2>Backend Architecture</h2>
-            <p>The Rust backend handles all system-level operations. It communicates with the frontend via Tauri's IPC
+            <p>The Rust backend is organized into focused modules, each handling a specific domain. It communicates with the frontend via Tauri's IPC
                 system (commands and events).</p>
 
-            <h3>Core Responsibilities</h3>
-            <ul>
-                <li><strong>PTY Management</strong> — spawning and managing pseudo-terminals for local shell and SSH
-                </li>
-                <li><strong>File System</strong> — reading datasets, dataset browsing with automatic split detection, managing checkpoints, handling model exports</li>
-                <li><strong>SSH</strong> — async SSH connections via Tokio for remote training workflows</li>
-                <li><strong>Training Orchestration</strong> — launching Python training scripts, streaming output</li>
-                <li><strong>Interpretation Engine</strong> — triggering model interpretation (GradCAM, etc.) and
-                    returning results</li>
-                <li><strong>System Metrics</strong> — CPU, memory, and GPU utilization monitoring</li>
-            </ul>
+            <h3>Modules</h3>
+            <table>
+                <thead>
+                    <tr><th>Module</th><th>Responsibility</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>main.rs</code></td><td>Tauri app bootstrap, plugin registration, shared state</td></tr>
+                    <tr><td><code>pty.rs</code></td><td>Spawning and managing pseudo-terminals for local shell and SSH</td></tr>
+                    <tr><td><code>ssh.rs</code></td><td>Async SSH connections via Tokio for remote training workflows</td></tr>
+                    <tr><td><code>fs.rs</code></td><td>Reading datasets, dataset browsing with automatic split detection, managing checkpoints, handling model exports</td></tr>
+                    <tr><td><code>training.rs</code></td><td>Launching Python training scripts, streaming output</td></tr>
+                    <tr><td><code>interpretation.rs</code></td><td>Triggering model interpretation (GradCAM, etc.) and returning results</td></tr>
+                    <tr><td><code>runs.rs</code></td><td>Parsing and managing experiment run data</td></tr>
+                    <tr><td><code>system.rs</code></td><td>CPU, memory, and GPU utilization monitoring</td></tr>
+                    <tr><td><code>env.rs</code></td><td>Environment detection and Python/conda setup</td></tr>
+                </tbody>
+            </table>
 
             <h3>Why Rust?</h3>
             <ul>
@@ -738,17 +749,27 @@
             <h2>Project Structure</h2>
             <pre>NightFlow/
 ├── src/                  # Frontend source
-│   ├── views/            # Page-level components (Dashboard, Charts, etc.)
-│   ├── components/       # Reusable UI components
-│   ├── state/            # Preact Signal stores
-│   ├── db/               # IndexedDB (idb) layer
-│   ├── hooks/            # Custom Preact hooks
-│   ├── utils/            # Shared utilities
+│   ├── views/            # Page-level views (Dashboard, Charts, Settings, etc.)
+│   ├── components/       # Reusable UI (Sidebar, Header, RunsTable, TrainingPanel, etc.)
+│   ├── state/            # Preact Signal stores (projects, experiments, training, queue, etc.)
+│   ├── db/               # IndexedDB (idb) persistence layer
+│   ├── hooks/            # Custom Preact hooks (useTerminal)
+│   ├── utils/            # Shared utilities (configBuilder, exportRuns, notifications)
 │   ├── app.jsx           # App shell + router
 │   ├── main.jsx          # Entry point
 │   └── style.css         # Global styles
 ├── src-tauri/            # Rust backend
-│   ├── src/main.rs       # Tauri app, commands, event handlers
+│   ├── src/
+│   │   ├── main.rs       # Tauri app bootstrap, plugin registration
+│   │   ├── pty.rs        # PTY management
+│   │   ├── ssh.rs        # SSH connections
+│   │   ├── fs.rs         # File system operations
+│   │   ├── training.rs   # Training orchestration
+│   │   ├── interpretation.rs # Model interpretation
+│   │   ├── runs.rs       # Run data parsing
+│   │   ├── system.rs     # System metrics
+│   │   └── env.rs        # Environment detection
+│   ├── capabilities/     # Tauri permission definitions
 │   ├── Cargo.toml        # Rust dependencies
 │   └── tauri.conf.json   # Tauri configuration
 ├── public/               # Static assets (Netron, icons)
@@ -804,7 +825,8 @@
         <p style="margin-top: 8px;">Built with &hearts; by Krishnatheja Vanka</p>
         <div class="footer-links"><a href="index.html">Home</a><a href="documentation.html">Docs</a><a
                 href="getting-started.html">Get Started</a><a href="contributing.html">Contributing</a><a
-                href="https://github.com/theja-vanka/NightFlow" target="_blank">GitHub</a></div>
+                href="https://github.com/theja-vanka/NightFlow" target="_blank">GitHub</a><a
+                href="https://www.buymeacoffee.com/theja.vanka" target="_blank">Buy Me a Coffee</a></div>
     </footer>
 
     <script>

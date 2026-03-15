@@ -2598,6 +2598,26 @@ textarea {
   color: var(--text-primary);
 }
 
+.sidebar-bmc {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin: 8px auto 12px;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.sidebar-bmc:hover {
+  color: #ffdd00;
+  background: var(--bg-secondary);
+}
+
 /* ========================================
    Create Project Wizard
    ======================================== */

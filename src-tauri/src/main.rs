@@ -85,6 +85,7 @@ fn close_splash(app: tauri::AppHandle) {
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_opener::init())
         .manage(pty::PtyState {
             sessions: Mutex::new(HashMap::new()),
         })

@@ -9,6 +9,7 @@
     "core:window:allow-show",
     "core:event:default",
     "notification:default",
-    "core:app:default"
+    "core:app:default",
+    "opener:default"
   ]
 }
