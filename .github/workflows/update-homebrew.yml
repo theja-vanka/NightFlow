@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   update-cask:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     if: "!github.event.release.prerelease"
 
     steps:
@@ -25,15 +25,14 @@ jobs:
       - name: Download release DMGs and compute SHA256
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        id: sha
         run: |
           VERSION="${{ steps.version.outputs.version }}"
 
-          # Download arm64 DMG
           gh release download "v${VERSION}" \
             --pattern "*aarch64*.dmg" \
             --dir /tmp/dmgs
 
-          # Download x64 DMG
           gh release download "v${VERSION}" \
             --pattern "*x64*.dmg" \
             --dir /tmp/dmgs
@@ -45,7 +44,6 @@ jobs:
 
           echo "arm64_sha=${ARM64_SHA}" >> "$GITHUB_OUTPUT"
           echo "x64_sha=${X64_SHA}" >> "$GITHUB_OUTPUT"
-        id: sha
 
       - name: Update cask formula
         run: |
@@ -53,20 +51,20 @@ jobs:
           ARM64_SHA="${{ steps.sha.outputs.arm64_sha }}"
           X64_SHA="${{ steps.sha.outputs.x64_sha }}"
 
-          cat > HomebrewFormula/nightflow.rb << 'CASK_EOF'
+          cat > Casks/nightflow.rb << EOF
           cask "nightflow" do
-            version "VERSION_PLACEHOLDER"
+            version "${VERSION}"
 
             on_arm do
               url "https://github.com/theja-vanka/NightFlow/releases/download/v#{version}/NightFlow_#{version}_aarch64.dmg",
                   verified: "github.com/theja-vanka/NightFlow/"
-              sha256 "ARM64_SHA_PLACEHOLDER"
+              sha256 "${ARM64_SHA}"
             end
 
             on_intel do
               url "https://github.com/theja-vanka/NightFlow/releases/download/v#{version}/NightFlow_#{version}_x64.dmg",
                   verified: "github.com/theja-vanka/NightFlow/"
-              sha256 "X64_SHA_PLACEHOLDER"
+              sha256 "${X64_SHA}"
             end
 
             name "NightFlow"
@@ -78,7 +76,7 @@ jobs:
               strategy :github_latest
             end
 
-            depends_on macos: ">= :high_sierra"
+            depends_on macos: ">= :ventura"
 
             app "NightFlow.app"
 
@@ -90,21 +88,16 @@ jobs:
               "~/Library/WebKit/com.nightflow.desktop",
             ]
           end
-          CASK_EOF
-
-          # Replace placeholders
-          sed -i "s/VERSION_PLACEHOLDER/${VERSION}/g" HomebrewFormula/nightflow.rb
-          sed -i "s/ARM64_SHA_PLACEHOLDER/${ARM64_SHA}/g" HomebrewFormula/nightflow.rb
-          sed -i "s/X64_SHA_PLACEHOLDER/${X64_SHA}/g" HomebrewFormula/nightflow.rb
+          EOF
 
           # Fix indentation (remove leading spaces from heredoc)
-          sed -i 's/^          //' HomebrewFormula/nightflow.rb
+          sed -i '' 's/^          //' Casks/nightflow.rb
 
       - name: Commit and push updated cask
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add HomebrewFormula/nightflow.rb
+          git add Casks/nightflow.rb
           git diff --cached --quiet && echo "No changes" && exit 0
           git commit -m "chore: update Homebrew cask to v${{ steps.version.outputs.version }}"
           git push

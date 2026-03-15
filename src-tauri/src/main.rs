@@ -128,6 +128,7 @@ fn main() {
             fs::validate_file_path,
             training::start_training,
             training::stop_training,
+            training::force_reset_training,
             training::is_training_alive,
             training::check_training_session,
             training::replay_training_log,

@@ -17,6 +17,7 @@ import {
   trainingEstimatedRemaining,
   trainingTestOnly,
   stopTraining,
+  forceResetTraining,
 } from "../state/training.js";
 
 function formatDuration(ms) {
@@ -152,6 +153,11 @@ export function TrainingPanel() {
           )}
 
           {isError && error && <div class="training-panel-error">{error}</div>}
+          {(isError || isDone || event === "testing_complete") && !active && (
+            <button class="training-reset-btn" onClick={forceResetTraining}>
+              Dismiss
+            </button>
+          )}
         </div>
       </>
     );
@@ -170,11 +176,18 @@ export function TrainingPanel() {
             </span>
             <StatusLabel event={active && !showTest ? event : isDone || showTest ? "training_complete" : event} reconnected={reconnected} />
           </div>
-          {active && !showTest && (
-            <button class="training-stop-btn" onClick={stopTraining}>
-              Stop
-            </button>
-          )}
+          <div class="training-panel-actions">
+            {active && !showTest && (
+              <button class="training-stop-btn" onClick={stopTraining}>
+                Stop
+              </button>
+            )}
+            {!active && (isError || isDone) && (
+              <button class="training-reset-btn" onClick={forceResetTraining}>
+                Dismiss
+              </button>
+            )}
+          </div>
         </div>
 
         {active && !showTest && (

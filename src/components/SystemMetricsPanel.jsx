@@ -173,38 +173,82 @@ export function SystemMetricsPanel() {
                     <ProgressBar label="Memory" valueStr={memStr} percentage={memPct} colorPrimary={METRIC_COLORS.memory} dynamic />
                     <ProgressBar label="Disk (Root)" valueStr={diskStr} percentage={diskPct} colorPrimary={METRIC_COLORS.disk} dynamic />
                 </div>
+            </div>
+        </div>
+    );
+}
 
-                {metrics.gpus && metrics.gpus.length > 0 && (
-                    <div class="metrics-gpus">
-                        {metrics.gpus.map((gpu) => (
-                            <div class="metrics-gpu-card" key={gpu.index}>
-                                <div class="metrics-gpu-header">
-                                    <span class="metrics-gpu-name">GPU {gpu.index}: {gpu.name}</span>
-                                    <span class="metrics-gpu-temp" style={{
-                                        color: gpu.temperature >= 85 ? "#ef4444"
-                                            : gpu.temperature >= 70 ? "#f97316"
-                                            : gpu.temperature >= 55 ? "#f59e0b"
-                                            : "var(--text-muted)"
-                                    }}>{gpu.temperature}°C</span>
-                                </div>
-                                <ProgressBar
-                                    label="Compute"
-                                    valueStr={formatPct(gpu.utilization)}
-                                    percentage={gpu.utilization}
-                                    colorPrimary={METRIC_COLORS.gpuCompute}
-                                    dynamic
-                                />
-                                <ProgressBar
-                                    label="VRAM"
-                                    valueStr={`${(gpu.mem_used / 1024).toFixed(1)} / ${(gpu.mem_total / 1024).toFixed(1)} GB`}
-                                    percentage={(gpu.mem_used / gpu.mem_total) * 100}
-                                    colorPrimary={METRIC_COLORS.gpuVram}
-                                    dynamic
-                                />
-                            </div>
-                        ))}
+export function GpuMetricsPanel() {
+    const [metrics, setMetrics] = useState(null);
+    const connected = sshConnected.value;
+    const project = currentProject.value;
+    const projectId = project?.id;
+    const sshCommand = project?.sshCommand;
+
+    useEffect(() => {
+        if (!connected || !projectId) {
+            setMetrics(null);
+            return;
+        }
+
+        let mounted = true;
+        let timer;
+
+        async function fetchMetrics() {
+            try {
+                const cmd = sshCommand?.trim().toLowerCase() === "localhost" ? null : sshCommand;
+                const resStr = await invoke("get_system_metrics", { sshCommand: cmd });
+                if (mounted) setMetrics(JSON.parse(resStr));
+            } catch (_) { /* errors shown by SystemMetricsPanel */ }
+
+            if (mounted) timer = setTimeout(fetchMetrics, 3000);
+        }
+
+        fetchMetrics();
+        return () => { mounted = false; clearTimeout(timer); };
+    }, [connected, projectId, sshCommand]);
+
+    if (!connected || !metrics || !metrics.gpus || metrics.gpus.length === 0) return null;
+
+    const formatPct = (val) => val.toFixed(1) + "%";
+
+    return (
+        <div class="gpu-metrics-panel">
+            <div class="metrics-header">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+                    <path d="M16 3h-8l-2 4h12z" />
+                </svg>
+                <span>GPUs</span>
+            </div>
+            <div class={`metrics-gpus${metrics.gpus.length > 4 ? " metrics-gpus-many" : ""}`}>
+                {metrics.gpus.map((gpu) => (
+                    <div class="metrics-gpu-card" key={gpu.index}>
+                        <div class="metrics-gpu-header">
+                            <span class="metrics-gpu-name">GPU {gpu.index}: {gpu.name}</span>
+                            <span class="metrics-gpu-temp" style={{
+                                color: gpu.temperature >= 85 ? "#ef4444"
+                                    : gpu.temperature >= 70 ? "#f97316"
+                                    : gpu.temperature >= 55 ? "#f59e0b"
+                                    : "var(--text-muted)"
+                            }}>{gpu.temperature}°C</span>
+                        </div>
+                        <ProgressBar
+                            label="Compute"
+                            valueStr={formatPct(gpu.utilization)}
+                            percentage={gpu.utilization}
+                            colorPrimary={METRIC_COLORS.gpuCompute}
+                            dynamic
+                        />
+                        <ProgressBar
+                            label="VRAM"
+                            valueStr={`${(gpu.mem_used / 1024).toFixed(1)} / ${(gpu.mem_total / 1024).toFixed(1)} GB`}
+                            percentage={(gpu.mem_used / gpu.mem_total) * 100}
+                            colorPrimary={METRIC_COLORS.gpuVram}
+                            dynamic
+                        />
                     </div>
-                )}
+                ))}
             </div>
         </div>
     );
