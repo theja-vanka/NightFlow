@@ -132,9 +132,12 @@ print(json.dumps(res))
         for arg in &parts[1..] {
             cmd.arg(arg);
         }
-        cmd.arg("python3");
-        cmd.arg("-c");
-        cmd.arg(python_script);
+        let hex: String = python_script.bytes().map(|b| format!("{:02x}", b)).collect();
+        let remote_cmd = format!(
+            "python3 -c \"exec(bytes.fromhex('{}').decode())\"",
+            hex
+        );
+        cmd.arg(remote_cmd);
 
         let output = cmd.output().await.map_err(|e| e.to_string())?;
         if output.status.success() {

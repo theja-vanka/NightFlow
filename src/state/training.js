@@ -215,6 +215,28 @@ export async function stopTraining() {
   }
 }
 
+export async function forceResetTraining() {
+  const projectId = currentProjectId.value;
+  if (!projectId) return;
+
+  const state = _get(projectId);
+  const project = currentProject.value;
+  try {
+    await invoke("force_reset_training", {
+      sessionId: projectId,
+      projectPath: project?.projectPath || null,
+    });
+  } catch (err) {
+    console.error("Failed to force reset training:", err);
+  }
+
+  _set(projectId, _defaultTraining());
+
+  if (state.runId) {
+    await updateRun(state.runId, { status: "failed" });
+  }
+}
+
 // ── Event processing (shared between live and replay) ────────────────────────
 
 function _processEvent(session_id, data) {

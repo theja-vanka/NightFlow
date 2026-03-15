@@ -642,6 +642,49 @@ pub async fn stop_training(
 }
 
 #[command]
+pub async fn force_reset_training(
+    state: State<'_, TrainingState>,
+    session_id: String,
+    project_path: Option<String>,
+) -> Result<(), String> {
+    // Kill process if it's still alive
+    let mut child_to_kill = None;
+    {
+        let mut procs = state.processes.lock().unwrap();
+        if let Some(proc) = procs.get_mut(&session_id) {
+            proc.alive.store(false, Ordering::SeqCst);
+            child_to_kill = proc.child.take();
+        }
+        procs.remove(&session_id);
+    }
+    if let Some(mut child) = child_to_kill {
+        let _ = child.kill().await;
+    }
+    // Also kill any orphaned process from meta file
+    if let Some(ref dir) = project_path {
+        let expanded = expand_tilde(dir);
+        if let Some(meta) = read_training_meta(&expanded)
+            && is_pid_alive(meta.pid)
+        {
+            #[cfg(unix)]
+            unsafe {
+                libc::kill(meta.pid as i32, libc::SIGTERM);
+            }
+            #[cfg(windows)]
+            {
+                let _ = std::process::Command::new("taskkill")
+                    .args(["/PID", &meta.pid.to_string(), "/F"])
+                    .stdout(std::process::Stdio::null())
+                    .stderr(std::process::Stdio::null())
+                    .status();
+            }
+        }
+        remove_training_meta(&expanded);
+    }
+    Ok(())
+}
+
+#[command]
 pub fn is_training_alive(session_id: String, state: State<'_, TrainingState>) -> bool {
     let procs = state.processes.lock().unwrap();
     procs
