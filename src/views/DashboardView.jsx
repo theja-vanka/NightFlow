@@ -26,6 +26,7 @@ import {
 } from "../state/dashboard.js";
 import { currentProject } from "../state/projects.js";
 import { startTraining, trainingActive } from "../state/training.js";
+import { projectRuns } from "../state/experiments.js";
 import { addToQueue, projectQueue, removeFromQueue, queueLength } from "../state/queue.js";
 
 function SshStatusBanner() {
@@ -478,7 +479,8 @@ function ResyncButton() {
   );
 }
 
-function buildTrainingCommand(project) {
+// steps: "fit+test" (default), "fit", or "test"
+function buildStepsCommand(project, steps = "fit+test") {
   const env = envInfo.value;
   const useVenv = env && (env.status === "exists" || env.status === "created");
   const isConda = useVenv && env.envType === "conda";
@@ -491,21 +493,26 @@ function buildTrainingCommand(project) {
   const cfg = `${pp}${sep}config.yaml`;
 
   if (isConda) {
-    // Structured sentinel: Rust resolves conda and runs each step directly.
-    // Format: __STEPS__:conda:<venv_path>:<config_path>
-    return `__STEPS__:conda:${pp}${sep}.venv:${cfg}`;
+    return `__STEPS__:conda:${pp}${sep}.venv:${cfg}:${steps}`;
   } else {
     const venvPython = isWindows
       ? `${pp}\\.venv\\Scripts\\python.exe`
       : `${pp}/.venv/bin/python`;
     const python = useVenv ? venvPython : (isWindows ? "python" : "python3");
-    // Format: __STEPS__:direct:<python_path>:<config_path>
-    return `__STEPS__:direct:${python}:${cfg}`;
+    return `__STEPS__:direct:${python}:${cfg}:${steps}`;
   }
 }
 
+function buildTrainingCommand(project) {
+  return buildStepsCommand(project, "fit+test");
+}
+
+function buildTestCommand(project) {
+  return buildStepsCommand(project, "test");
+}
+
 // Human-readable version shown in the Power User command preview.
-function buildCommandDisplay(project) {
+function buildCommandDisplay(project, steps = "fit+test") {
   const env = envInfo.value;
   const useVenv = env && (env.status === "exists" || env.status === "created");
   const isConda = useVenv && env.envType === "conda";
@@ -517,22 +524,20 @@ function buildCommandDisplay(project) {
 
   const cfg = `${pp}${sep}config.yaml`;
 
+  const cmds = [];
   if (isConda) {
     const run = `conda run --live-stream -p ${pp}${sep}.venv python -m autotimm`;
-    return [
-      `${run} fit  --config ${cfg}`,
-      `${run} test --config ${cfg}`,
-    ].join(" &&\n");
+    if (steps.includes("fit"))  cmds.push(`${run} fit  --config ${cfg}`);
+    if (steps.includes("test")) cmds.push(`${run} test --config ${cfg}`);
   } else {
     const venvPy = isWindows
       ? `${pp}\\.venv\\Scripts\\python.exe`
       : `${pp}/.venv/bin/python`;
     const py = useVenv ? venvPy : (isWindows ? "python" : "python3");
-    return [
-      `${py} -m autotimm fit  --config ${cfg}`,
-      `${py} -m autotimm test --config ${cfg}`,
-    ].join(" &&\n");
+    if (steps.includes("fit"))  cmds.push(`${py} -m autotimm fit  --config ${cfg}`);
+    if (steps.includes("test")) cmds.push(`${py} -m autotimm test --config ${cfg}`);
   }
+  return cmds.join(" &&\n");
 }
 
 function StartTrainingButton() {
@@ -541,12 +546,28 @@ function StartTrainingButton() {
   if (!project) return null;
 
   const command = buildTrainingCommand(project);
+  const testCommand = buildTestCommand(project);
   const commandDisplay = buildCommandDisplay(project);
+  const testCommandDisplay = buildCommandDisplay(project, "test");
 
-  const handleClick = async () => {
+  const handleTrainClick = async () => {
     const runId = crypto.randomUUID();
     await syncConfig(project, project.id, runId);
     startTraining(command, project.projectPath, runId);
+  };
+
+  const handleTestClick = async () => {
+    // Find the latest completed run to use its checkpoint
+    const completed = projectRuns.value
+      .filter((r) => r.status === "completed")
+      .sort((a, b) => new Date(b.created) - new Date(a.created));
+    const latestRun = completed[0];
+    if (!latestRun) return;
+
+    // Write config with the completed run's ID so autotimm test finds the checkpoint
+    const runId = crypto.randomUUID();
+    await syncConfig(project, project.id, latestRun.id);
+    startTraining(testCommand, project.projectPath, runId, { testOnly: true });
   };
 
   return (
@@ -643,10 +664,10 @@ function StartTrainingButton() {
           <span style="white-space: pre-wrap; word-break: break-word; min-width: 0;">{commandDisplay}</span>
         </div>
       )}
-      <div style="display:flex;gap:8px;align-items:center">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <button
           class="start-training-btn"
-          onClick={handleClick}
+          onClick={handleTrainClick}
           disabled={active}
         >
           <svg
@@ -663,6 +684,29 @@ function StartTrainingButton() {
           </svg>
           Start Training
         </button>
+        {stats.value.completed > 0 && (
+          <button
+            class="start-test-btn"
+            onClick={handleTestClick}
+            disabled={active}
+            title={project.powerUserMode ? testCommandDisplay : "Run evaluation only"}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+            Run Test
+          </button>
+        )}
         {active && (
           <button
             class="export-btn"

@@ -637,7 +637,7 @@
                     <tr>
                         <td><strong>Storage</strong></td>
                         <td>IndexedDB</td>
-                        <td>Client-side persistent storage (Dexie.js)</td>
+                        <td>Client-side persistent storage (idb)</td>
                     </tr>
                     <tr>
                         <td><strong>Model Viewer</strong></td>
@@ -658,8 +658,7 @@
             <div class="grid-2">
                 <div class="grid-card">
                     <h4>Views</h4>
-                    <p>Dashboard, Charts, Run Detail, Compare Runs, Dataset Browser, Interpretation, Netron, Terminal,
-                        Settings</p>
+                    <p>Dashboard, Experiments, Run Detail, Compare Runs, Dataset Browser, Interpretation, Netron, Terminal, Settings</p>
                 </div>
                 <div class="grid-card">
                     <h4>Components</h4>
@@ -668,12 +667,11 @@
                 </div>
                 <div class="grid-card">
                     <h4>State</h4>
-                    <p>Preact Signals for reactive state. Each domain (projects, runs, metrics, settings) has its own
-                        signal store.</p>
+                    <p>Preact Signals for reactive state. Each domain (projects, experiments, training, dashboard, queue, router, theme) has its own signal store.</p>
                 </div>
                 <div class="grid-card">
                     <h4>Database</h4>
-                    <p>IndexedDB via Dexie.js. All data (projects, runs, metrics, settings) persists locally with zero
+                    <p>IndexedDB via idb. All data (projects, runs, metrics, settings) persists locally with zero
                         server dependency.</p>
                 </div>
             </div>
@@ -697,7 +695,7 @@
             <ul>
                 <li><strong>PTY Management</strong> — spawning and managing pseudo-terminals for local shell and SSH
                 </li>
-                <li><strong>File System</strong> — reading datasets, managing checkpoints, handling model exports</li>
+                <li><strong>File System</strong> — reading datasets, dataset browsing with automatic split detection, managing checkpoints, handling model exports</li>
                 <li><strong>SSH</strong> — async SSH connections via Tokio for remote training workflows</li>
                 <li><strong>Training Orchestration</strong> — launching Python training scripts, streaming output</li>
                 <li><strong>Interpretation Engine</strong> — triggering model interpretation (GradCAM, etc.) and
@@ -743,7 +741,7 @@
 │   ├── views/            # Page-level components (Dashboard, Charts, etc.)
 │   ├── components/       # Reusable UI components
 │   ├── state/            # Preact Signal stores
-│   ├── db/               # IndexedDB (Dexie) layer
+│   ├── db/               # IndexedDB (idb) layer
 │   ├── hooks/            # Custom Preact hooks
 │   ├── utils/            # Shared utilities
 │   ├── app.jsx           # App shell + router

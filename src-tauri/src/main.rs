@@ -137,6 +137,7 @@ fn main() {
             runs::parse_csv_run,
             runs::parse_hparams_yaml,
             runs::parse_model_info,
+            runs::check_runs_checkpoints,
             system::get_system_metrics,
             system::download_model,
             interpretation::save_interpretation_image,

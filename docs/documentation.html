@@ -566,6 +566,7 @@
             <a href="#dataset-browser">Dataset Browser</a>
             <a href="#netron">Netron Integration</a>
             <a href="#terminal">Terminal</a>
+            <a href="#training-queue">Training Queue</a>
             <h3>Advanced</h3>
             <a href="#export">Model Export</a>
             <a href="#settings">Settings</a>
@@ -635,21 +636,26 @@
             <!-- DASHBOARD -->
             <section id="dashboard" class="reveal">
                 <h2>Dashboard</h2>
-                <p>The Dashboard is your command center. It provides an instant overview of all your projects and their
-                    current status.</p>
+                <p>The Dashboard is your command center. It provides an overview of your current project and quick access to training and monitoring.</p>
 
-                <h3>Status Cards</h3>
-                <p>Each project displays a summary card showing:</p>
+                <h3>Summary Cards</h3>
+                <p>The dashboard displays key statistics for the active project:</p>
                 <ul>
-                    <li>Project name and task type (classification, detection, segmentation)</li>
-                    <li>Number of runs and their status (completed, running, failed)</li>
-                    <li>Best metric achieved across all runs</li>
-                    <li>Last training date and duration</li>
+                    <li>Total runs, running count, and best accuracy achieved</li>
+                    <li>Test metrics from evaluated runs</li>
                 </ul>
 
-                <h3>Quick Actions</h3>
-                <p>From the dashboard you can create new projects, resume training, or jump into any existing project's
-                    detail view with a single click.</p>
+                <h3>SSH Connection Management</h3>
+                <p>Connect to remote GPU servers directly from the dashboard. The connection banner shows status and uptime, and you can sync project data between local and remote machines.</p>
+
+                <h3>Training Panel</h3>
+                <p>Launch training runs, monitor live progress with epoch and batch indicators, and view estimated time remaining. A training queue lets you line up multiple runs for sequential execution.</p>
+
+                <h3>System Metrics</h3>
+                <p>Real-time monitoring of CPU, memory, disk, and GPU utilization with color-coded usage bars. Metrics refresh every 3 seconds during training.</p>
+
+                <h3>Sync &amp; Logs</h3>
+                <p>Sync project configurations and training data with remote servers. A sync logs panel shows the progress and history of all sync operations.</p>
             </section>
 
             <!-- PROJECT WIZARD -->
@@ -811,6 +817,9 @@
                     </tbody>
                 </table>
 
+                <h3>How It Works</h3>
+                <p>Upload an image by dragging and dropping or clicking to browse (supports PNG, JPG, WEBP). Select a completed run and an interpretation method, and NightFlow generates a side-by-side comparison of the original image and the interpretation heatmap. You can also preview augmentation effects on your uploaded image before running interpretation.</p>
+
                 <div class="info-box tip">
                     <strong>💡 When to Use What</strong>
                     <p>Use GradCAM/GradCAM++ for convolutional models (ResNet, EfficientNet). Use Attention Rollout/Flow
@@ -824,11 +833,20 @@
                 <h2>Dataset Browser</h2>
                 <p>Visually explore your dataset before and after training. The browser provides:</p>
                 <ul>
-                    <li><strong>Grid view</strong> — browse all images in your dataset with thumbnails</li>
-                    <li><strong>Class filtering</strong> — filter by class label to inspect specific categories</li>
-                    <li><strong>Image preview</strong> — click to view full-resolution images with metadata</li>
-                    <li><strong>Dataset statistics</strong> — class distribution, sample counts, and balance metrics
-                    </li>
+                    <li><strong>Grid view</strong> — browse all images in your dataset with paginated thumbnails (50 per page)</li>
+                    <li><strong>Split detection</strong> — automatically detects train/val/test folder structure and shows tabs to switch between splits</li>
+                    <li><strong>Class filtering</strong> — interactive class distribution sidebar with clickable bar charts to filter by label</li>
+                    <li><strong>Full-text search</strong> — search images by filename or label</li>
+                    <li><strong>Image preview</strong> — click any thumbnail for a full-resolution lightbox view with metadata</li>
+                    <li><strong>Dataset statistics</strong> — total images, number of classes, and average samples per class</li>
+                </ul>
+
+                <h3>Supported Formats</h3>
+                <p>The browser supports three dataset formats:</p>
+                <ul>
+                    <li><strong>Folder (ImageFolder)</strong> — class-per-subfolder structure, with automatic train/val/test split detection</li>
+                    <li><strong>CSV</strong> — image path and label columns, with separate train/val/test file paths</li>
+                    <li><strong>JSONL</strong> — one JSON object per line with image path and label fields</li>
                 </ul>
             </section>
 
@@ -859,6 +877,18 @@
                 </ul>
             </section>
 
+            <!-- TRAINING QUEUE -->
+            <section id="training-queue" class="reveal">
+                <h2>Training Queue</h2>
+                <p>Queue multiple training configurations for sequential execution. Instead of manually starting each run, add them to the queue and NightFlow will train them one after another.</p>
+                <ul>
+                    <li><strong>Sequential execution</strong> — runs are launched automatically when the previous one finishes</li>
+                    <li><strong>Per-project queues</strong> — each project maintains its own queue</li>
+                    <li><strong>Status tracking</strong> — see which runs are queued, running, completed, or failed</li>
+                    <li><strong>Crash recovery</strong> — orphaned training sessions are detected on app restart so you can resume or clean up</li>
+                </ul>
+            </section>
+
             <!-- MODEL EXPORT -->
             <section id="export" class="reveal">
                 <h2>Model Export</h2>
@@ -886,8 +916,10 @@
                     </tbody>
                 </table>
 
-                <p>Export is available from the run detail view. Select the best checkpoint and choose your output
-                    format.</p>
+                <p>Export is available from the run detail view. Select the best checkpoint and choose your output format.</p>
+
+                <h3>Inference Script Generation</h3>
+                <p>NightFlow also generates ready-to-use Python inference scripts for your exported model, complete with preprocessing, model loading, and prediction code with syntax highlighting.</p>
             </section>
 
             <!-- SETTINGS -->
@@ -895,12 +927,14 @@
                 <h2>Settings</h2>
                 <p>Configure NightFlow to match your workflow:</p>
                 <ul>
-                    <li><strong>SSH connections</strong> — manage saved remote server configurations</li>
-                    <li><strong>Python environment</strong> — set the path to your Python/conda environment</li>
-                    <li><strong>Default hyperparameters</strong> — set project-wide defaults for common settings</li>
-                    <li><strong>Import / Export</strong> — back up and restore your entire NightFlow configuration,
-                        projects, and run history</li>
-                    <li><strong>Notifications</strong> — configure native OS notifications for key events</li>
+                    <li><strong>Theme</strong> — switch between dark and light mode</li>
+                    <li><strong>Project configuration</strong> — edit dataset format, paths, task type, model selection, and all training hyperparameters per project</li>
+                    <li><strong>Training hyperparameters</strong> — max epochs, learning rate, batch size, optimizer, scheduler, weight decay, precision, gradient clipping, image size, augmentation preset, early stopping, and backbone freezing</li>
+                    <li><strong>Task types</strong> — classification, multi-label classification, object detection (FCOS/YOLOX), semantic and instance segmentation</li>
+                    <li><strong>SSH key management</strong> — manage SSH keys for remote server connections</li>
+                    <li><strong>GPU device configuration</strong> — select which GPU device to use for training</li>
+                    <li><strong>Import / Export</strong> — back up and restore your entire NightFlow configuration, projects, and run history</li>
+                    <li><strong>Database reset</strong> — clear all local data and start fresh</li>
                 </ul>
             </section>
 
@@ -918,23 +952,39 @@
                     </thead>
                     <tbody>
                         <tr>
-                            <td><code>Ctrl/⌘ + N</code></td>
-                            <td>New Project</td>
+                            <td><code>Ctrl/⌘ + 1</code></td>
+                            <td>Dashboard</td>
                         </tr>
                         <tr>
-                            <td><code>Ctrl/⌘ + T</code></td>
-                            <td>Toggle Terminal</td>
+                            <td><code>Ctrl/⌘ + 2</code></td>
+                            <td>Experiments</td>
                         </tr>
                         <tr>
-                            <td><code>Ctrl/⌘ + ,</code></td>
-                            <td>Open Settings</td>
+                            <td><code>Ctrl/⌘ + 3</code></td>
+                            <td>Interpretation</td>
                         </tr>
                         <tr>
-                            <td><code>Ctrl/⌘ + D</code></td>
-                            <td>Go to Dashboard</td>
+                            <td><code>Ctrl/⌘ + 4</code></td>
+                            <td>Model Viewer</td>
                         </tr>
                         <tr>
-                            <td><code>?</code></td>
+                            <td><code>Ctrl/⌘ + 5</code></td>
+                            <td>Terminal</td>
+                        </tr>
+                        <tr>
+                            <td><code>Ctrl/⌘ + 6</code></td>
+                            <td>Settings</td>
+                        </tr>
+                        <tr>
+                            <td><code>Ctrl/⌘ + 7</code></td>
+                            <td>Dataset Browser</td>
+                        </tr>
+                        <tr>
+                            <td><code>Ctrl/⌘ + Enter</code></td>
+                            <td>Start Training</td>
+                        </tr>
+                        <tr>
+                            <td><code>Ctrl/⌘ + K</code></td>
                             <td>Show Keyboard Shortcuts</td>
                         </tr>
                     </tbody>

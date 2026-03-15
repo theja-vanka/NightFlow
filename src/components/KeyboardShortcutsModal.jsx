@@ -4,11 +4,11 @@ export function KeyboardShortcutsModal({ open, onClose }) {
   const shortcuts = [
     { keys: "Ctrl+1", action: "Dashboard" },
     { keys: "Ctrl+2", action: "Experiments" },
-    { keys: "Ctrl+3", action: "Interpretation" },
-    { keys: "Ctrl+4", action: "Model Viewer" },
-    { keys: "Ctrl+5", action: "Terminal" },
-    { keys: "Ctrl+6", action: "Settings" },
-    { keys: "Ctrl+7", action: "Dataset Browser" },
+    { keys: "Ctrl+3", action: "Dataset Browser" },
+    { keys: "Ctrl+4", action: "Interpretation" },
+    { keys: "Ctrl+5", action: "Model Viewer" },
+    { keys: "Ctrl+6", action: "Terminal" },
+    { keys: "Ctrl+7", action: "Settings" },
     { keys: "Ctrl+Enter", action: "Start Training" },
     { keys: "Ctrl+K", action: "Show Shortcuts" },
   ];

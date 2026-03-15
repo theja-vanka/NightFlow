@@ -193,16 +193,19 @@ pub async fn start_training(
 
     // ── Structured multi-step command ─────────────────────────────────────────
     if let Some(rest) = command.strip_prefix("__STEPS__:") {
-        let parts: Vec<&str> = rest.splitn(3, ':').collect();
-        if parts.len() != 3 {
+        let parts: Vec<&str> = rest.splitn(4, ':').collect();
+        if parts.len() < 3 {
             return Err(format!(
-                "Malformed __STEPS__ command (expected mode:path:config): {}",
+                "Malformed __STEPS__ command (expected mode:path:config[:steps]): {}",
                 command
             ));
         }
         let mode = parts[0].to_string();
         let env_path = expand_tilde(parts[1]);
         let config_path = expand_tilde(parts[2]);
+        let steps = if parts.len() >= 4 { parts[3] } else { "fit+test" };
+        let run_fit = steps.contains("fit");
+        let run_test = steps.contains("test");
 
         let alive = Arc::new(AtomicBool::new(true));
 
@@ -296,101 +299,105 @@ pub async fn start_training(
             let logs_dir = std::path::Path::new(&cwd2).join("logs").join(&run_id);
             let _ = std::fs::create_dir_all(&logs_dir);
 
+            let mut fit_failed = false;
+
             // ── Step 1: fit ─────────────────────────────────────────────────
-            let fit_stdout_path = logs_dir.join("fit_stdout.log");
-            let fit_stderr_path = logs_dir.join("fit_stderr.log");
-            let fit_stdout_file = std::fs::OpenOptions::new().create(true).append(true).open(&fit_stdout_path).unwrap();
-            let fit_stderr_file = std::fs::OpenOptions::new().create(true).append(true).open(&fit_stderr_path).unwrap();
+            if run_fit {
+                let fit_stdout_path = logs_dir.join("fit_stdout.log");
+                let fit_stderr_path = logs_dir.join("fit_stderr.log");
+                let fit_stdout_file = std::fs::OpenOptions::new().create(true).append(true).open(&fit_stdout_path).unwrap();
+                let fit_stderr_file = std::fs::OpenOptions::new().create(true).append(true).open(&fit_stderr_path).unwrap();
 
-            let mut fit_cmd = tokio::process::Command::new(&fit_args[0]);
-            fit_cmd.args(&fit_args[1..]);
-            fit_cmd.current_dir(&cwd2);
-            fit_cmd.stdout(std::process::Stdio::from(fit_stdout_file));
-            fit_cmd.stderr(std::process::Stdio::from(fit_stderr_file));
-            fit_cmd.kill_on_drop(false);
-            if !shell_env.is_empty() {
-                fit_cmd.env_clear();
-                fit_cmd.envs(&shell_env);
-            }
-            #[cfg(unix)]
-            unsafe { fit_cmd.pre_exec(|| { libc::setsid(); Ok(()) }); }
-            #[cfg(windows)]
-            { fit_cmd.creation_flags(0x00000200); } // CREATE_NEW_PROCESS_GROUP
+                let mut fit_cmd = tokio::process::Command::new(&fit_args[0]);
+                fit_cmd.args(&fit_args[1..]);
+                fit_cmd.current_dir(&cwd2);
+                fit_cmd.stdout(std::process::Stdio::from(fit_stdout_file));
+                fit_cmd.stderr(std::process::Stdio::from(fit_stderr_file));
+                fit_cmd.kill_on_drop(false);
+                if !shell_env.is_empty() {
+                    fit_cmd.env_clear();
+                    fit_cmd.envs(&shell_env);
+                }
+                #[cfg(unix)]
+                unsafe { fit_cmd.pre_exec(|| { libc::setsid(); Ok(()) }); }
+                #[cfg(windows)]
+                { fit_cmd.creation_flags(0x00000200); } // CREATE_NEW_PROCESS_GROUP
 
-            let mut fit_child = match fit_cmd.spawn() {
-                Ok(c) => c,
-                Err(e) => {
+                let mut fit_child = match fit_cmd.spawn() {
+                    Ok(c) => c,
+                    Err(e) => {
+                        let _ = app2.emit("training-event", TrainingEvent {
+                            session_id: sid.clone(),
+                            data: serde_json::json!({ "event": "training_error", "error": format!("fit failed to spawn: {}", e) }),
+                        });
+                        alive2.store(false, Ordering::SeqCst);
+                        remove_training_meta(&cwd2);
+                        return;
+                    }
+                };
+
+                let fit_pid = fit_child.id().unwrap_or(0);
+                let updated_meta = TrainingMeta {
+                    pid: fit_pid,
+                    session_id: sid.clone(),
+                    run_id: run_id.clone(),
+                    log_file: log_file_str.clone(),
+                    command: command.clone(),
+                    started_at: std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs_f64(),
+                };
+                let _ = write_training_meta(&cwd2, &updated_meta);
+
+                spawn_tail_task(
+                    fit_stdout_path,
+                    Arc::clone(&alive2),
+                    true,
+                    None,
+                    app2.clone(),
+                    sid.clone(),
+                    None,
+                    // Skip training_complete from fit stdout — Rust emits its own
+                    // after both fit+test finish. Without this, the frontend sets
+                    // active=false and drops all subsequent test events.
+                    Some(vec!["training_complete".to_string()]),
+                );
+
+                let fit_stderr_buf: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+                spawn_tail_task(
+                    fit_stderr_path,
+                    Arc::clone(&alive2),
+                    false,
+                    None,
+                    app2.clone(),
+                    sid.clone(),
+                    Some(Arc::clone(&fit_stderr_buf)),
+                    None,
+                );
+
+                let fit_ok = fit_child.wait().await.map(|s| s.success()).unwrap_or(false);
+
+                if !fit_ok || !alive2.load(Ordering::SeqCst) {
+                    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+                    let stderr_tail = fit_stderr_buf.lock().unwrap().join("\n");
+                    let error_msg = if stderr_tail.is_empty() {
+                        "fit step failed".to_string()
+                    } else {
+                        format!("fit step failed:\n{}", stderr_tail)
+                    };
                     let _ = app2.emit("training-event", TrainingEvent {
                         session_id: sid.clone(),
-                        data: serde_json::json!({ "event": "training_error", "error": format!("fit failed to spawn: {}", e) }),
+                        data: serde_json::json!({ "event": "training_error", "error": error_msg }),
                     });
                     alive2.store(false, Ordering::SeqCst);
                     remove_training_meta(&cwd2);
-                    return;
+                    fit_failed = true;
                 }
-            };
-
-            let fit_pid = fit_child.id().unwrap_or(0);
-            let updated_meta = TrainingMeta {
-                pid: fit_pid,
-                session_id: sid.clone(),
-                run_id: run_id.clone(),
-                log_file: log_file_str.clone(),
-                command: command.clone(),
-                started_at: std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_secs_f64(),
-            };
-            let _ = write_training_meta(&cwd2, &updated_meta);
-
-            spawn_tail_task(
-                fit_stdout_path,
-                Arc::clone(&alive2),
-                true,
-                None,
-                app2.clone(),
-                sid.clone(),
-                None,
-                // Skip training_complete from fit stdout — Rust emits its own
-                // after both fit+test finish. Without this, the frontend sets
-                // active=false and drops all subsequent test events.
-                Some(vec!["training_complete".to_string()]),
-            );
-
-            let fit_stderr_buf: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
-            spawn_tail_task(
-                fit_stderr_path,
-                Arc::clone(&alive2),
-                false,
-                None,
-                app2.clone(),
-                sid.clone(),
-                Some(Arc::clone(&fit_stderr_buf)),
-                None,
-            );
-
-            let fit_ok = fit_child.wait().await.map(|s| s.success()).unwrap_or(false);
-
-            if !fit_ok || !alive2.load(Ordering::SeqCst) {
-                tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-                let stderr_tail = fit_stderr_buf.lock().unwrap().join("\n");
-                let error_msg = if stderr_tail.is_empty() {
-                    "fit step failed".to_string()
-                } else {
-                    format!("fit step failed:\n{}", stderr_tail)
-                };
-                let _ = app2.emit("training-event", TrainingEvent {
-                    session_id: sid.clone(),
-                    data: serde_json::json!({ "event": "training_error", "error": error_msg }),
-                });
-                alive2.store(false, Ordering::SeqCst);
-                remove_training_meta(&cwd2);
-                return;
             }
 
             // ── Step 2: test ────────────────────────────────────────────────
-            {
+            if run_test && !fit_failed {
                 let test_stdout_path = logs_dir.join("test_stdout.log");
                 let test_stderr_path = logs_dir.join("test_stderr.log");
                 let test_stdout_file = std::fs::OpenOptions::new().create(true).append(true).open(&test_stdout_path).unwrap();
@@ -456,12 +463,14 @@ pub async fn start_training(
                 }
             }
 
-            let _ = app2.emit("training-event", TrainingEvent {
-                session_id: sid.clone(),
-                data: serde_json::json!({ "event": "training_complete" }),
-            });
-            alive2.store(false, Ordering::SeqCst);
-            remove_training_meta(&cwd2);
+            if !fit_failed {
+                let _ = app2.emit("training-event", TrainingEvent {
+                    session_id: sid.clone(),
+                    data: serde_json::json!({ "event": "training_complete" }),
+                });
+                alive2.store(false, Ordering::SeqCst);
+                remove_training_meta(&cwd2);
+            }
         });
 
         return Ok(());

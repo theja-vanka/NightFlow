@@ -208,7 +208,7 @@ export function buildConfigYaml(project, runId = "default") {
 
   // Logger section
   lines.push("  logger:");
-  lines.push("    - class_path: autotimm.loggers.LoggerConfig");
+  lines.push("    - class_path: autotimm.core.loggers.LoggerConfig");
   lines.push("      init_args:");
   lines.push("        backend: csv");
   lines.push("        params:");

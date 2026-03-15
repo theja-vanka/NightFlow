@@ -142,7 +142,7 @@ pub async fn run_interpretation(
         let hparams_arg = hparams_base.join("hparams.yaml");
         let hparams_arg_str = hparams_arg.to_string_lossy();
         let run_cmd = format!(
-            "{python} -m autotimm.interpret_cli --checkpoint \"{remote_ckpt}\" --image \"{image_path}\" --methods \"{methods_str}\" --output-dir \"{output_dir_str}\" --task-class \"{tc}\" --hparams-yaml \"{hparams_arg_str}\""
+            "{python} -m autotimm.cli.interpret_cli --checkpoint \"{remote_ckpt}\" --image \"{image_path}\" --methods \"{methods_str}\" --output-dir \"{output_dir_str}\" --task-class \"{tc}\" --hparams-yaml \"{hparams_arg_str}\""
         );
 
         let output = tokio::process::Command::new(&parts[0])
@@ -259,7 +259,7 @@ pub async fn run_interpretation(
 
         let output = tokio::process::Command::new(&python)
             .arg("-m")
-            .arg("autotimm.interpret_cli")
+            .arg("autotimm.cli.interpret_cli")
             .arg("--checkpoint")
             .arg(ckpt.to_string_lossy().to_string())
             .arg("--image")
@@ -326,9 +326,9 @@ pub async fn preview_augmentation(
 import json, base64, io, sys
 try:
     from PIL import Image
-    from autotimm.data.augmentation import get_transforms
+    from autotimm.data.transforms import get_train_transforms
     img = Image.open("{image_path}").convert("RGB")
-    transform = get_transforms("{preset}", image_size=224, is_training=True)
+    transform = get_train_transforms("{preset}", image_size=224)
     results = []
     for _ in range(6):
         augmented = transform(img)
@@ -463,7 +463,7 @@ pub async fn export_jit_model(
         let run_dir_str = run_logs_dir.to_string_lossy();
         let hparams_arg_str = run_logs_dir.join("hparams.yaml").to_string_lossy().to_string();
         let run_cmd = format!(
-            "cd \"{run_dir_str}\" && {python} -m autotimm.export_jit --checkpoint \"{remote_ckpt}\" --output \"{output_path_str}\" --task-class \"{tc}\" --hparams-yaml \"{hparams_arg_str}\""
+            "cd \"{run_dir_str}\" && {python} -m autotimm.export.export_jit --checkpoint \"{remote_ckpt}\" --output \"{output_path_str}\" --task-class \"{tc}\" --hparams-yaml \"{hparams_arg_str}\""
         );
 
         let output = tokio::process::Command::new(&parts[0])
@@ -555,7 +555,7 @@ pub async fn export_jit_model(
 
         let mut cmd = tokio::process::Command::new(&python);
         cmd.arg("-m")
-            .arg("autotimm.export_jit")
+            .arg("autotimm.export.export_jit")
             .arg("--checkpoint")
             .arg(ckpt.to_string_lossy().to_string())
             .arg("--output")

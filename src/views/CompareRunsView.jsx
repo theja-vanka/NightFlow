@@ -3,7 +3,6 @@ import { navigate, routeParams } from "../state/router.js";
 import { allRuns, loadRunScalars } from "../state/experiments.js";
 import { ChartPanel } from "../components/ChartPanel.jsx";
 import { LineChart } from "../components/LineChart.jsx";
-import { ExportDropdown } from "../components/ExportDropdown.jsx";
 
 // Build tabs from scalar tags across all runs
 function buildTabsCount(allScalarsByRun) {
@@ -100,7 +99,6 @@ export function CompareRunsView() {
 
             <div class="run-detail-header">
                 <h2>Comparing {selectedRuns.length} Runs</h2>
-                <ExportDropdown runs={selectedRuns} filenamePrefix="compared-runs" />
             </div>
 
             <div class="run-detail-meta">

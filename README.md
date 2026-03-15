@@ -1,10 +1,14 @@
 <div align="center">
 
-<img src="assets/night_flow.png" width="160" alt="NightFlow logo" />
+<br>
 
-### _Train, manage, and interpret image models — on your own terms._
+<img src="assets/night_flow.png" width="180" alt="NightFlow logo" />
 
-The open-source desktop alternative to AWS Rekognition Custom Labels,<br>
+<br>
+
+### Train, manage, and interpret image models — on your own terms.
+
+The open-source desktop alternative to AWS Rekognition Custom Labels,
 Google AutoML Vision, and Azure Custom Vision.
 
 <br>
@@ -16,9 +20,13 @@ Google AutoML Vision, and Azure Custom Vision.
 [![GitHub PRs](https://img.shields.io/github/issues-pr/theja-vanka/NightFlow?style=flat-square)](../../pulls)
 [![Last Commit](https://img.shields.io/github/last-commit/theja-vanka/NightFlow?style=flat-square)](../../commits)
 
+<br>
+
 ![macOS](https://img.shields.io/badge/macOS-ARM64_|_x64-000000?style=for-the-badge&logo=apple&logoColor=white)
 ![Windows](https://img.shields.io/badge/Windows-x64-0078D4?style=for-the-badge&logo=windows11&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux_(Debian/Ubuntu)-x64-FCC624?style=for-the-badge&logo=linux&logoColor=black)
+
+<br>
 
 [![Tauri](https://img.shields.io/badge/Tauri-v2-24C8D8?style=flat-square&logo=tauri&logoColor=white)](https://v2.tauri.app)
 [![Rust](https://img.shields.io/badge/Rust-2024_Edition-DEA584?style=flat-square&logo=rust&logoColor=black)](https://www.rust-lang.org)
@@ -27,25 +35,27 @@ Google AutoML Vision, and Azure Custom Vision.
 
 <br>
 
-[Overview](#overview) · [Features](#features) · [How It Compares](#how-it-compares) · [Quick Start](#quick-start) · [Download](#download) · [Architecture](#architecture) · [Contributing](#contributing)
+[Overview](#-overview) · [Features](#-features) · [How It Compares](#-how-it-compares) · [Quick Start](#-quick-start) · [Download](#-download) · [Architecture](#-architecture) · [Contributing](#-contributing) · [License](#-license)
+
+<br>
 
 </div>
 
----
+<!-- ------------------------------------------------------------------ -->
 
 ## Overview
 
-NightFlow is a **native desktop application** purpose-built for **automated deep-learning on images**. It wraps a complete image model training pipeline — from dataset ingestion and augmentation through training, metric visualization, and model export — inside a fast, privacy-first interface that runs entirely on your own hardware.
+**NightFlow** is a **native desktop application** purpose-built for **automated deep learning on images**. It wraps a complete image-model training pipeline — from dataset ingestion and augmentation through training, metric visualization, and model export — inside a fast, privacy-first interface that runs entirely on your own hardware.
 
 Whether you're training an image classifier, an object detector, or a segmentation model, NightFlow handles:
 
 - **Automated model training** with auto-tuning of learning rate and batch size
 - **Full experiment lifecycle management** — project organization, run history, metric tracking, and comparison
-- **Model interpretation and explainability** — GradCAM, Integrated Gradients, Attention Rollout, and more
+- **Model interpretation & explainability** — GradCAM, Integrated Gradients, Attention Rollout, and more
 - **Remote GPU training via SSH** — run jobs on powerful servers without leaving the app
 - **Production export** — TorchScript and ONNX output for deployment anywhere
 
-No cloud accounts. No per-hour charges. No data leaving your machine.
+> **No cloud accounts. No per-hour charges. No data leaving your machine.**
 
 ---
 
@@ -54,11 +64,11 @@ No cloud accounts. No per-hour charges. No data leaving your machine.
 | | Cloud AutoML | NightFlow |
 | :--- | :---: | :---: |
 | **Data privacy** | Images uploaded to third-party servers | Data never leaves your device |
-| **Cost** | $3–$5+ per training hour, plus inference fees | Free and open-source |
+| **Cost** | $3 – $5+ per training hour, plus inference fees | Free and open-source |
 | **Vendor lock-in** | Proprietary formats, cloud-only deployment | Export to TorchScript, ONNX — deploy anywhere |
 | **Transparency** | Black-box training, limited tuning | Full control: 1 000+ backbones, every hyperparameter |
 | **Internet** | Required | Works completely offline |
-| **Experiment management** | External tooling needed | Built-in charts, run history, and comparison |
+| **Experiment mgmt** | External tooling needed | Built-in charts, run history, and comparison |
 
 ---
 
@@ -121,7 +131,8 @@ No cloud accounts. No per-hour charges. No data leaving your machine.
 
 ### Private by Design
 
-All data stays on your device. No cloud accounts, no telemetry, no tracking. Storage is local IndexedDB. The entire application works offline.
+All data stays on your device. No cloud accounts, no telemetry, no tracking.
+Storage is local IndexedDB. The entire application works offline.
 
 </td>
 </tr>
@@ -136,7 +147,7 @@ All data stays on your device. No cloud accounts, no telemetry, no tracking. Sto
 | **Data Scientists & ML Engineers** | Stop paying per training hour. Run unlimited experiments on your own GPU with full hyperparameter control, real-time streaming metrics, and built-in model interpretation. |
 | **Startups & Small Teams** | Get the AutoML experience of enterprise cloud platforms without cloud bills. The guided project wizard takes you from raw images to a deployable model — no code required. |
 | **Researchers** | Reproducible experiments with configurable seeds, deterministic training, full run history, and side-by-side comparison — all in a fast native app. |
-| **Privacy-Sensitive Organizations** | Healthcare, defense, finance — any domain where data cannot leave the organization. NightFlow processes everything locally. |
+| **Privacy-Sensitive Orgs** | Healthcare, defense, finance — any domain where data cannot leave the organization. NightFlow processes everything locally. |
 
 ---
 
@@ -191,7 +202,7 @@ graph TD
 
 | Requirement | Version |
 | :--- | :--- |
-| **Node.js** | 22 + |
+| **Node.js** | 22+ |
 | **Bun** | Latest |
 | **Rust** | Stable (Edition 2024) |
 
@@ -260,11 +271,18 @@ bunx tauri dev
 > [!TIP]
 > Download the latest release from the **[Releases](../../releases/latest)** page.
 
+### Homebrew (macOS)
+
+```bash
+brew tap theja-vanka/nightflow https://github.com/theja-vanka/NightFlow
+brew install --cask nightflow
+```
+
 ---
 
 ## Contributing
 
-Contributions, issues, and feature requests are welcome. See the [issues page](../../issues) to get started.
+Contributions, issues, and feature requests are welcome! See the [issues page](../../issues) to get started.
 
 1. **Fork** the repository
 2. **Create** a feature branch — `git checkout -b feat/your-feature`
@@ -283,9 +301,9 @@ Distributed under the **Apache License 2.0**. See [`LICENSE`](LICENSE) for detai
 <div align="center">
 <br>
 
-**Built by [Krishnatheja Vanka](https://github.com/theja-vanka)**
+**Built with care by [Krishnatheja Vanka](https://github.com/theja-vanka)**
 
-<sub>If NightFlow saves you time or cloud bills, consider giving it a star.</sub>
+If NightFlow saves you time or cloud bills, consider giving it a &#11088;
 
 <br>
 </div>
