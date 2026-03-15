@@ -181,9 +181,9 @@ pub async fn download_model(
 
     let fmt = export_format.unwrap_or_else(|| "torchscript".to_string());
     let (model_ext, export_module) = match fmt.as_str() {
-        "onnx" => (".onnx", "autotimm.export_onnx"),
-        "tensorrt" => (".onnx", "autotimm.export_onnx"), // export ONNX first, then convert to TRT
-        _ => (".pt", "autotimm.export_jit"),
+        "onnx" => (".onnx", "autotimm.export.export_onnx"),
+        "tensorrt" => (".onnx", "autotimm.export.export_onnx"), // export ONNX first, then convert to TRT
+        _ => (".pt", "autotimm.export.export_jit"),
     };
 
     let pp = project_path.trim_end_matches('/').trim_end_matches('\\');

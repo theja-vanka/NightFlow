@@ -28,6 +28,10 @@
       "icons/icon.ico",
       "icons/icon.png"
     ],
+    "macOS": {
+      "signingIdentity": "-",
+      "minimumSystemVersion": "10.13"
+    },
     "linux": {
       "deb": {
         "depends": [

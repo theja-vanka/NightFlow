@@ -2598,6 +2598,26 @@ textarea {
   color: var(--text-primary);
 }
 
+.sidebar-bmc {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin: 8px auto 12px;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.sidebar-bmc:hover {
+  color: #ffdd00;
+  background: var(--bg-secondary);
+}
+
 /* ========================================
    Create Project Wizard
    ======================================== */
@@ -4564,6 +4584,41 @@ select.wizard-input {
 }
 
 .start-training-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.start-test-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 28px;
+  background: transparent;
+  color: var(--btn-bg);
+  border: 1.5px solid var(--btn-bg);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    color 0.2s,
+    transform 0.1s,
+    box-shadow 0.2s;
+}
+
+.start-test-btn:hover:not(:disabled) {
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  box-shadow: 0 2px 12px var(--shadow-color);
+  transform: translateY(-1px);
+}
+
+.start-test-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.start-test-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }

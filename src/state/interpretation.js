@@ -1,4 +1,4 @@
-import { signal, computed } from "@preact/signals";
+import { signal, computed, effect } from "@preact/signals";
 import { invoke } from "@tauri-apps/api/core";
 import { projectRuns } from "./experiments.js";
 import { currentProject } from "./projects.js";
@@ -24,8 +24,42 @@ export const INTERPRETATION_METHODS = [
   },
 ];
 
-export const completedRuns = computed(() =>
+// All completed runs for the current project
+const allCompletedRuns = computed(() =>
   projectRuns.value.filter((r) => r.status === "completed"),
+);
+
+// Set of run IDs that have a checkpoint on disk
+const _runIdsWithCheckpoint = signal(new Set());
+
+// Reactively check which completed runs actually have checkpoints
+effect(() => {
+  const project = currentProject.value;
+  const runs = allCompletedRuns.value;
+  if (!project?.projectPath || runs.length === 0) {
+    _runIdsWithCheckpoint.value = new Set();
+    return;
+  }
+
+  const runIds = runs.map((r) => r.id);
+  const sshCommand =
+    project.connectionType === "remote" ? project.sshCommand : null;
+  invoke("check_runs_checkpoints", {
+    projectPath: project.projectPath,
+    runIds,
+    sshCommand,
+  })
+    .then((idsWithCkpt) => {
+      _runIdsWithCheckpoint.value = new Set(idsWithCkpt);
+    })
+    .catch(() => {
+      _runIdsWithCheckpoint.value = new Set();
+    });
+});
+
+// Only runs that have a checkpoint on disk
+export const completedRuns = computed(() =>
+  allCompletedRuns.value.filter((r) => _runIdsWithCheckpoint.value.has(r.id)),
 );
 
 export const selectedRunId = signal("");

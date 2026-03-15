@@ -5,7 +5,6 @@ import { currentProject } from "../state/projects.js";
 import { ChartPanel } from "../components/ChartPanel.jsx";
 import { LineChart } from "../components/LineChart.jsx";
 
-import { ExportDropdown } from "../components/ExportDropdown.jsx";
 import { ConfusionMatrix } from "../components/ConfusionMatrix.jsx";
 import { PerClassMetrics } from "../components/PerClassMetrics.jsx";
 import { InferenceTab } from "../components/InferenceTab.jsx";
@@ -341,7 +340,6 @@ export function RunDetailView() {
       <div class="run-detail-header">
         <h2>{run.name || run.id}</h2>
         <div style="display:flex;align-items:center;gap:8px">
-          <ExportDropdown runs={run} filenamePrefix={run.name || run.id} />
           <button
             class="inference-drawer-trigger"
             onClick={() => setInferenceOpen(true)}

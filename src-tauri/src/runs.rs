@@ -331,6 +331,77 @@ fn extract_number(line: &str) -> Option<u64> {
     if found { num_str.parse().ok() } else { None }
 }
 
+/// Check which runs have a checkpoint file in `logs/{run_id}/checkpoints/`.
+/// Returns only the run IDs that have at least one `.ckpt` file.
+/// Supports both local filesystem and remote projects via SSH.
+#[command]
+pub async fn check_runs_checkpoints(
+    project_path: String,
+    run_ids: Vec<String>,
+    ssh_command: Option<String>,
+) -> Result<Vec<String>, String> {
+    let expanded = expand_tilde(&project_path);
+
+    if let Some(ssh_cmd) = ssh_command {
+        // Remote: check via SSH
+        let parts: Vec<String> = ssh_cmd.split_whitespace().map(String::from).collect();
+        if parts.len() < 2 {
+            return Err("Invalid SSH command".to_string());
+        }
+
+        // Build a single script that checks all run IDs at once
+        let checks: Vec<String> = run_ids
+            .iter()
+            .map(|rid| {
+                let dir = format!("{}/logs/{}/checkpoints", expanded, rid);
+                format!(r#"if ls "{dir}"/*.ckpt 1>/dev/null 2>&1; then echo "{rid}"; fi"#)
+            })
+            .collect();
+        let script = checks.join("\n");
+
+        let output = tokio::process::Command::new(&parts[0])
+            .args(&parts[1..])
+            .arg(&script)
+            .output()
+            .await
+            .map_err(|e| format!("SSH failed: {e}"))?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let result: Vec<String> = stdout
+            .lines()
+            .map(|l| l.trim().to_string())
+            .filter(|l| !l.is_empty())
+            .collect();
+
+        Ok(result)
+    } else {
+        // Local: check filesystem directly
+        let base = std::path::PathBuf::from(&expanded).join("logs");
+        let mut result = Vec::new();
+
+        for run_id in &run_ids {
+            let ckpt_dir = base.join(run_id).join("checkpoints");
+            if ckpt_dir.is_dir()
+                && let Ok(entries) = std::fs::read_dir(&ckpt_dir)
+            {
+                let has_ckpt = entries
+                    .flatten()
+                    .any(|e| {
+                        e.path()
+                            .extension()
+                            .map(|ext| ext == "ckpt")
+                            .unwrap_or(false)
+                    });
+                if has_ckpt {
+                    result.push(run_id.clone());
+                }
+            }
+        }
+
+        Ok(result)
+    }
+}
+
 fn yaml_to_json(v: serde_yaml::Value) -> serde_json::Value {
     match v {
         serde_yaml::Value::Null => serde_json::Value::Null,

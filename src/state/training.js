@@ -28,6 +28,7 @@ const _defaultTraining = () => ({
   testBatch: 0,
   testTotalBatches: 0,
   error: null,
+  testOnly: false, // true when running evaluation without training
   fastDevRun: false,
   lossCurve: [],
   accCurve: [],
@@ -67,6 +68,9 @@ export const trainingMetrics = computed(
   () => _get(currentProjectId.value).metrics,
 );
 export const trainingError = computed(() => _get(currentProjectId.value).error);
+export const trainingTestOnly = computed(
+  () => _get(currentProjectId.value).testOnly,
+);
 export const trainingFastDevRun = computed(
   () => _get(currentProjectId.value).fastDevRun,
 );
@@ -103,7 +107,7 @@ export function getTrainingRunId(projectId) {
 
 // ── Start / stop training ────────────────────────────────────────────────────
 
-export async function startTraining(command, cwd, passedRunId) {
+export async function startTraining(command, cwd, passedRunId, { testOnly = false } = {}) {
   const projectId = currentProjectId.value;
   if (!projectId) return;
 
@@ -166,6 +170,7 @@ export async function startTraining(command, cwd, passedRunId) {
   _set(projectId, {
     ..._defaultTraining(),
     active: true,
+    testOnly,
     runId,
     event: "preparing",
   });

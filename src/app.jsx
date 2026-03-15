@@ -78,11 +78,11 @@ export function App() {
     const NAV_MAP = {
       "1": "dashboard",
       "2": "experiments",
-      "3": "interpretation",
-      "4": "netron",
-      "5": "terminal",
-      "6": "settings",
-      "7": "dataset-browser",
+      "3": "dataset-browser",
+      "4": "interpretation",
+      "5": "netron",
+      "6": "terminal",
+      "7": "settings",
     };
 
     function handleKeyDown(e) {
