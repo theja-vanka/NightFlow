@@ -461,51 +461,56 @@ pub struct PushToHubResult {
     pub message: String,
 }
 
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
+pub struct PushToHubParams {
+    pub project_path: String,
+    pub run_id: String,
+    #[serde(default)]
+    pub run_name: String,
+    pub repo_id: String,
+    pub hf_token: String,
+    pub task_class: Option<String>,
+    pub task_type: Option<String>,
+    pub backbone: Option<String>,
+    pub num_classes: Option<u32>,
+    pub image_size: Option<u32>,
+    pub best_acc: Option<f64>,
+    pub test_acc: Option<f64>,
+    pub ssh_command: Option<String>,
+    pub private: Option<bool>,
+    pub model_name: Option<String>,
+    pub description: Option<String>,
+    pub license: Option<String>,
+    pub tags: Option<String>,
+}
+
 #[command]
-pub async fn push_to_hub(
-    project_path: String,
-    run_id: String,
-    _run_name: String,
-    repo_id: String,
-    hf_token: String,
-    task_class: Option<String>,
-    task_type: Option<String>,
-    backbone: Option<String>,
-    num_classes: Option<u32>,
-    image_size: Option<u32>,
-    best_acc: Option<f64>,
-    test_acc: Option<f64>,
-    ssh_command: Option<String>,
-    private: Option<bool>,
-    model_name: Option<String>,
-    description: Option<String>,
-    license: Option<String>,
-    tags: Option<String>,
-) -> Result<PushToHubResult, String> {
-    let pp = project_path.trim_end_matches('/').trim_end_matches('\\');
+pub async fn push_to_hub(params: PushToHubParams) -> Result<PushToHubResult, String> {
+    let pp = params.project_path.trim_end_matches('/').trim_end_matches('\\');
     let pp_path = std::path::PathBuf::from(pp);
-    let run_logs_dir_path = pp_path.join("logs").join(&run_id);
+    let run_logs_dir_path = pp_path.join("logs").join(&params.run_id);
     let ckpt_dir = run_logs_dir_path.join("checkpoints");
     let hparams_path = run_logs_dir_path.join("hparams.yaml");
 
-    let _tc = task_class;
-    let tt = task_type.unwrap_or_else(|| "Classification".to_string());
-    let bb = backbone.unwrap_or_else(|| "unknown".to_string());
-    let nc = num_classes.unwrap_or(10);
-    let isize = image_size.unwrap_or(224);
-    let is_private = private.unwrap_or(false);
+    let tt = params.task_type.unwrap_or_else(|| "Classification".to_string());
+    let bb = params.backbone.unwrap_or_else(|| "unknown".to_string());
+    let nc = params.num_classes.unwrap_or(10);
+    let isize = params.image_size.unwrap_or(224);
+    let is_private = params.private.unwrap_or(false);
 
-    let acc_str = best_acc.map_or("N/A".to_string(), |v| format!("{:.4}", v));
-    let test_acc_str = test_acc.map_or("N/A".to_string(), |v| format!("{:.4}", v));
-    let mn = model_name.unwrap_or_else(|| format!("{bb} — {tt}"));
-    let desc = description.unwrap_or_default();
-    let lic = license.unwrap_or_else(|| "apache-2.0".to_string());
-    let user_tags = tags.unwrap_or_default();
+    let acc_str = params.best_acc.map_or("N/A".to_string(), |v| format!("{:.4}", v));
+    let test_acc_str = params.test_acc.map_or("N/A".to_string(), |v| format!("{:.4}", v));
+    let mn = params.model_name.unwrap_or_else(|| format!("{bb} — {tt}"));
+    let desc = params.description.unwrap_or_default();
+    let lic = params.license.unwrap_or_else(|| "apache-2.0".to_string());
+    let user_tags = params.tags.unwrap_or_default();
 
     // Build a JSON config to pass to the Python script via env var
     let config = serde_json::json!({
-        "repo_id": repo_id,
-        "token": hf_token,
+        "repo_id": params.repo_id,
+        "token": params.hf_token,
         "ckpt_dir": ckpt_dir.to_string_lossy(),
         "hparams_path": hparams_path.to_string_lossy(),
         "task_type": tt,
@@ -668,7 +673,7 @@ except Exception as e:
 
     // For SSH: embed the config JSON as an env var set in the remote shell command
     // For local: pass it via the HF_PUSH_CFG environment variable
-    let output = if let Some(ssh_cmd) = ssh_command {
+    let output = if let Some(ssh_cmd) = params.ssh_command {
         let parts: Vec<String> = ssh_cmd.split_whitespace().map(String::from).collect();
         if parts.len() < 2 {
             return Err("Invalid SSH command".to_string());
