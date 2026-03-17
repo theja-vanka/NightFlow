@@ -641,6 +641,231 @@ function DownloadModelButton({ runId, runName, project, exportFormat }) {
   );
 }
 
+const LICENSE_OPTIONS = [
+  { id: "apache-2.0", label: "Apache 2.0" },
+  { id: "mit", label: "MIT" },
+  { id: "cc-by-4.0", label: "CC BY 4.0" },
+  { id: "cc-by-sa-4.0", label: "CC BY-SA 4.0" },
+  { id: "cc-by-nc-4.0", label: "CC BY-NC 4.0" },
+  { id: "gpl-3.0", label: "GPL 3.0" },
+  { id: "other", label: "Other" },
+];
+
+function PushToHubButton({ run, project }) {
+  const taskType = run.taskType || project?.taskType || "Classification";
+  const backbone = run.backbone || run.model || "unknown";
+
+  const [hfToken, setHfToken] = useState("");
+  const [repoId, setRepoId] = useState(run.name || run.id);
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [modelName, setModelName] = useState(`${backbone} — ${taskType}`);
+  const [description, setDescription] = useState(`${taskType} model trained with ${backbone} backbone using NightFlow + AutoTimm.`);
+  const [license, setLicense] = useState("apache-2.0");
+  const [hfTags, setHfTags] = useState(`nightflow, ${taskType.toLowerCase().replace(/ /g, "-")}, ${backbone}, computer-vision`);
+  const [status, setStatus] = useState("idle"); // idle | loading | done | error
+  const [error, setError] = useState("");
+  const [resultUrl, setResultUrl] = useState("");
+  const [expanded, setExpanded] = useState(false);
+
+  async function handlePush() {
+    if (!hfToken.trim()) {
+      setError("HF token is required");
+      return;
+    }
+    if (!repoId.trim()) {
+      setError("Repository ID is required");
+      return;
+    }
+    if (!project) return;
+
+    setStatus("loading");
+    setError("");
+    setResultUrl("");
+
+    try {
+      const sshCmd = project.connectionType === "remote" ? project.sshCommand : null;
+      const taskClassMap = {
+        Classification: "ImageClassifier",
+        "Multi-Label Classification": "ImageClassifier",
+        "Object Detection": project.detectionArch === "yolox" ? "YOLOXDetector" : "ObjectDetector",
+        "Semantic Segmentation": "SemanticSegmentor",
+        "Instance Segmentation": "InstanceSegmentor",
+      };
+      const taskClass = taskClassMap[taskType] || "ImageClassifier";
+      const hp = { ...(run.hyperparameters || {}), ...(run.fileHparams || {}) };
+
+      const result = await invoke("push_to_hub", {
+        projectPath: project.projectPath,
+        runId: run.id,
+        runName: run.name || run.id,
+        repoId: repoId.trim(),
+        hfToken: hfToken.trim(),
+        taskClass,
+        taskType,
+        backbone,
+        numClasses: hp.num_classes || hp.numClasses || project?.numClasses || 10,
+        imageSize: hp.image_size || hp.imageSize || 224,
+        bestAcc: run.bestAcc || null,
+        testAcc: run.testAcc || null,
+        sshCommand: sshCmd,
+        private: isPrivate,
+        modelName: modelName.trim(),
+        description: description.trim(),
+        license,
+        tags: hfTags.split(",").map(t => t.trim()).filter(Boolean).join(","),
+      });
+
+      setStatus("done");
+      setResultUrl(result.url);
+      notify("Pushed to Hub", `Model uploaded to ${result.url}`);
+    } catch (err) {
+      setStatus("error");
+      setError(String(err));
+      notify("Push Failed", String(err));
+    }
+  }
+
+  return (
+    <div class="deploy-hub-section">
+      <div class="deploy-step-header" style={{ cursor: "pointer", marginBottom: expanded ? undefined : 0 }} onClick={() => setExpanded(!expanded)}>
+        <svg class="deploy-step-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+          <polyline points="16 6 12 2 8 6" />
+          <line x1="12" y1="2" x2="12" y2="15" />
+        </svg>
+        <div style={{ flex: 1 }}>
+          <div class="deploy-step-title">Push to Hugging Face Hub</div>
+          <div class="deploy-step-desc">
+            Upload checkpoint and model card to HF Hub
+          </div>
+        </div>
+        <svg class={`collapsible-chevron${expanded ? " open" : ""}`} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </div>
+
+      {expanded && (
+        <div class="hf-push-form">
+          <label class="inference-field">
+            <span>HF Token</span>
+            <input
+              type="password"
+              value={hfToken}
+              onInput={(e) => setHfToken(e.currentTarget.value)}
+              placeholder="hf_..."
+            />
+          </label>
+          <label class="inference-field">
+            <span>Repository ID</span>
+            <input
+              type="text"
+              value={repoId}
+              onInput={(e) => setRepoId(e.currentTarget.value)}
+              placeholder="username/model-name"
+            />
+          </label>
+
+          <div class="hf-model-card-group">
+            <div class="hf-model-card-header">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+              </svg>
+              <span>Model Card</span>
+            </div>
+            <div class="hf-model-card-fields">
+              <label class="inference-field hf-field-wide">
+                <span>Model Name</span>
+                <input
+                  type="text"
+                  value={modelName}
+                  onInput={(e) => setModelName(e.currentTarget.value)}
+                  placeholder="e.g. EfficientNet-B0 Image Classifier"
+                />
+              </label>
+              <label class="inference-field hf-field-wide">
+                <span>Description</span>
+                <input
+                  type="text"
+                  value={description}
+                  onInput={(e) => setDescription(e.currentTarget.value)}
+                  placeholder="Short description of your model"
+                />
+              </label>
+              <label class="inference-field">
+                <span>License</span>
+                <select value={license} onChange={(e) => setLicense(e.currentTarget.value)}>
+                  {LICENSE_OPTIONS.map(l => (
+                    <option key={l.id} value={l.id}>{l.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label class="inference-field">
+                <span>Tags</span>
+                <input
+                  type="text"
+                  value={hfTags}
+                  onInput={(e) => setHfTags(e.currentTarget.value)}
+                  placeholder="tag1, tag2, ..."
+                />
+              </label>
+            </div>
+          </div>
+
+          <div class="hf-private-toggle" onClick={() => setIsPrivate(!isPrivate)}>
+            <div class={`hf-toggle-track${isPrivate ? " on" : ""}`}>
+              <div class="hf-toggle-thumb" />
+            </div>
+            <span>Private repository</span>
+          </div>
+
+          <button
+            class="deploy-download-btn hf-push-btn"
+            onClick={handlePush}
+            disabled={status === "loading"}
+          >
+            {status === "loading" ? (
+              <div class="download-spinner" />
+            ) : status === "done" ? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                <polyline points="16 6 12 2 8 6" />
+                <line x1="12" y1="2" x2="12" y2="15" />
+              </svg>
+            )}
+            {status === "loading"
+              ? "Uploading to Hugging Face..."
+              : status === "done"
+                ? "Pushed Successfully"
+                : "Push to Hub"}
+          </button>
+
+          {status === "done" && resultUrl && (
+            <a class="hf-result-link" href={resultUrl} target="_blank" rel="noopener noreferrer">
+              {resultUrl}
+            </a>
+          )}
+
+          {error && <div class="deploy-download-error">{error}</div>}
+
+          <div class="deploy-step-desc">
+            Requires <code>huggingface_hub</code> package. Get your token at{" "}
+            <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)" }}>
+              huggingface.co/settings/tokens
+            </a>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function InferenceTab({ run, project }) {
   const taskType = run.taskType || project?.taskType || "Classification";
   const backbone = run.backbone || run.model || "efficientnet_b0";
@@ -747,6 +972,8 @@ export function InferenceTab({ run, project }) {
         </div>
 
         <DownloadModelButton runId={run.id} runName={run.name || run.id} project={project} exportFormat={exportFormat} />
+
+        <PushToHubButton run={run} project={project} />
 
         <div class="inference-params">
           <div class="deploy-step-header">

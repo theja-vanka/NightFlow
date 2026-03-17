@@ -142,6 +142,7 @@ fn main() {
             runs::check_runs_checkpoints,
             system::get_system_metrics,
             system::download_model,
+            system::push_to_hub,
             interpretation::save_interpretation_image,
             interpretation::run_interpretation,
             interpretation::export_jit_model,
