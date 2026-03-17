@@ -1,7 +1,8 @@
 import { useState, useEffect } from "preact/hooks";
+import { invoke } from "@tauri-apps/api/core";
 import { navigate, routeParams } from "../state/router.js";
 import { allRuns, loadRunScalars, loadRunHparams, updateRun } from "../state/experiments.js";
-import { currentProject } from "../state/projects.js";
+import { currentProject, updateProject } from "../state/projects.js";
 import { ChartPanel } from "../components/ChartPanel.jsx";
 import { LineChart } from "../components/LineChart.jsx";
 
@@ -97,7 +98,11 @@ function formatHparamValue(key, val) {
 }
 
 // Tags that hold structured data (not scalar points) — excluded from charts
-const NON_SCALAR_TAGS = new Set(["test/confusion_matrix", "test/per_class_metrics"]);
+const NON_SCALAR_TAGS = new Set([
+  "train/confusion_matrix", "train/per_class_metrics",
+  "val/confusion_matrix", "val/per_class_metrics",
+  "test/confusion_matrix", "test/per_class_metrics",
+]);
 
 // Build tabs from scalar tags: train, val, test, other
 function buildTabs(scalars) {
@@ -254,6 +259,47 @@ export function RunDetailView() {
   const [hparamsOpen, setHparamsOpen] = useState(false);
   const [augOpen, setAugOpen] = useState(false);
   const [inferenceOpen, setInferenceOpen] = useState(false);
+  const [hasCkpt, setHasCkpt] = useState(false);
+
+  // Check if checkpoint file exists for this run
+  useEffect(() => {
+    if (!run || run.status !== "completed") { setHasCkpt(false); return; }
+    const project = currentProject.value;
+    if (!project) return;
+    const sshCmd = project.connectionType === "remote" ? project.sshCommand : null;
+    invoke("check_runs_checkpoints", {
+      projectPath: project.projectPath,
+      runIds: [run.id],
+      sshCommand: sshCmd,
+    }).then((ids) => setHasCkpt(ids.includes(run.id)))
+      .catch(() => setHasCkpt(false));
+  }, [runId, run?.status]);
+
+  // Auto-detect class names for existing projects that lack them
+  useEffect(() => {
+    const project = currentProject.value;
+    if (!project || (project.classNames && project.classNames.length > 0)) return;
+    const folderPath = project.folderPath;
+    const format = project.datasetFormat || "Folder";
+    if (!folderPath || format !== "Folder") return;
+    invoke("browse_dataset", {
+      path: folderPath.trim(),
+      format,
+      limit: 0,
+      offset: 0,
+      classFilter: null,
+      imageFolder: null,
+      search: null,
+      split: null,
+    }).then((result) => {
+      if (result?.class_counts) {
+        const names = Object.keys(result.class_counts).sort();
+        if (names.length > 0) {
+          updateProject(project.id, { classNames: names });
+        }
+      }
+    }).catch(() => {});
+  }, [currentProject.value?.id]);
 
   // Close inference drawer on Escape
   useEffect(() => {
@@ -292,12 +338,54 @@ export function RunDetailView() {
   const hasScalars = run?.scalars && Object.keys(run.scalars).length > 0;
   const tabs = hasScalars ? buildTabs(run.scalars) : {};
   const tabNames = Object.keys(tabs);
-  // Check for confusion matrix / per-class data (persisted directly or in scalars)
-  const confusionMatrix = run?.confusionMatrix || run?.scalars?.["test/confusion_matrix"] || null;
-  const perClassMetrics = run?.perClassMetrics || run?.scalars?.["test/per_class_metrics"] || null;
-  // confusionMatrix can be a dict {matrix, labels} or a legacy array
-  const hasCM = confusionMatrix && (Array.isArray(confusionMatrix) || confusionMatrix.matrix);
-  const hasClassificationData = hasCM || perClassMetrics;
+  // ── Classification data (confusion matrices for train / val / test) ──
+  const projectClassNames = currentProject.value?.classNames || [];
+
+  // Detect generic "Class 0", "Class 1", ... labels
+  const isGenericLabels = (labels) =>
+    Array.isArray(labels) && labels.length > 0 && labels.every((l, i) => l === `Class ${i}`);
+
+  // Resolve labels: prefer real CM labels, then project classNames, then generic
+  function resolveLabels(cm) {
+    const lbl = cm?.labels;
+    const mat = cm?.matrix || cm;
+    if (lbl && !isGenericLabels(lbl)) return lbl;
+    if (projectClassNames.length > 0) return projectClassNames;
+    if (lbl) return lbl;
+    return Array.isArray(mat) ? mat.map((_, i) => `Class ${i}`) : [];
+  }
+
+  // Map per-class metric labels to resolved names
+  function resolvePerClass(raw, labels) {
+    if (!raw || !Array.isArray(raw)) return raw;
+    const hasReal = labels.length > 0 && !isGenericLabels(labels);
+    if (!hasReal) return raw;
+    return raw.map((item) => {
+      const idx = item.class_index ?? parseInt(item.label, 10);
+      if (!isNaN(idx) && idx >= 0 && idx < labels.length) {
+        return { ...item, label: labels[idx] };
+      }
+      return item;
+    });
+  }
+
+  // Extract confusion matrices + per-class metrics for each stage
+  const cmStages = {};
+  for (const stage of ["train", "val", "test"]) {
+    const cmKey = stage === "test" ? "confusionMatrix" : `${stage}ConfusionMatrix`;
+    const pcmKey = stage === "test" ? "perClassMetrics" : `${stage}PerClassMetrics`;
+    const cm = run?.[cmKey] || run?.scalars?.[`${stage}/confusion_matrix`] || null;
+    const rawPcm = run?.[pcmKey] || run?.scalars?.[`${stage}/per_class_metrics`] || null;
+    if (cm || rawPcm) {
+      const labels = resolveLabels(cm);
+      cmStages[stage] = {
+        cm,
+        pcm: resolvePerClass(rawPcm, labels),
+        labels,
+      };
+    }
+  }
+  const hasClassificationData = Object.keys(cmStages).length > 0;
 
   const TAB_ORDER = ["train", "val", "test"];
   const sortedTabs = [
@@ -340,18 +428,20 @@ export function RunDetailView() {
       <div class="run-detail-header">
         <h2>{run.name || run.id}</h2>
         <div style="display:flex;align-items:center;gap:8px">
-          <button
-            class="inference-drawer-trigger"
-            onClick={() => setInferenceOpen(true)}
-            title="Download model and generate inference script"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            Deploy
-          </button>
+          {run.status === "completed" && hasCkpt && (
+            <button
+              class="inference-drawer-trigger"
+              onClick={() => setInferenceOpen(true)}
+              title="Download model and generate inference script"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Deploy
+            </button>
+          )}
         </div>
       </div>
 
@@ -467,32 +557,41 @@ export function RunDetailView() {
 
               {activeTab === "classification" ? (
                 <div class="classification-tab-content">
-                  {hasCM && (
-                    <div class="classification-section">
-                      <h3 class="run-detail-group-title">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.5">
-                          <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
-                          <rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
-                        </svg>
-                        Confusion Matrix
-                      </h3>
-                      <ConfusionMatrix
-                        matrix={confusionMatrix.matrix || confusionMatrix}
-                        labels={confusionMatrix.labels || confusionMatrix.map((_, i) => `Class ${i}`)}
-                      />
-                    </div>
-                  )}
-                  {perClassMetrics && Array.isArray(perClassMetrics) && (
-                    <div class="classification-section">
-                      <h3 class="run-detail-group-title">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.5">
-                          <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" />
-                        </svg>
-                        Per-Class Metrics
-                      </h3>
-                      <PerClassMetrics metrics={perClassMetrics} />
-                    </div>
-                  )}
+                  {["train", "val", "test"].filter((s) => cmStages[s]).map((stage) => {
+                    const { cm, pcm, labels } = cmStages[stage];
+                    const stageLabel = stage === "val" ? "Validation" : stage.charAt(0).toUpperCase() + stage.slice(1);
+                    return (
+                      <div key={stage} class="classification-stage-section">
+                        <h3 class="classification-stage-title">{stageLabel}</h3>
+                        {cm && (cm.matrix || Array.isArray(cm)) && (
+                          <div class="classification-section">
+                            <h4 class="run-detail-group-title">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.5">
+                                <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
+                                <rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
+                              </svg>
+                              Confusion Matrix
+                            </h4>
+                            <ConfusionMatrix
+                              matrix={cm.matrix || cm}
+                              labels={labels}
+                            />
+                          </div>
+                        )}
+                        {pcm && Array.isArray(pcm) && (
+                          <div class="classification-section">
+                            <h4 class="run-detail-group-title">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.5">
+                                <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" />
+                              </svg>
+                              Per-Class Metrics
+                            </h4>
+                            <PerClassMetrics metrics={pcm} />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : hasScalars ? (() => {
                 // Check if all tags in this tab are singular values (e.g. test metrics)

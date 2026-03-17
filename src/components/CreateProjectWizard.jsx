@@ -1764,6 +1764,36 @@ function StepDataset() {
     wizardSetField("folderPath", value);
   };
 
+  // Auto-detect class names when folder path or train path changes
+  useEffect(() => {
+    const path = d.datasetFormat === "Folder" ? d.folderPath : d.trainPath;
+    if (!path || !path.trim()) {
+      wizardSetField("classNames", []);
+      return;
+    }
+    const format = d.datasetFormat || "Folder";
+    const sshCmd = d.connectionType === "remote" ? d.sshCommand : null;
+    invoke("browse_dataset", {
+      path: path.trim(),
+      format,
+      sshCommand: sshCmd,
+      offset: 0,
+      limit: 0,
+      classFilter: null,
+      imageFolder: null,
+      search: null,
+      split: null,
+    }).then((result) => {
+      if (result?.class_counts) {
+        const names = Object.keys(result.class_counts).sort();
+        wizardSetField("classNames", names);
+        if (names.length >= 2 && !d.numClasses) {
+          wizardSetField("numClasses", names.length);
+        }
+      }
+    }).catch(() => {});
+  }, [d.folderPath, d.trainPath, d.datasetFormat]);
+
   const handleTrainPathInput = (e) => {
     wizardSetField("trainPath", e.target.value);
   };

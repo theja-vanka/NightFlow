@@ -5,122 +5,7 @@ use crate::home_dir;
 
 #[command]
 pub async fn get_system_metrics(ssh_command: Option<String>) -> Result<String, String> {
-    let python_script = r#"
-import json, os, subprocess, sys, shutil
-
-res = {}
-if hasattr(os, 'cpu_count'):
-    res['cpu_cores'] = os.cpu_count()
-
-# Memory
-try:
-    if sys.platform == 'darwin':
-        mem_total = int(subprocess.check_output(['sysctl', '-n', 'hw.memsize']).strip())
-        vm = subprocess.check_output(['vm_stat']).decode('utf-8')
-        pages = {}
-        for line in vm.split('\n'):
-            if ':' in line:
-                key, val = line.split(':', 1)
-                val = val.strip().rstrip('.')
-                if val.isdigit():
-                    pages[key.strip()] = int(val)
-        ps = int(subprocess.check_output(['sysctl', '-n', 'vm.pagesize']).strip())
-        # Match Activity Monitor: Used = App Memory + Wired + Compressed
-        anonymous = pages.get('Anonymous pages', 0)
-        stored = pages.get('Pages stored in compressor', 0)
-        wired = pages.get('Pages wired down', 0)
-        app_mem = (anonymous - stored) * ps
-        wired_mem = wired * ps
-        compressed_mem = stored * ps
-        mem_used = app_mem + wired_mem + compressed_mem
-        res['mem_total'] = mem_total
-        res['mem_used'] = max(0, min(mem_used, mem_total))
-    elif sys.platform == 'win32':
-        import ctypes
-        class MEMORYSTATUSEX(ctypes.Structure):
-            _fields_ = [
-                ('dwLength', ctypes.c_ulong),
-                ('dwMemoryLoad', ctypes.c_ulong),
-                ('ullTotalPhys', ctypes.c_ulonglong),
-                ('ullAvailPhys', ctypes.c_ulonglong),
-                ('ullTotalPageFile', ctypes.c_ulonglong),
-                ('ullAvailPageFile', ctypes.c_ulonglong),
-                ('ullTotalVirtual', ctypes.c_ulonglong),
-                ('ullAvailVirtual', ctypes.c_ulonglong),
-                ('ullAvailExtendedVirtual', ctypes.c_ulonglong),
-            ]
-        mem = MEMORYSTATUSEX()
-        mem.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
-        ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(mem))
-        res['mem_total'] = mem.ullTotalPhys
-        res['mem_used'] = mem.ullTotalPhys - mem.ullAvailPhys
-    else:
-        with open('/proc/meminfo', 'r') as f:
-            lines = f.readlines()
-        mem_total = 0
-        mem_free = 0
-        mem_avail = 0
-        for line in lines:
-            if line.startswith('MemTotal:'):
-                mem_total = int(line.split()[1]) * 1024
-            elif line.startswith('MemFree:'):
-                mem_free = int(line.split()[1]) * 1024
-            elif line.startswith('MemAvailable:'):
-                mem_avail = int(line.split()[1]) * 1024
-        if mem_total > 0:
-            res['mem_total'] = mem_total
-            res['mem_used'] = mem_total - (mem_avail if mem_avail > 0 else mem_free)
-except Exception:
-    pass
-
-# Disk (cross-platform using shutil)
-try:
-    disk_path = 'C:\\' if sys.platform == 'win32' else '/'
-    usage = shutil.disk_usage(disk_path)
-    res['disk_total'] = usage.total
-    res['disk_used'] = usage.used
-except Exception:
-    pass
-
-# GPU
-try:
-    gpu_out = subprocess.check_output(
-        ['nvidia-smi', '--query-gpu=index,name,utilization.gpu,memory.total,memory.used,temperature.gpu', '--format=csv,noheader,nounits'],
-        stderr=subprocess.STDOUT, text=True
-    )
-    gpus = []
-    for line in gpu_out.strip().split('\n'):
-        if not line: continue
-        parts = [p.strip() for p in line.split(',')]
-        if len(parts) >= 6:
-            gpus.append({
-                'index': int(parts[0]),
-                'name': parts[1],
-                'utilization': float(parts[2]) if parts[2].isdigit() else 0,
-                'mem_total': float(parts[3]),
-                'mem_used': float(parts[4]),
-                'temperature': float(parts[5]) if parts[5].isdigit() else 0
-            })
-    res['gpus'] = gpus
-except Exception:
-    res['gpus'] = []
-
-# CPU Load
-try:
-    if hasattr(os, 'getloadavg'):
-        res['loadavg'] = os.getloadavg()
-    else:
-        try:
-            import psutil
-            cpu_pct = psutil.cpu_percent(interval=0.5)
-            res['loadavg'] = [cpu_pct / 100.0 * os.cpu_count(), 0, 0]
-        except ImportError:
-            pass
-except Exception:
-    pass
-
-print(json.dumps(res))
-"#;
+    let python_module = "autotimm.flow.system_metrics";
 
     if let Some(cmd_str) = ssh_command {
         let parts: Vec<String> = cmd_str.split_whitespace().map(String::from).collect();
@@ -132,12 +17,7 @@ print(json.dumps(res))
         for arg in &parts[1..] {
             cmd.arg(arg);
         }
-        let hex: String = python_script.bytes().map(|b| format!("{:02x}", b)).collect();
-        let remote_cmd = format!(
-            "python3 -c \"exec(bytes.fromhex('{}').decode())\"",
-            hex
-        );
-        cmd.arg(remote_cmd);
+        cmd.arg(format!("python3 -m {}", python_module));
 
         let output = cmd.output().await.map_err(|e| e.to_string())?;
         if output.status.success() {
@@ -147,8 +27,8 @@ print(json.dumps(res))
         }
     } else {
         let output = tokio::process::Command::new(python_cmd())
-            .arg("-c")
-            .arg(python_script)
+            .arg("-m")
+            .arg(python_module)
             .output()
             .await
             .map_err(|e| e.to_string())?;
@@ -273,23 +153,7 @@ pub async fn download_model(
             if fmt == "tensorrt" {
                 let trt_path = model_pt_path.replace(".onnx", ".engine");
                 let trt_cmd = format!(
-                    r#"cd "{run_logs_dir}" && {python} -c "
-import tensorrt as trt, sys
-logger = trt.Logger(trt.Logger.WARNING)
-builder = trt.Builder(logger)
-network = builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
-parser = trt.OnnxParser(network, logger)
-if not parser.parse_from_file('{model_pt_path}'):
-    for i in range(parser.num_errors):
-        print(parser.get_error(i), file=sys.stderr)
-    sys.exit(1)
-config = builder.create_builder_config()
-config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 1 << 30)
-engine = builder.build_serialized_network(network, config)
-with open('{trt_path}', 'wb') as f:
-    f.write(engine)
-print('{trt_path}')
-""#
+                    "cd \"{run_logs_dir}\" && {python} -m autotimm.flow.tensorrt_convert --onnx \"{model_pt_path}\" --output \"{trt_path}\""
                 );
 
                 let trt_output = tokio::process::Command::new(&parts[0])
@@ -415,24 +279,13 @@ print('{trt_path}')
             // If TensorRT, convert ONNX to TRT engine locally
             if fmt == "tensorrt" {
                 let trt_path = model_pt_path.replace(".onnx", ".engine");
-                // Write a temporary Python script to avoid shell quoting issues on Windows
-                let trt_script_path = run_logs_dir_path.join("_trt_convert.py");
-                let trt_script_content = format!(
-                    "import tensorrt as trt\nimport sys\nlogger = trt.Logger(trt.Logger.WARNING)\nbuilder = trt.Builder(logger)\nnetwork = builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))\nparser = trt.OnnxParser(network, logger)\nif not parser.parse_from_file(r\"{onnx}\"):\n    for i in range(parser.num_errors):\n        print(parser.get_error(i), file=sys.stderr)\n    sys.exit(1)\nconfig = builder.create_builder_config()\nconfig.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 1 << 30)\nengine = builder.build_serialized_network(network, config)\nwith open(r\"{engine}\", \"wb\") as f:\n    f.write(engine)\nprint(r\"{engine}\")\n",
-                    onnx = model_pt_path, engine = trt_path
-                );
-                std::fs::write(&trt_script_path, &trt_script_content)
-                    .map_err(|e| format!("Failed to write TensorRT conversion script: {e}"))?;
 
                 let trt_output = tokio::process::Command::new(&python)
-                    .arg(trt_script_path.to_string_lossy().to_string())
+                    .args(["-m", "autotimm.flow.tensorrt_convert", "--onnx", &model_pt_path, "--output", &trt_path])
                     .current_dir(&run_logs_dir)
                     .output()
                     .await
                     .map_err(|e| format!("TensorRT conversion failed: {e}"))?;
-
-                // Clean up temp script
-                let _ = std::fs::remove_file(&trt_script_path);
 
                 if !trt_output.status.success() {
                     let stderr = String::from_utf8_lossy(&trt_output.stderr);
@@ -461,51 +314,56 @@ pub struct PushToHubResult {
     pub message: String,
 }
 
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
+pub struct PushToHubParams {
+    pub project_path: String,
+    pub run_id: String,
+    #[serde(default)]
+    pub run_name: String,
+    pub repo_id: String,
+    pub hf_token: String,
+    pub task_class: Option<String>,
+    pub task_type: Option<String>,
+    pub backbone: Option<String>,
+    pub num_classes: Option<u32>,
+    pub image_size: Option<u32>,
+    pub best_acc: Option<f64>,
+    pub test_acc: Option<f64>,
+    pub ssh_command: Option<String>,
+    pub private: Option<bool>,
+    pub model_name: Option<String>,
+    pub description: Option<String>,
+    pub license: Option<String>,
+    pub tags: Option<String>,
+}
+
 #[command]
-pub async fn push_to_hub(
-    project_path: String,
-    run_id: String,
-    _run_name: String,
-    repo_id: String,
-    hf_token: String,
-    task_class: Option<String>,
-    task_type: Option<String>,
-    backbone: Option<String>,
-    num_classes: Option<u32>,
-    image_size: Option<u32>,
-    best_acc: Option<f64>,
-    test_acc: Option<f64>,
-    ssh_command: Option<String>,
-    private: Option<bool>,
-    model_name: Option<String>,
-    description: Option<String>,
-    license: Option<String>,
-    tags: Option<String>,
-) -> Result<PushToHubResult, String> {
-    let pp = project_path.trim_end_matches('/').trim_end_matches('\\');
+pub async fn push_to_hub(params: PushToHubParams) -> Result<PushToHubResult, String> {
+    let pp = params.project_path.trim_end_matches('/').trim_end_matches('\\');
     let pp_path = std::path::PathBuf::from(pp);
-    let run_logs_dir_path = pp_path.join("logs").join(&run_id);
+    let run_logs_dir_path = pp_path.join("logs").join(&params.run_id);
     let ckpt_dir = run_logs_dir_path.join("checkpoints");
     let hparams_path = run_logs_dir_path.join("hparams.yaml");
 
-    let _tc = task_class;
-    let tt = task_type.unwrap_or_else(|| "Classification".to_string());
-    let bb = backbone.unwrap_or_else(|| "unknown".to_string());
-    let nc = num_classes.unwrap_or(10);
-    let isize = image_size.unwrap_or(224);
-    let is_private = private.unwrap_or(false);
+    let tt = params.task_type.unwrap_or_else(|| "Classification".to_string());
+    let bb = params.backbone.unwrap_or_else(|| "unknown".to_string());
+    let nc = params.num_classes.unwrap_or(10);
+    let isize = params.image_size.unwrap_or(224);
+    let is_private = params.private.unwrap_or(false);
 
-    let acc_str = best_acc.map_or("N/A".to_string(), |v| format!("{:.4}", v));
-    let test_acc_str = test_acc.map_or("N/A".to_string(), |v| format!("{:.4}", v));
-    let mn = model_name.unwrap_or_else(|| format!("{bb} — {tt}"));
-    let desc = description.unwrap_or_default();
-    let lic = license.unwrap_or_else(|| "apache-2.0".to_string());
-    let user_tags = tags.unwrap_or_default();
+    let acc_str = params.best_acc.map_or("N/A".to_string(), |v| format!("{:.4}", v));
+    let test_acc_str = params.test_acc.map_or("N/A".to_string(), |v| format!("{:.4}", v));
+    let mn = params.model_name.unwrap_or_else(|| format!("{bb} — {tt}"));
+    let desc = params.description.unwrap_or_default();
+    let lic = params.license.unwrap_or_else(|| "apache-2.0".to_string());
+    let user_tags = params.tags.unwrap_or_default();
 
     // Build a JSON config to pass to the Python script via env var
     let config = serde_json::json!({
-        "repo_id": repo_id,
-        "token": hf_token,
+        "repo_id": params.repo_id,
+        "token": params.hf_token,
         "ckpt_dir": ckpt_dir.to_string_lossy(),
         "hparams_path": hparams_path.to_string_lossy(),
         "task_type": tt,
@@ -522,167 +380,19 @@ pub async fn push_to_hub(
     });
     let config_json = config.to_string();
 
-    let push_script = r#"
-import sys, os, json, tempfile
+    let push_module = "autotimm.flow.push_to_hub";
 
-cfg = json.loads(os.environ["HF_PUSH_CFG"])
-
-try:
-    from huggingface_hub import HfApi, create_repo
-except ImportError:
-    print(json.dumps({"error": "huggingface_hub is not installed. Run: pip install huggingface_hub"}))
-    sys.exit(1)
-
-repo_id = cfg["repo_id"]
-token = cfg["token"]
-ckpt_dir = cfg["ckpt_dir"]
-hparams_path = cfg["hparams_path"]
-task_type = cfg["task_type"]
-backbone = cfg["backbone"]
-num_classes = cfg["num_classes"]
-image_size = cfg["image_size"]
-acc_str = cfg["acc_str"]
-test_acc_str = cfg["test_acc_str"]
-is_private = cfg["is_private"]
-model_name = cfg.get("model_name", f"{backbone} — {task_type}")
-description = cfg.get("description", "")
-license_id = cfg.get("license", "apache-2.0")
-user_tags = [t.strip() for t in cfg.get("tags", "").split(",") if t.strip()]
-
-# Find checkpoint
-ckpt_file = None
-if os.path.isdir(ckpt_dir):
-    for f in os.listdir(ckpt_dir):
-        if f.endswith('.ckpt'):
-            ckpt_file = os.path.join(ckpt_dir, f)
-
-if not ckpt_file:
-    print(json.dumps({"error": "No checkpoint file found. Training may not have saved a model yet."}))
-    sys.exit(1)
-
-api = HfApi(token=token)
-
-# Create repo (ok if exists)
-try:
-    create_repo(repo_id, token=token, exist_ok=True, private=is_private)
-except Exception as e:
-    print(json.dumps({"error": f"Failed to create repository: {e}"}))
-    sys.exit(1)
-
-# Generate model card
-all_tags = list(dict.fromkeys(["nightflow"] + user_tags))
-tags_yaml = "\n".join(f"- {t}" for t in all_tags)
-desc_line = f"\n\n{description}\n" if description else "\n"
-model_card = f"""---
-library_name: pytorch
-license: {license_id}
-tags:
-{tags_yaml}
-datasets: []
-metrics:
-- accuracy
----
-
-# {model_name}
-{desc_line}
-Trained using [NightFlow](https://github.com/vagdevi-v/NightFlow) with the **AutoTimm** framework.
-
-## Model Details
-
-| Property | Value |
-|----------|-------|
-| **Backbone** | {backbone} |
-| **Task** | {task_type} |
-| **Image Size** | {image_size}x{image_size} |
-| **Num Classes** | {num_classes} |
-| **Val Accuracy** | {acc_str} |
-| **Test Accuracy** | {test_acc_str} |
-
-## Usage
-
-```python
-import torch
-from PIL import Image
-from torchvision import transforms
-
-# Load model
-model = torch.load("pytorch_model.ckpt")
-model.eval()
-
-# Preprocess
-transform = transforms.Compose([
-    transforms.Resize(({image_size}, {image_size})),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-])
-
-image = Image.open("image.jpg").convert("RGB")
-input_tensor = transform(image).unsqueeze(0)
-
-with torch.no_grad():
-    output = model(input_tensor)
-```
-
-## Training
-
-Trained with NightFlow desktop app using PyTorch Lightning + timm.
-"""
-
-# Upload files
-try:
-    # Upload checkpoint
-    api.upload_file(
-        path_or_fileobj=ckpt_file,
-        path_in_repo="pytorch_model.ckpt",
-        repo_id=repo_id,
-        token=token,
-    )
-
-    # Upload hparams if exists
-    if os.path.isfile(hparams_path):
-        api.upload_file(
-            path_or_fileobj=hparams_path,
-            path_in_repo="hparams.yaml",
-            repo_id=repo_id,
-            token=token,
-        )
-
-    # Upload model card
-    tmp = tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False)
-    tmp.write(model_card)
-    tmp.close()
-    api.upload_file(
-        path_or_fileobj=tmp.name,
-        path_in_repo="README.md",
-        repo_id=repo_id,
-        token=token,
-    )
-    os.unlink(tmp.name)
-
-    url = f"https://huggingface.co/{repo_id}"
-    print(json.dumps({"success": True, "url": url}))
-except Exception as e:
-    print(json.dumps({"error": f"Upload failed: {e}"}))
-    sys.exit(1)
-"#;
-
-    // For SSH: embed the config JSON as an env var set in the remote shell command
+    // For SSH: pass config via HF_PUSH_CFG env var in the remote command
     // For local: pass it via the HF_PUSH_CFG environment variable
-    let output = if let Some(ssh_cmd) = ssh_command {
+    let output = if let Some(ssh_cmd) = params.ssh_command {
         let parts: Vec<String> = ssh_cmd.split_whitespace().map(String::from).collect();
         if parts.len() < 2 {
             return Err("Invalid SSH command".to_string());
         }
-        // Combine config + script into a single Python snippet passed via hex encoding
-        let escaped_json = config_json.replace('\\', "\\\\").replace('\'', "\\'");
-        let full_script = format!(
-            "import os; os.environ['HF_PUSH_CFG'] = '{}'\n{}",
-            escaped_json, push_script,
-        );
-        let hex: String = full_script.bytes().map(|b| format!("{:02x}", b)).collect();
+        let escaped_json = config_json.replace('\\', "\\\\").replace('"', "\\\"");
         let remote_cmd = format!(
-            "python3 -c \"exec(bytes.fromhex('{}').decode())\"",
-            hex
+            "HF_PUSH_CFG=\"{}\" python3 -m {}",
+            escaped_json, push_module,
         );
         tokio::process::Command::new(&parts[0])
             .args(&parts[1..])
@@ -698,8 +408,8 @@ except Exception as e:
             python_cmd().to_string()
         };
         tokio::process::Command::new(&python)
-            .arg("-c")
-            .arg(push_script)
+            .arg("-m")
+            .arg(push_module)
             .env("HF_PUSH_CFG", &config_json)
             .current_dir(&run_logs_dir_path)
             .output()

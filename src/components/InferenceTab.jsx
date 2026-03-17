@@ -656,7 +656,8 @@ function PushToHubButton({ run, project }) {
   const backbone = run.backbone || run.model || "unknown";
 
   const [hfToken, setHfToken] = useState("");
-  const [repoId, setRepoId] = useState(run.name || run.id);
+  const [hfUsername, setHfUsername] = useState("");
+  const [hfModelName, setHfModelName] = useState(run.name || run.id);
   const [isPrivate, setIsPrivate] = useState(false);
   const [modelName, setModelName] = useState(`${backbone} — ${taskType}`);
   const [description, setDescription] = useState(`${taskType} model trained with ${backbone} backbone using NightFlow + AutoTimm.`);
@@ -672,8 +673,12 @@ function PushToHubButton({ run, project }) {
       setError("HF token is required");
       return;
     }
-    if (!repoId.trim()) {
-      setError("Repository ID is required");
+    if (!hfUsername.trim()) {
+      setError("Username is required");
+      return;
+    }
+    if (!hfModelName.trim()) {
+      setError("Model name is required");
       return;
     }
     if (!project) return;
@@ -695,24 +700,26 @@ function PushToHubButton({ run, project }) {
       const hp = { ...(run.hyperparameters || {}), ...(run.fileHparams || {}) };
 
       const result = await invoke("push_to_hub", {
-        projectPath: project.projectPath,
-        runId: run.id,
-        runName: run.name || run.id,
-        repoId: repoId.trim(),
-        hfToken: hfToken.trim(),
-        taskClass,
-        taskType,
-        backbone,
-        numClasses: hp.num_classes || hp.numClasses || project?.numClasses || 10,
-        imageSize: hp.image_size || hp.imageSize || 224,
-        bestAcc: run.bestAcc || null,
-        testAcc: run.testAcc || null,
-        sshCommand: sshCmd,
-        private: isPrivate,
-        modelName: modelName.trim(),
-        description: description.trim(),
-        license,
-        tags: hfTags.split(",").map(t => t.trim()).filter(Boolean).join(","),
+        params: {
+          projectPath: project.projectPath,
+          runId: run.id,
+          runName: run.name || run.id,
+          repoId: `${hfUsername.trim()}/${hfModelName.trim()}`,
+          hfToken: hfToken.trim(),
+          taskClass,
+          taskType,
+          backbone,
+          numClasses: hp.num_classes || hp.numClasses || project?.numClasses || 10,
+          imageSize: hp.image_size || hp.imageSize || 224,
+          bestAcc: run.bestAcc || null,
+          testAcc: run.testAcc || null,
+          sshCommand: sshCmd,
+          private: isPrivate,
+          modelName: modelName.trim(),
+          description: description.trim(),
+          license,
+          tags: hfTags.split(",").map(t => t.trim()).filter(Boolean).join(","),
+        },
       });
 
       setStatus("done");
@@ -755,15 +762,24 @@ function PushToHubButton({ run, project }) {
               placeholder="hf_..."
             />
           </label>
-          <label class="inference-field">
+          <div class="inference-field">
             <span>Repository ID</span>
-            <input
-              type="text"
-              value={repoId}
-              onInput={(e) => setRepoId(e.currentTarget.value)}
-              placeholder="username/model-name"
-            />
-          </label>
+            <div class="hf-repo-id-input">
+              <input
+                type="text"
+                value={hfUsername}
+                onInput={(e) => setHfUsername(e.currentTarget.value)}
+                placeholder="username"
+              />
+              <span class="hf-repo-separator">/</span>
+              <input
+                type="text"
+                value={hfModelName}
+                onInput={(e) => setHfModelName(e.currentTarget.value)}
+                placeholder="model-name"
+              />
+            </div>
+          </div>
 
           <div class="hf-model-card-group">
             <div class="hf-model-card-header">
@@ -886,7 +902,8 @@ export function InferenceTab({ run, project }) {
   const [imageSize, setImageSize] = useState(String(defaultSize));
   const [numClasses, setNumClasses] = useState(String(defaultClasses));
   const [confThreshold, setConfThreshold] = useState("0.5");
-  const [classNames, setClassNames] = useState("");
+  const projectClassNames = project?.classNames || [];
+  const [classNames, setClassNames] = useState(projectClassNames.join(", "));
 
   // Update model path extension when format changes
   function handleFormatChange(newFormat) {

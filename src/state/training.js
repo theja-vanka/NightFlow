@@ -293,11 +293,19 @@ function _processEvent(session_id, data) {
         prevScalars[tag] = [...prevScalars[tag], { step: 0, value }];
       }
 
-      // Capture confusion matrix and per-class metrics if present
+      // Capture confusion matrix and per-class metrics for all splits (test, train, val)
       const confusionMatrix = data.confusion_matrix ?? null;
       const perClassMetrics = data.per_class_metrics ?? null;
+      const trainCM = data.train_confusion_matrix ?? null;
+      const trainPCM = data.train_per_class_metrics ?? null;
+      const valCM = data.val_confusion_matrix ?? null;
+      const valPCM = data.val_per_class_metrics ?? null;
       if (confusionMatrix) prevScalars["test/confusion_matrix"] = confusionMatrix;
       if (perClassMetrics) prevScalars["test/per_class_metrics"] = perClassMetrics;
+      if (trainCM) prevScalars["train/confusion_matrix"] = trainCM;
+      if (trainPCM) prevScalars["train/per_class_metrics"] = trainPCM;
+      if (valCM) prevScalars["val/confusion_matrix"] = valCM;
+      if (valPCM) prevScalars["val/per_class_metrics"] = valPCM;
 
       _set(session_id, {
         event: "testing_complete",
@@ -310,6 +318,10 @@ function _processEvent(session_id, data) {
         if (testAcc != null) updates.testAcc = testAcc;
         if (confusionMatrix) updates.confusionMatrix = confusionMatrix;
         if (perClassMetrics) updates.perClassMetrics = perClassMetrics;
+        if (trainCM) updates.trainConfusionMatrix = trainCM;
+        if (trainPCM) updates.trainPerClassMetrics = trainPCM;
+        if (valCM) updates.valConfusionMatrix = valCM;
+        if (valPCM) updates.valPerClassMetrics = valPCM;
         updateRun(state.runId, updates);
       }
 
