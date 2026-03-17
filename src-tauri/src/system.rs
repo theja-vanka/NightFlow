@@ -453,3 +453,278 @@ print('{trt_path}')
         })
     }
 }
+
+#[derive(serde::Serialize)]
+pub struct PushToHubResult {
+    pub success: bool,
+    pub url: String,
+    pub message: String,
+}
+
+#[command]
+pub async fn push_to_hub(
+    project_path: String,
+    run_id: String,
+    _run_name: String,
+    repo_id: String,
+    hf_token: String,
+    task_class: Option<String>,
+    task_type: Option<String>,
+    backbone: Option<String>,
+    num_classes: Option<u32>,
+    image_size: Option<u32>,
+    best_acc: Option<f64>,
+    test_acc: Option<f64>,
+    ssh_command: Option<String>,
+    private: Option<bool>,
+    model_name: Option<String>,
+    description: Option<String>,
+    license: Option<String>,
+    tags: Option<String>,
+) -> Result<PushToHubResult, String> {
+    let pp = project_path.trim_end_matches('/').trim_end_matches('\\');
+    let pp_path = std::path::PathBuf::from(pp);
+    let run_logs_dir_path = pp_path.join("logs").join(&run_id);
+    let ckpt_dir = run_logs_dir_path.join("checkpoints");
+    let hparams_path = run_logs_dir_path.join("hparams.yaml");
+
+    let _tc = task_class;
+    let tt = task_type.unwrap_or_else(|| "Classification".to_string());
+    let bb = backbone.unwrap_or_else(|| "unknown".to_string());
+    let nc = num_classes.unwrap_or(10);
+    let isize = image_size.unwrap_or(224);
+    let is_private = private.unwrap_or(false);
+
+    let acc_str = best_acc.map_or("N/A".to_string(), |v| format!("{:.4}", v));
+    let test_acc_str = test_acc.map_or("N/A".to_string(), |v| format!("{:.4}", v));
+    let mn = model_name.unwrap_or_else(|| format!("{bb} — {tt}"));
+    let desc = description.unwrap_or_default();
+    let lic = license.unwrap_or_else(|| "apache-2.0".to_string());
+    let user_tags = tags.unwrap_or_default();
+
+    // Build a JSON config to pass to the Python script via env var
+    let config = serde_json::json!({
+        "repo_id": repo_id,
+        "token": hf_token,
+        "ckpt_dir": ckpt_dir.to_string_lossy(),
+        "hparams_path": hparams_path.to_string_lossy(),
+        "task_type": tt,
+        "backbone": bb,
+        "num_classes": nc,
+        "image_size": isize,
+        "acc_str": acc_str,
+        "test_acc_str": test_acc_str,
+        "is_private": is_private,
+        "model_name": mn,
+        "description": desc,
+        "license": lic,
+        "tags": user_tags,
+    });
+    let config_json = config.to_string();
+
+    let push_script = r#"
+import sys, os, json, tempfile
+
+cfg = json.loads(os.environ["HF_PUSH_CFG"])
+
+try:
+    from huggingface_hub import HfApi, create_repo
+except ImportError:
+    print(json.dumps({"error": "huggingface_hub is not installed. Run: pip install huggingface_hub"}))
+    sys.exit(1)
+
+repo_id = cfg["repo_id"]
+token = cfg["token"]
+ckpt_dir = cfg["ckpt_dir"]
+hparams_path = cfg["hparams_path"]
+task_type = cfg["task_type"]
+backbone = cfg["backbone"]
+num_classes = cfg["num_classes"]
+image_size = cfg["image_size"]
+acc_str = cfg["acc_str"]
+test_acc_str = cfg["test_acc_str"]
+is_private = cfg["is_private"]
+model_name = cfg.get("model_name", f"{backbone} — {task_type}")
+description = cfg.get("description", "")
+license_id = cfg.get("license", "apache-2.0")
+user_tags = [t.strip() for t in cfg.get("tags", "").split(",") if t.strip()]
+
+# Find checkpoint
+ckpt_file = None
+if os.path.isdir(ckpt_dir):
+    for f in os.listdir(ckpt_dir):
+        if f.endswith('.ckpt'):
+            ckpt_file = os.path.join(ckpt_dir, f)
+
+if not ckpt_file:
+    print(json.dumps({"error": "No checkpoint file found. Training may not have saved a model yet."}))
+    sys.exit(1)
+
+api = HfApi(token=token)
+
+# Create repo (ok if exists)
+try:
+    create_repo(repo_id, token=token, exist_ok=True, private=is_private)
+except Exception as e:
+    print(json.dumps({"error": f"Failed to create repository: {e}"}))
+    sys.exit(1)
+
+# Generate model card
+all_tags = list(dict.fromkeys(["nightflow"] + user_tags))
+tags_yaml = "\n".join(f"- {t}" for t in all_tags)
+desc_line = f"\n\n{description}\n" if description else "\n"
+model_card = f"""---
+library_name: pytorch
+license: {license_id}
+tags:
+{tags_yaml}
+datasets: []
+metrics:
+- accuracy
+---
+
+# {model_name}
+{desc_line}
+Trained using [NightFlow](https://github.com/vagdevi-v/NightFlow) with the **AutoTimm** framework.
+
+## Model Details
+
+| Property | Value |
+|----------|-------|
+| **Backbone** | {backbone} |
+| **Task** | {task_type} |
+| **Image Size** | {image_size}x{image_size} |
+| **Num Classes** | {num_classes} |
+| **Val Accuracy** | {acc_str} |
+| **Test Accuracy** | {test_acc_str} |
+
+## Usage
+
+```python
+import torch
+from PIL import Image
+from torchvision import transforms
+
+# Load model
+model = torch.load("pytorch_model.ckpt")
+model.eval()
+
+# Preprocess
+transform = transforms.Compose([
+    transforms.Resize(({image_size}, {image_size})),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+])
+
+image = Image.open("image.jpg").convert("RGB")
+input_tensor = transform(image).unsqueeze(0)
+
+with torch.no_grad():
+    output = model(input_tensor)
+```
+
+## Training
+
+Trained with NightFlow desktop app using PyTorch Lightning + timm.
+"""
+
+# Upload files
+try:
+    # Upload checkpoint
+    api.upload_file(
+        path_or_fileobj=ckpt_file,
+        path_in_repo="pytorch_model.ckpt",
+        repo_id=repo_id,
+        token=token,
+    )
+
+    # Upload hparams if exists
+    if os.path.isfile(hparams_path):
+        api.upload_file(
+            path_or_fileobj=hparams_path,
+            path_in_repo="hparams.yaml",
+            repo_id=repo_id,
+            token=token,
+        )
+
+    # Upload model card
+    tmp = tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False)
+    tmp.write(model_card)
+    tmp.close()
+    api.upload_file(
+        path_or_fileobj=tmp.name,
+        path_in_repo="README.md",
+        repo_id=repo_id,
+        token=token,
+    )
+    os.unlink(tmp.name)
+
+    url = f"https://huggingface.co/{repo_id}"
+    print(json.dumps({"success": True, "url": url}))
+except Exception as e:
+    print(json.dumps({"error": f"Upload failed: {e}"}))
+    sys.exit(1)
+"#;
+
+    // For SSH: embed the config JSON as an env var set in the remote shell command
+    // For local: pass it via the HF_PUSH_CFG environment variable
+    let output = if let Some(ssh_cmd) = ssh_command {
+        let parts: Vec<String> = ssh_cmd.split_whitespace().map(String::from).collect();
+        if parts.len() < 2 {
+            return Err("Invalid SSH command".to_string());
+        }
+        // Combine config + script into a single Python snippet passed via hex encoding
+        let escaped_json = config_json.replace('\\', "\\\\").replace('\'', "\\'");
+        let full_script = format!(
+            "import os; os.environ['HF_PUSH_CFG'] = '{}'\n{}",
+            escaped_json, push_script,
+        );
+        let hex: String = full_script.bytes().map(|b| format!("{:02x}", b)).collect();
+        let remote_cmd = format!(
+            "python3 -c \"exec(bytes.fromhex('{}').decode())\"",
+            hex
+        );
+        tokio::process::Command::new(&parts[0])
+            .args(&parts[1..])
+            .arg(remote_cmd)
+            .output()
+            .await
+            .map_err(|e| format!("SSH failed: {e}"))?
+    } else {
+        let venv_python = crate::env::venv_python(&pp_path.join(".venv"));
+        let python = if venv_python.exists() {
+            venv_python.to_string_lossy().to_string()
+        } else {
+            python_cmd().to_string()
+        };
+        tokio::process::Command::new(&python)
+            .arg("-c")
+            .arg(push_script)
+            .env("HF_PUSH_CFG", &config_json)
+            .current_dir(&run_logs_dir_path)
+            .output()
+            .await
+            .map_err(|e| format!("Push to Hub failed: {e}"))?
+    };
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        return Err(format!("Push to Hub failed: {stderr}"));
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout)
+        .map_err(|e| format!("Failed to parse output: {e}\nOutput: {stdout}"))?;
+
+    if let Some(err) = parsed.get("error").and_then(|v| v.as_str()) {
+        return Err(err.to_string());
+    }
+
+    let url = parsed.get("url").and_then(|v| v.as_str()).unwrap_or("").to_string();
+
+    Ok(PushToHubResult {
+        success: true,
+        url: url.clone(),
+        message: format!("Model pushed to {url}"),
+    })
+}
