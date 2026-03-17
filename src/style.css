@@ -7097,6 +7097,41 @@ select.wizard-input {
   min-width: 0;
 }
 
+.hf-repo-id-input {
+  display: flex;
+  align-items: center;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+
+.hf-repo-id-input:focus-within {
+  border-color: var(--accent, #6c8cff);
+}
+
+.hf-repo-id-input input {
+  flex: 1;
+  min-width: 0;
+  border: none !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--text-primary);
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  outline: none;
+}
+
+.hf-repo-separator {
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 500;
+  flex-shrink: 0;
+  user-select: none;
+}
+
 .hf-model-card-group {
   grid-column: 1 / -1;
   background: var(--bg-primary);
