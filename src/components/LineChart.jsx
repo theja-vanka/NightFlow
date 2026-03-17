@@ -12,16 +12,18 @@ export function LineChart({
   const cw = width - pad.left - pad.right;
   const ch = height - pad.top - pad.bottom;
 
-  const allValues = series.flatMap((s) => s.data);
+  const allValues = series.flatMap((s) => s.data).filter((v) => Number.isFinite(v));
+  if (!allValues.length) return <div class="chart-empty">No valid data</div>;
   const maxLen = Math.max(...series.map((s) => s.data.length));
   const yMin = Math.min(...allValues);
   const yMax = Math.max(...allValues);
   const yRange = yMax - yMin || 1;
 
   function toX(i) {
-    return pad.left + (i / (maxLen - 1)) * cw;
+    return pad.left + (i / Math.max(maxLen - 1, 1)) * cw;
   }
   function toY(v) {
+    if (!Number.isFinite(v)) return pad.top + ch;
     return pad.top + ch - ((v - yMin) / yRange) * ch;
   }
 
@@ -131,11 +133,22 @@ export function LineChart({
 
       {/* Data lines */}
       {series.map((s, si) => {
-        const points = s.data
-          .map((v, i) => `${toX(i).toFixed(1)},${toY(v).toFixed(1)}`)
-          .join(" ");
-        return (
+        // Split into segments at NaN/Infinity gaps so the line breaks cleanly
+        const segments = [];
+        let current = [];
+        for (let i = 0; i < s.data.length; i++) {
+          if (Number.isFinite(s.data[i])) {
+            current.push(`${toX(i).toFixed(1)},${toY(s.data[i]).toFixed(1)}`);
+          } else if (current.length) {
+            segments.push(current.join(" "));
+            current = [];
+          }
+        }
+        if (current.length) segments.push(current.join(" "));
+
+        return segments.map((points, pi) => (
           <polyline
+            key={`${si}-${pi}`}
             fill="none"
             stroke={strokes[si % strokes.length]}
             stroke-width="1.5"
@@ -144,7 +157,7 @@ export function LineChart({
             stroke-linejoin="round"
             points={points}
           />
-        );
+        ));
       })}
 
       {/* Legend */}

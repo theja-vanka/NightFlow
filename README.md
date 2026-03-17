@@ -53,7 +53,7 @@ Whether you're training an image classifier, an object detector, or a segmentati
 - **Full experiment lifecycle management** — project organization, run history, metric tracking, and comparison
 - **Model interpretation & explainability** — GradCAM, Integrated Gradients, Attention Rollout, and more
 - **Remote GPU training via SSH** — run jobs on powerful servers without leaving the app
-- **Production export** — TorchScript and ONNX output for deployment anywhere
+- **Production export** — TorchScript, ONNX, and TensorRT output, plus direct Hugging Face Hub deployment
 
 > **No cloud accounts. No per-hour charges. No data leaving your machine.**
 
@@ -65,7 +65,7 @@ Whether you're training an image classifier, an object detector, or a segmentati
 | :--- | :---: | :---: |
 | **Data privacy** | Images uploaded to third-party servers | Data never leaves your device |
 | **Cost** | $3 – $5+ per training hour, plus inference fees | Free and open-source |
-| **Vendor lock-in** | Proprietary formats, cloud-only deployment | Export to TorchScript, ONNX — deploy anywhere |
+| **Vendor lock-in** | Proprietary formats, cloud-only deployment | Export to TorchScript, ONNX, TensorRT — deploy anywhere or push to Hugging Face Hub |
 | **Transparency** | Black-box training, limited tuning | Full control: 1 000+ backbones, every hyperparameter |
 | **Internet** | Required | Works completely offline |
 | **Experiment mgmt** | External tooling needed | Built-in charts, run history, and comparison |
@@ -106,7 +106,7 @@ Whether you're training an image classifier, an object detector, or a segmentati
 
 - **Interactive charts** — high-fidelity training and validation plots
 - **Model interpretation** — GradCAM, GradCAM++, Integrated Gradients, SmoothGrad, Attention Rollout, Attention Flow
-- **Confusion matrix** — per-class performance breakdown
+- **Confusion matrix** — per-class performance breakdown for train, validation, and test splits
 - **Dataset browser** — visual explorer with class-level filtering
 - **Netron integration** — built-in architecture visualization
 
@@ -118,7 +118,8 @@ Whether you're training an image classifier, an object detector, or a segmentati
 - **Integrated terminal** — full PTY with WebGL-accelerated rendering
 - **Remote training via SSH** — train on GPU servers seamlessly
 - **System metrics** — live CPU, memory, and GPU utilization
-- **Model export** — TorchScript (.pt) and ONNX (.onnx) for production
+- **Model export** — TorchScript (.pt), ONNX (.onnx), and TensorRT (.engine) for production
+- **Hugging Face Hub** — push models directly to HF Hub with model card metadata
 - **Checkpoint management** — best-model selection and remote download
 
 </td>

@@ -739,8 +739,15 @@
                 </ul>
 
                 <h3>Run Detail View</h3>
-                <p>Click any run to open a detailed view with full metric charts, per-class performance breakdowns,
-                    confusion matrices, and the ability to export or interpret the trained model.</p>
+                <p>Click any run to open a detailed view with:</p>
+                <ul>
+                    <li>Full metric charts organized by stage (train, validation, test)</li>
+                    <li>Confusion matrices and per-class metrics for all three splits</li>
+                    <li>Hyperparameter display with augmentation pipeline summary</li>
+                    <li>Tagging, notes, and run metadata</li>
+                    <li>Deploy panel with model export, Hugging Face Hub push, and inference script generation</li>
+                </ul>
+                <p>The deploy button only appears when training is complete and a checkpoint file exists.</p>
 
                 <h3>Run Comparison</h3>
                 <p>Select multiple runs and compare them side-by-side with overlaid metric charts. Easily identify which
@@ -758,13 +765,23 @@
                     <li><strong>Accuracy plots</strong> — top-1 and top-5 accuracy trends</li>
                     <li><strong>Learning rate schedule</strong> — visualize LR changes across training</li>
                     <li><strong>Custom metrics</strong> — any metric logged during training</li>
-                    <li><strong>Confusion matrix</strong> — per-class prediction breakdown</li>
-                    <li><strong>Per-class metrics</strong> — precision, recall, F1 for each class</li>
                 </ul>
+
+                <h3>Confusion Matrix</h3>
+                <p>NightFlow displays confusion matrices for all three dataset splits — <strong>Train</strong>, <strong>Validation</strong>, and <strong>Test</strong> — in a dedicated Classification tab. Each matrix shows:</p>
+                <ul>
+                    <li>Per-cell counts and percentages with a heatmap color scale</li>
+                    <li>Diagonal highlighting for correct predictions</li>
+                    <li>Full class names displayed via rotated column headers (no truncation)</li>
+                    <li>Automatic class name detection from the dataset folder structure</li>
+                </ul>
+
+                <h3>Per-Class Metrics</h3>
+                <p>Alongside each confusion matrix, a full-width per-class metrics panel shows <strong>Precision</strong>, <strong>Recall</strong>, and <strong>F1</strong> for every class, with sortable columns and visual bar charts. Available for train, validation, and test splits.</p>
 
                 <h3>Interaction</h3>
                 <p>Charts support hover tooltips, zoom, and pan. You can also overlay multiple runs on the same chart
-                    for direct comparison.</p>
+                    for direct comparison. Charts gracefully handle NaN and Infinity values by breaking lines at gaps rather than rendering artifacts.</p>
             </section>
 
             <!-- INTERPRETATION -->
@@ -891,8 +908,8 @@
 
             <!-- MODEL EXPORT -->
             <section id="export" class="reveal">
-                <h2>Model Export</h2>
-                <p>Export your trained models for production deployment in two industry-standard formats:</p>
+                <h2>Model Export & Deployment</h2>
+                <p>Export your trained models for production deployment in three industry-standard formats:</p>
 
                 <table>
                     <thead>
@@ -913,13 +930,28 @@
                             <td><code>.onnx</code></td>
                             <td>Universal format — ONNX Runtime, TensorRT, CoreML conversion, edge devices</td>
                         </tr>
+                        <tr>
+                            <td><strong>TensorRT</strong></td>
+                            <td><code>.engine</code></td>
+                            <td>NVIDIA-optimized inference for maximum GPU throughput</td>
+                        </tr>
                     </tbody>
                 </table>
 
-                <p>Export is available from the run detail view. Select the best checkpoint and choose your output format.</p>
+                <p>Export is available from the run detail view once training completes and a checkpoint file exists. Select the best checkpoint and choose your output format.</p>
+
+                <h3>Push to Hugging Face Hub</h3>
+                <p>Deploy your trained model directly to the <strong>Hugging Face Hub</strong> from within NightFlow. The deploy panel lets you:</p>
+                <ul>
+                    <li>Specify a repository ID (username / model-name format)</li>
+                    <li>Set your Hugging Face API token</li>
+                    <li>Choose between public or private repositories</li>
+                    <li>Add model card metadata — model name, description, license, and tags</li>
+                </ul>
+                <p>NightFlow automatically strips optimizer state and sensitive paths from the checkpoint before uploading, and generates a model card with your metadata, task type, backbone, and accuracy metrics.</p>
 
                 <h3>Inference Script Generation</h3>
-                <p>NightFlow also generates ready-to-use Python inference scripts for your exported model, complete with preprocessing, model loading, and prediction code with syntax highlighting.</p>
+                <p>NightFlow generates ready-to-use Python inference scripts for your exported model, complete with preprocessing, model loading, prediction code, and syntax highlighting. Class names from the project are auto-populated into the script parameters.</p>
             </section>
 
             <!-- SETTINGS -->
@@ -964,27 +996,23 @@
                         </tr>
                         <tr>
                             <td><code>Ctrl/⌘ + 3</code></td>
-                            <td>Interpretation</td>
-                        </tr>
-                        <tr>
-                            <td><code>Ctrl/⌘ + 4</code></td>
-                            <td>Model Viewer</td>
-                        </tr>
-                        <tr>
-                            <td><code>Ctrl/⌘ + 5</code></td>
-                            <td>Terminal</td>
-                        </tr>
-                        <tr>
-                            <td><code>Ctrl/⌘ + 6</code></td>
-                            <td>Settings</td>
-                        </tr>
-                        <tr>
-                            <td><code>Ctrl/⌘ + 7</code></td>
                             <td>Dataset Browser</td>
                         </tr>
                         <tr>
-                            <td><code>Ctrl/⌘ + Enter</code></td>
-                            <td>Start Training</td>
+                            <td><code>Ctrl/⌘ + 4</code></td>
+                            <td>Interpretation</td>
+                        </tr>
+                        <tr>
+                            <td><code>Ctrl/⌘ + 5</code></td>
+                            <td>Model Viewer (Netron)</td>
+                        </tr>
+                        <tr>
+                            <td><code>Ctrl/⌘ + 6</code></td>
+                            <td>Terminal</td>
+                        </tr>
+                        <tr>
+                            <td><code>Ctrl/⌘ + 7</code></td>
+                            <td>Settings</td>
                         </tr>
                         <tr>
                             <td><code>Ctrl/⌘ + K</code></td>

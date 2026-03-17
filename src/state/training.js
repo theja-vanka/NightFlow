@@ -364,6 +364,12 @@ function _processEvent(session_id, data) {
         estimatedRemaining = remaining > 0 ? remaining : null;
       }
 
+      // Capture train confusion matrix / per-class metrics (latest epoch only)
+      const trainCM = data.train_confusion_matrix ?? null;
+      const trainPCM = data.train_per_class_metrics ?? null;
+      if (trainCM) prevScalars["train/confusion_matrix"] = trainCM;
+      if (trainPCM) prevScalars["train/per_class_metrics"] = trainPCM;
+
       _set(session_id, {
         event: "epoch_end",
         epoch,
@@ -375,12 +381,15 @@ function _processEvent(session_id, data) {
       });
 
       if (state.runId) {
-        updateRun(state.runId, {
+        const epochUpdates = {
           epochs: epoch + 1,
           valLoss: metrics["val/loss"] ?? null,
           lossCurve,
           scalars: prevScalars,
-        });
+        };
+        if (trainCM) epochUpdates.trainConfusionMatrix = trainCM;
+        if (trainPCM) epochUpdates.trainPerClassMetrics = trainPCM;
+        updateRun(state.runId, epochUpdates);
       }
       break;
     }
@@ -402,6 +411,12 @@ function _processEvent(session_id, data) {
         prevScalars[tag] = [...prevScalars[tag], { step: epoch, value }];
       }
 
+      // Capture val confusion matrix / per-class metrics (latest epoch only)
+      const valCM = data.val_confusion_matrix ?? null;
+      const valPCM = data.val_per_class_metrics ?? null;
+      if (valCM) prevScalars["val/confusion_matrix"] = valCM;
+      if (valPCM) prevScalars["val/per_class_metrics"] = valPCM;
+
       _set(session_id, {
         event: "validation_end",
         metrics: { ..._get(session_id).metrics, ...metrics },
@@ -410,12 +425,15 @@ function _processEvent(session_id, data) {
       });
 
       if (state.runId) {
-        updateRun(state.runId, {
+        const valUpdates = {
           bestAcc,
           valLoss: metrics["val/loss"] ?? null,
           accCurve,
           scalars: prevScalars,
-        });
+        };
+        if (valCM) valUpdates.valConfusionMatrix = valCM;
+        if (valPCM) valUpdates.valPerClassMetrics = valPCM;
+        updateRun(state.runId, valUpdates);
       }
       break;
     }

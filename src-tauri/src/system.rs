@@ -574,6 +574,31 @@ except Exception as e:
     print(json.dumps({"error": f"Failed to create repository: {e}"}))
     sys.exit(1)
 
+# Strip optimizer state from checkpoint to reduce size and avoid leaking training internals
+import torch, tempfile as _tf, copy
+clean_ckpt = None
+try:
+    raw = torch.load(ckpt_file, map_location="cpu", weights_only=False)
+    if isinstance(raw, dict):
+        keep_keys = {"state_dict", "hyper_parameters", "pytorch-lightning_version", "epoch", "global_step"}
+        cleaned = {k: v for k, v in raw.items() if k in keep_keys}
+        if cleaned.get("hyper_parameters") and isinstance(cleaned["hyper_parameters"], dict):
+            sensitive = {"data_dir", "data_directory", "project_path", "log_dir",
+                         "default_root_dir", "output_dir", "root_dir", "save_dir",
+                         "resume_from_checkpoint", "ssh_command", "ssh_key"}
+            cleaned["hyper_parameters"] = {
+                k: v for k, v in cleaned["hyper_parameters"].items()
+                if k not in sensitive and not (isinstance(v, str) and ("/" in v or "\\" in v))
+            }
+        _tmp = _tf.NamedTemporaryFile(suffix=".ckpt", delete=False)
+        torch.save(cleaned, _tmp.name)
+        _tmp.close()
+        clean_ckpt = _tmp.name
+except Exception:
+    clean_ckpt = None
+
+upload_ckpt = clean_ckpt or ckpt_file
+
 # Generate model card
 all_tags = list(dict.fromkeys(["nightflow"] + user_tags))
 tags_yaml = "\n".join(f"- {t}" for t in all_tags)
@@ -633,20 +658,42 @@ with torch.no_grad():
 Trained with NightFlow desktop app using PyTorch Lightning + timm.
 """
 
+# Sanitize hparams — strip local paths and sensitive keys before uploading
+clean_hparams_path = None
+if os.path.isfile(hparams_path):
+    try:
+        import yaml
+        with open(hparams_path, "r") as f:
+            hp = yaml.safe_load(f) or {}
+        if isinstance(hp, dict):
+            sensitive = {"data_dir", "data_directory", "project_path", "log_dir",
+                         "default_root_dir", "output_dir", "root_dir", "save_dir",
+                         "resume_from_checkpoint", "ssh_command", "ssh_key",
+                         "callbacks", "logger", "profiler"}
+            hp = {k: v for k, v in hp.items()
+                  if k not in sensitive
+                  and not (isinstance(v, str) and (os.sep in v or "/" in v))}
+            _htmp = tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False)
+            yaml.dump(hp, _htmp, default_flow_style=False)
+            _htmp.close()
+            clean_hparams_path = _htmp.name
+    except Exception:
+        pass
+
 # Upload files
 try:
-    # Upload checkpoint
+    # Upload cleaned checkpoint (weights + safe metadata only)
     api.upload_file(
-        path_or_fileobj=ckpt_file,
+        path_or_fileobj=upload_ckpt,
         path_in_repo="pytorch_model.ckpt",
         repo_id=repo_id,
         token=token,
     )
 
-    # Upload hparams if exists
-    if os.path.isfile(hparams_path):
+    # Upload sanitized hparams if available
+    if clean_hparams_path:
         api.upload_file(
-            path_or_fileobj=hparams_path,
+            path_or_fileobj=clean_hparams_path,
             path_in_repo="hparams.yaml",
             repo_id=repo_id,
             token=token,
@@ -669,6 +716,12 @@ try:
 except Exception as e:
     print(json.dumps({"error": f"Upload failed: {e}"}))
     sys.exit(1)
+finally:
+    # Clean up temp files
+    if clean_ckpt and os.path.isfile(clean_ckpt):
+        os.unlink(clean_ckpt)
+    if clean_hparams_path and os.path.isfile(clean_hparams_path):
+        os.unlink(clean_hparams_path)
 "#;
 
     // For SSH: embed the config JSON as an env var set in the remote shell command

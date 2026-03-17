@@ -460,6 +460,7 @@ const defaultData = {
   testPath: "",
   imageFolderPath: "",
   numClasses: "",
+  classNames: [],
   powerUserMode: false,
   maxEpochs: 10,
   learningRate: "",
@@ -610,6 +611,7 @@ export function wizardCreate() {
       ? d.imageFolderPath.trim().replace(/\/*$/, "/")
       : "",
     numClasses: d.numClasses !== "" ? d.numClasses : "",
+    classNames: Array.isArray(d.classNames) ? d.classNames : [],
     powerUserMode: false,
     maxEpochs: 10,
     learningRate: "",

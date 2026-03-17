@@ -902,7 +902,8 @@ export function InferenceTab({ run, project }) {
   const [imageSize, setImageSize] = useState(String(defaultSize));
   const [numClasses, setNumClasses] = useState(String(defaultClasses));
   const [confThreshold, setConfThreshold] = useState("0.5");
-  const [classNames, setClassNames] = useState("");
+  const projectClassNames = project?.classNames || [];
+  const [classNames, setClassNames] = useState(projectClassNames.join(", "));
 
   // Update model path extension when format changes
   function handleFormatChange(newFormat) {
