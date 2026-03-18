@@ -66,7 +66,7 @@ export function SystemMetricsPanel() {
         async function fetchMetrics() {
             try {
                 const cmd = sshCommand?.trim().toLowerCase() === "localhost" ? null : sshCommand;
-                const resStr = await invoke("get_system_metrics", { sshCommand: cmd });
+                const resStr = await invoke("get_system_metrics", { sshCommand: cmd, projectPath: project?.projectPath || null });
                 if (mounted) {
                     setMetrics(JSON.parse(resStr));
                     setError(null);
@@ -122,7 +122,6 @@ export function SystemMetricsPanel() {
 
     // Formatting helpers
     const formatGB = (bytes) => (bytes / (1024 ** 3)).toFixed(1);
-    const formatPct = (val) => val.toFixed(1) + "%";
 
     // Calculate specific metrics
     let cpuStr = "—";
@@ -197,7 +196,7 @@ export function GpuMetricsPanel() {
         async function fetchMetrics() {
             try {
                 const cmd = sshCommand?.trim().toLowerCase() === "localhost" ? null : sshCommand;
-                const resStr = await invoke("get_system_metrics", { sshCommand: cmd });
+                const resStr = await invoke("get_system_metrics", { sshCommand: cmd, projectPath: project?.projectPath || null });
                 if (mounted) setMetrics(JSON.parse(resStr));
             } catch (_) { /* errors shown by SystemMetricsPanel */ }
 

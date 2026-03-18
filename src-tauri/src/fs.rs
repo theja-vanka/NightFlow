@@ -176,6 +176,8 @@ pub fn validate_file_path(path: String, expected_extension: Option<String>) -> P
     }
 }
 
+const IMAGE_EXTS: &[&str] = &["jpg", "jpeg", "png", "bmp", "webp", "tiff", "gif"];
+const MASK_EXTS: &[&str] = &["png", "tiff", "bmp"];
 const SPLIT_NAMES: &[&str] = &["train", "test", "val", "valid", "validation", "training", "testing"];
 
 fn normalize_split_name(name: &str) -> &'static str {
@@ -267,7 +269,7 @@ pub fn browse_dataset(
         return Err(format!("Path does not exist: {}", expanded));
     }
 
-    let image_exts = ["jpg", "jpeg", "png", "bmp", "webp", "tiff", "gif"];
+    let image_exts: &[&str] = IMAGE_EXTS;
     let mut all_images: Vec<DatasetImage> = Vec::new();
     let mut class_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
 
@@ -526,4 +528,613 @@ pub fn browse_dataset(
         total,
         class_counts,
     })
+}
+
+// ── Dataset structure validation ─────────────────────────────────────────────
+
+#[derive(serde::Serialize)]
+pub struct DatasetValidationResult {
+    pub valid: bool,
+    pub errors: Vec<String>,
+    pub warnings: Vec<String>,
+    /// Quick stats when valid
+    pub info: std::collections::HashMap<String, String>,
+}
+
+/// Helper: count files with given extensions inside a dir (non-recursive).
+fn count_files_with_exts(dir: &std::path::Path, exts: &[&str]) -> usize {
+    std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|e| {
+            let p = e.path();
+            p.is_file()
+                && p.extension()
+                    .and_then(|x| x.to_str())
+                    .map(|x| exts.contains(&x.to_lowercase().as_str()))
+                    .unwrap_or(false)
+        })
+        .count()
+}
+
+/// Helper: list subdirectory names (non-hidden).
+fn list_subdirs(dir: &std::path::Path) -> Vec<String> {
+    std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|e| {
+            e.path().is_dir() && !e.file_name().to_string_lossy().starts_with('.')
+        })
+        .map(|e| e.file_name().to_string_lossy().to_string())
+        .collect()
+}
+
+/// Helper: check if a dir has at least one file with the given extensions (recursive 1 level).
+fn has_files_recursive(dir: &std::path::Path, exts: &[&str], depth: u8) -> bool {
+    if count_files_with_exts(dir, exts) > 0 {
+        return true;
+    }
+    if depth > 0 {
+        for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+            if entry.path().is_dir() && has_files_recursive(&entry.path(), exts, depth - 1) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+#[command]
+pub fn validate_dataset_structure(
+    path: String,
+    task_type: String,
+    format: String,
+) -> DatasetValidationResult {
+    let expanded = expand_tilde(&path);
+    let root = std::path::PathBuf::from(&expanded);
+
+    let mut errors: Vec<String> = Vec::new();
+    let mut warnings: Vec<String> = Vec::new();
+    let mut info: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+
+    // ── Basic checks ────────────────────────────────────────────────────────
+    if !root.exists() {
+        return DatasetValidationResult {
+            valid: false,
+            errors: vec!["Path does not exist.".into()],
+            warnings: vec![],
+            info,
+        };
+    }
+    if !root.is_dir() {
+        return DatasetValidationResult {
+            valid: false,
+            errors: vec!["Path is not a directory.".into()],
+            warnings: vec![],
+            info,
+        };
+    }
+
+    let subdirs = list_subdirs(&root);
+    if subdirs.is_empty() {
+        errors.push("Directory is empty — no subdirectories or files found.".into());
+        return DatasetValidationResult { valid: false, errors, warnings, info };
+    }
+
+    // ── Dispatch by task + format ───────────────────────────────────────────
+    match (task_type.as_str(), format.as_str()) {
+        ("Classification", "Folder") => {
+            validate_classification_folder(&root, &subdirs, &mut errors, &mut warnings, &mut info);
+        }
+        ("Object Detection", "COCO JSON") | ("Instance Segmentation", "COCO JSON") => {
+            validate_coco_json(&root, &subdirs, &task_type, &mut errors, &mut warnings, &mut info);
+        }
+        ("Semantic Segmentation", "PNG Masks") => {
+            validate_seg_png_masks(&root, &subdirs, &mut errors, &mut warnings, &mut info);
+        }
+        ("Semantic Segmentation", "Cityscapes") => {
+            validate_cityscapes(&root, &mut errors, &mut warnings, &mut info);
+        }
+        ("Semantic Segmentation", "VOC") => {
+            validate_voc(&root, &mut errors, &mut warnings, &mut info);
+        }
+        ("Semantic Segmentation", "COCO") => {
+            validate_coco_json(&root, &subdirs, &task_type, &mut errors, &mut warnings, &mut info);
+        }
+        _ => {
+            // For CSV/JSONL formats the path field is a file, not a folder —
+            // those are validated by validate_file_path instead.
+            // Return valid with a note.
+            info.insert("note".into(), "No structural validation available for this format.".into());
+        }
+    }
+
+    DatasetValidationResult {
+        valid: errors.is_empty(),
+        errors,
+        warnings,
+        info,
+    }
+}
+
+// ── Classification::Folder ──────────────────────────────────────────────────
+
+fn validate_classification_folder(
+    root: &std::path::Path,
+    subdirs: &[String],
+    errors: &mut Vec<String>,
+    warnings: &mut Vec<String>,
+    info: &mut std::collections::HashMap<String, String>,
+) {
+    // Detect split-based vs flat
+    let split_dirs: Vec<&String> = subdirs
+        .iter()
+        .filter(|d| SPLIT_NAMES.contains(&d.to_lowercase().as_str()))
+        .collect();
+
+    if !split_dirs.is_empty() {
+        // ── Split-based: dataset/train/class_a/img.jpg ──
+        info.insert("structure".into(), "split-based".into());
+        info.insert("splits".into(), split_dirs.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", "));
+
+        let has_train = split_dirs.iter().any(|d| {
+            matches!(d.to_lowercase().as_str(), "train" | "training")
+        });
+        if !has_train {
+            errors.push("No 'train' split directory found. Expected: train/, training/".into());
+        }
+
+        let mut total_classes = std::collections::HashSet::new();
+        let mut total_images: usize = 0;
+
+        for split_name in &split_dirs {
+            let split_path = root.join(split_name);
+            let class_dirs = list_subdirs(&split_path);
+
+            if class_dirs.is_empty() {
+                errors.push(format!(
+                    "'{}/' has no class subdirectories. Expected: {}/class_a/, {}/class_b/, …",
+                    split_name, split_name, split_name
+                ));
+                continue;
+            }
+
+            let mut empty_classes = Vec::new();
+            for class_name in &class_dirs {
+                let class_path = split_path.join(class_name);
+                let img_count = count_files_with_exts(&class_path, IMAGE_EXTS);
+                if img_count == 0 {
+                    empty_classes.push(class_name.clone());
+                }
+                total_images += img_count;
+                total_classes.insert(class_name.clone());
+            }
+
+            if !empty_classes.is_empty() && empty_classes.len() <= 5 {
+                warnings.push(format!(
+                    "'{}/' — class folders with no images: {}",
+                    split_name,
+                    empty_classes.join(", ")
+                ));
+            } else if !empty_classes.is_empty() {
+                warnings.push(format!(
+                    "'{}/' — {} class folders have no images.",
+                    split_name,
+                    empty_classes.len()
+                ));
+            }
+        }
+
+        if total_classes.len() < 2 {
+            errors.push(format!(
+                "Found only {} class(es). Classification requires at least 2 classes.",
+                total_classes.len()
+            ));
+        }
+
+        info.insert("classes".into(), total_classes.len().to_string());
+        info.insert("images".into(), total_images.to_string());
+    } else {
+        // ── Flat: dataset/class_a/img.jpg ──
+        info.insert("structure".into(), "flat".into());
+
+        // Check if subdirs look like class folders (contain images)
+        let mut class_count = 0usize;
+        let mut total_images: usize = 0;
+        let mut empty_classes = Vec::new();
+
+        for dir_name in subdirs {
+            let dir_path = root.join(dir_name);
+            let img_count = count_files_with_exts(&dir_path, IMAGE_EXTS);
+            if img_count > 0 {
+                class_count += 1;
+                total_images += img_count;
+            } else {
+                empty_classes.push(dir_name.clone());
+            }
+        }
+
+        if class_count < 2 {
+            errors.push(format!(
+                "Found {} class folder(s) with images. Classification requires at least 2 class subdirectories, each containing images.",
+                class_count
+            ));
+        }
+
+        if !empty_classes.is_empty() && empty_classes.len() <= 5 {
+            warnings.push(format!(
+                "Subdirectories with no images (may not be class folders): {}",
+                empty_classes.join(", ")
+            ));
+        }
+
+        if total_images == 0 {
+            errors.push("No image files found in any subdirectory.".into());
+        }
+
+        warnings.push(
+            "No train/val split detected. Consider splitting into train/ and val/ subdirectories for proper evaluation.".into()
+        );
+
+        info.insert("classes".into(), class_count.to_string());
+        info.insert("images".into(), total_images.to_string());
+    }
+}
+
+// ── COCO JSON (Detection / Instance Segmentation / COCO Segmentation) ───────
+
+fn validate_coco_json(
+    root: &std::path::Path,
+    subdirs: &[String],
+    task_type: &str,
+    errors: &mut Vec<String>,
+    warnings: &mut Vec<String>,
+    info: &mut std::collections::HashMap<String, String>,
+) {
+    // Expect an annotations/ dir
+    let ann_dir = root.join("annotations");
+    if !ann_dir.is_dir() {
+        errors.push("Missing 'annotations/' directory. Expected: annotations/instances_train.json".into());
+    } else {
+        // Look for JSON files inside annotations/
+        let json_files: Vec<String> = std::fs::read_dir(&ann_dir)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .filter(|e| {
+                e.path().is_file()
+                    && e.path()
+                        .extension()
+                        .and_then(|x| x.to_str())
+                        .map(|x| x.to_lowercase() == "json")
+                        .unwrap_or(false)
+            })
+            .map(|e| e.file_name().to_string_lossy().to_string())
+            .collect();
+
+        if json_files.is_empty() {
+            errors.push("'annotations/' directory has no JSON files.".into());
+        } else {
+            info.insert("annotation_files".into(), json_files.join(", "));
+
+            // Check for train annotations
+            let has_train_ann = json_files.iter().any(|f| {
+                let lower = f.to_lowercase();
+                lower.contains("train")
+            });
+            if !has_train_ann {
+                warnings.push("No training annotation file found (expected a file containing 'train' in its name).".into());
+            }
+
+            // Optionally validate JSON structure of the first file
+            if let Some(first) = json_files.first() {
+                let ann_path = ann_dir.join(first);
+                match std::fs::read_to_string(&ann_path) {
+                    Ok(contents) => {
+                        match serde_json::from_str::<serde_json::Value>(&contents) {
+                            Ok(val) => {
+                                let obj = val.as_object();
+                                if let Some(obj) = obj {
+                                    let has_images = obj.contains_key("images");
+                                    let has_annotations = obj.contains_key("annotations");
+                                    let has_categories = obj.contains_key("categories");
+
+                                    if !has_images {
+                                        errors.push(format!("'{}' is missing 'images' key.", first));
+                                    }
+                                    if !has_annotations {
+                                        errors.push(format!("'{}' is missing 'annotations' key.", first));
+                                    }
+                                    if !has_categories {
+                                        errors.push(format!("'{}' is missing 'categories' key.", first));
+                                    }
+
+                                    if has_images
+                                        && let Some(imgs) = obj["images"].as_array()
+                                    {
+                                        info.insert("images_in_annotation".into(), imgs.len().to_string());
+                                    }
+                                    if has_categories
+                                        && let Some(cats) = obj["categories"].as_array()
+                                    {
+                                        info.insert("categories".into(), cats.len().to_string());
+                                    }
+
+                                    // Instance seg needs 'segmentation' in annotations
+                                    if task_type == "Instance Segmentation"
+                                        && has_annotations
+                                        && let Some(anns) = obj["annotations"].as_array()
+                                        && let Some(first_ann) = anns.first()
+                                        && first_ann.get("segmentation").is_none()
+                                    {
+                                        warnings.push("Annotations may lack 'segmentation' field needed for instance segmentation.".into());
+                                    }
+                                } else {
+                                    errors.push(format!("'{}' is not a JSON object at the top level.", first));
+                                }
+                            }
+                            Err(e) => {
+                                errors.push(format!("'{}' is not valid JSON: {}", first, e));
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        warnings.push(format!("Could not read '{}': {}", first, e));
+                    }
+                }
+            }
+        }
+    }
+
+    // Check for image directories
+    let image_dirs: Vec<&String> = subdirs
+        .iter()
+        .filter(|d| {
+            let lower = d.to_lowercase();
+            lower != "annotations"
+                && !lower.starts_with('.')
+        })
+        .collect();
+
+    let has_image_dir_with_images = image_dirs.iter().any(|d| {
+        has_files_recursive(&root.join(d), IMAGE_EXTS, 1)
+    });
+
+    if !has_image_dir_with_images {
+        errors.push("No image directories found alongside annotations/. Expected: train/, val/ or images/ containing image files.".into());
+    } else {
+        let dir_names: Vec<&str> = image_dirs.iter().map(|s| s.as_str()).collect();
+        info.insert("image_dirs".into(), dir_names.join(", "));
+    }
+}
+
+// ── Semantic Segmentation::PNG Masks ────────────────────────────────────────
+
+fn validate_seg_png_masks(
+    root: &std::path::Path,
+    subdirs: &[String],
+    errors: &mut Vec<String>,
+    warnings: &mut Vec<String>,
+    info: &mut std::collections::HashMap<String, String>,
+) {
+    let lower_dirs: Vec<String> = subdirs.iter().map(|s| s.to_lowercase()).collect();
+
+    // Expect images/ and masks/ directories
+    let has_images = lower_dirs.iter().any(|d| d == "images" || d == "image" || d == "imgs" || d == "img");
+    let has_masks = lower_dirs.iter().any(|d| d == "masks" || d == "mask" || d == "labels" || d == "annotations");
+
+    if !has_images {
+        errors.push("Missing 'images/' directory. Expected parallel 'images/' and 'masks/' directories.".into());
+    }
+    if !has_masks {
+        errors.push("Missing 'masks/' directory. Expected parallel 'images/' and 'masks/' directories.".into());
+    }
+
+    if has_images && has_masks {
+        // Find actual dir names (case-preserving)
+        let images_dir_name = subdirs.iter().find(|s| {
+            let l = s.to_lowercase();
+            l == "images" || l == "image" || l == "imgs" || l == "img"
+        }).unwrap();
+        let masks_dir_name = subdirs.iter().find(|s| {
+            let l = s.to_lowercase();
+            l == "masks" || l == "mask" || l == "labels" || l == "annotations"
+        }).unwrap();
+
+        let images_path = root.join(images_dir_name);
+        let masks_path = root.join(masks_dir_name);
+
+        // Check for splits or direct files
+        let img_subdirs = list_subdirs(&images_path);
+        let mask_subdirs = list_subdirs(&masks_path);
+
+        let img_has_splits = img_subdirs.iter().any(|d| SPLIT_NAMES.contains(&d.to_lowercase().as_str()));
+        let mask_has_splits = mask_subdirs.iter().any(|d| SPLIT_NAMES.contains(&d.to_lowercase().as_str()));
+
+        if img_has_splits && !mask_has_splits {
+            errors.push(format!(
+                "'{}/' has split directories (train/val) but '{}/' does not. Both must use the same structure.",
+                images_dir_name, masks_dir_name
+            ));
+        } else if !img_has_splits && mask_has_splits {
+            errors.push(format!(
+                "'{}/' has split directories but '{}/' does not. Both must use the same structure.",
+                masks_dir_name, images_dir_name
+            ));
+        }
+
+        if img_has_splits && mask_has_splits {
+            info.insert("structure".into(), "split-based".into());
+            // Validate each split
+            for split in &img_subdirs {
+                if !SPLIT_NAMES.contains(&split.to_lowercase().as_str()) { continue; }
+                let img_split = images_path.join(split);
+                let mask_split = masks_path.join(split);
+
+                if !mask_split.is_dir() {
+                    errors.push(format!("'{}/{}/' exists but '{}/{}/' is missing.", images_dir_name, split, masks_dir_name, split));
+                    continue;
+                }
+
+                let img_count = count_files_with_exts(&img_split, IMAGE_EXTS);
+                let mask_count = count_files_with_exts(&mask_split, MASK_EXTS);
+
+                info.insert(format!("{}_images", split), img_count.to_string());
+                info.insert(format!("{}_masks", split), mask_count.to_string());
+
+                if img_count == 0 {
+                    warnings.push(format!("'{}/{}/' has no image files.", images_dir_name, split));
+                }
+                if mask_count == 0 {
+                    warnings.push(format!("'{}/{}/' has no mask files.", masks_dir_name, split));
+                }
+                if img_count > 0 && mask_count > 0 && img_count != mask_count {
+                    warnings.push(format!(
+                        "Split '{}': {} images vs {} masks — counts don't match. Ensure filenames correspond.",
+                        split, img_count, mask_count
+                    ));
+                }
+            }
+        } else {
+            info.insert("structure".into(), "flat".into());
+            let img_count = count_files_with_exts(&images_path, IMAGE_EXTS);
+            let mask_count = count_files_with_exts(&masks_path, MASK_EXTS);
+
+            info.insert("images".into(), img_count.to_string());
+            info.insert("masks".into(), mask_count.to_string());
+
+            if img_count == 0 {
+                errors.push(format!("'{}/' has no image files.", images_dir_name));
+            }
+            if mask_count == 0 {
+                errors.push(format!("'{}/' has no mask files.", masks_dir_name));
+            }
+            if img_count > 0 && mask_count > 0 && img_count != mask_count {
+                warnings.push(format!(
+                    "{} images vs {} masks — counts don't match. Ensure filenames correspond.",
+                    img_count, mask_count
+                ));
+            }
+        }
+    }
+}
+
+// ── Semantic Segmentation::Cityscapes ───────────────────────────────────────
+
+fn validate_cityscapes(
+    root: &std::path::Path,
+    errors: &mut Vec<String>,
+    warnings: &mut Vec<String>,
+    info: &mut std::collections::HashMap<String, String>,
+) {
+    let left_img = root.join("leftImg8bit");
+    let gt_fine = root.join("gtFine");
+
+    if !left_img.is_dir() {
+        errors.push("Missing 'leftImg8bit/' directory. Expected standard Cityscapes layout.".into());
+    }
+    if !gt_fine.is_dir() {
+        errors.push("Missing 'gtFine/' directory. Expected standard Cityscapes layout.".into());
+    }
+
+    if left_img.is_dir() && gt_fine.is_dir() {
+        let img_splits = list_subdirs(&left_img);
+        let gt_splits = list_subdirs(&gt_fine);
+
+        let has_train = img_splits.iter().any(|s| s.to_lowercase() == "train");
+        if !has_train {
+            errors.push("'leftImg8bit/' has no 'train/' split directory.".into());
+        }
+
+        // Check that gt splits match img splits
+        for split in &img_splits {
+            if !gt_splits.iter().any(|g| g.to_lowercase() == split.to_lowercase()) {
+                warnings.push(format!(
+                    "'leftImg8bit/{}/' exists but 'gtFine/{}/' is missing.",
+                    split, split
+                ));
+            }
+        }
+
+        info.insert("img_splits".into(), img_splits.join(", "));
+        info.insert("gt_splits".into(), gt_splits.join(", "));
+    }
+}
+
+// ── Semantic Segmentation::VOC ──────────────────────────────────────────────
+
+fn validate_voc(
+    root: &std::path::Path,
+    errors: &mut Vec<String>,
+    warnings: &mut Vec<String>,
+    info: &mut std::collections::HashMap<String, String>,
+) {
+    // VOC can be at root or inside VOCdevkit/VOC20xx/
+    let voc_root = if root.join("JPEGImages").is_dir() {
+        root.to_path_buf()
+    } else {
+        // Search one or two levels for VOC20xx
+        let mut found = None;
+        for entry in std::fs::read_dir(root).into_iter().flatten().flatten() {
+            let p = entry.path();
+            if p.is_dir() {
+                if p.join("JPEGImages").is_dir() {
+                    found = Some(p);
+                    break;
+                }
+                // Check one more level (VOCdevkit/VOC2012/)
+                for sub in std::fs::read_dir(&p).into_iter().flatten().flatten() {
+                    if sub.path().is_dir() && sub.path().join("JPEGImages").is_dir() {
+                        found = Some(sub.path());
+                        break;
+                    }
+                }
+                if found.is_some() { break; }
+            }
+        }
+        found.unwrap_or_else(|| root.to_path_buf())
+    };
+
+    let jpeg_dir = voc_root.join("JPEGImages");
+    let seg_class_dir = voc_root.join("SegmentationClass");
+    let image_sets_dir = voc_root.join("ImageSets").join("Segmentation");
+
+    if !jpeg_dir.is_dir() {
+        errors.push("Missing 'JPEGImages/' directory. Expected Pascal VOC layout.".into());
+    } else {
+        let count = count_files_with_exts(&jpeg_dir, IMAGE_EXTS);
+        info.insert("images".into(), count.to_string());
+        if count == 0 {
+            errors.push("'JPEGImages/' has no image files.".into());
+        }
+    }
+
+    if !seg_class_dir.is_dir() {
+        errors.push("Missing 'SegmentationClass/' directory for segmentation masks.".into());
+    } else {
+        let count = count_files_with_exts(&seg_class_dir, MASK_EXTS);
+        info.insert("masks".into(), count.to_string());
+        if count == 0 {
+            errors.push("'SegmentationClass/' has no mask files.".into());
+        }
+    }
+
+    if !image_sets_dir.is_dir() {
+        warnings.push("Missing 'ImageSets/Segmentation/' directory with train.txt / val.txt split files.".into());
+    } else {
+        let has_train_txt = image_sets_dir.join("train.txt").is_file();
+        let has_val_txt = image_sets_dir.join("val.txt").is_file();
+        if !has_train_txt {
+            warnings.push("Missing 'ImageSets/Segmentation/train.txt'.".into());
+        }
+        if !has_val_txt {
+            warnings.push("Missing 'ImageSets/Segmentation/val.txt'.".into());
+        }
+    }
+
+    if voc_root != root {
+        info.insert("voc_root".into(), voc_root.to_string_lossy().to_string());
+    }
 }

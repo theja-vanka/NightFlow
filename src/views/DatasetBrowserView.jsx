@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "preact/hooks";
 import { invoke } from "@tauri-apps/api/core";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { currentProject } from "../state/projects.js";
+import { datasetValidation } from "../state/dashboard.js";
 
 const PAGE_SIZE = 50;
 
@@ -149,6 +150,24 @@ export function DatasetBrowserView() {
     <div class="dataset-browser-view">
       {error && <div class="training-panel-error">{error}</div>}
 
+      {datasetValidation.value && !datasetValidation.value.valid && (
+        <div class="dataset-validation-banner">
+          <div class="dataset-validation-banner-header">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+            Dataset structure is invalid
+          </div>
+          <ul class="dataset-validation-banner-errors">
+            {datasetValidation.value.errors.map((err, i) => (
+              <li key={i}>{err}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Split tabs (Train / Val / Test) */}
       {availableSplits.length > 1 && (
         <div class="dataset-split-tabs">
@@ -173,7 +192,7 @@ export function DatasetBrowserView() {
       {/* 3-column body: sidebar (class dist) + main (images) */}
       <div class="dataset-browser-body">
         {/* Column 1 — Class distribution sidebar */}
-        {classNames.length > 0 && (
+        {classNames.length > 0 && !(datasetValidation.value && !datasetValidation.value.valid) && (
           <div class="dataset-browser-sidebar">
             <div class="dataset-browser-sidebar-scroll">
               <div class="dataset-sidebar-meta">
@@ -233,7 +252,7 @@ export function DatasetBrowserView() {
 
         {/* Columns 2-3 — Image grid */}
         <div class="dataset-browser-main">
-          <div class="dataset-search-bar">
+          <div class={`dataset-search-bar${datasetValidation.value && !datasetValidation.value.valid ? " disabled" : ""}`}>
             <svg class="dataset-search-icon" viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="8.5" cy="8.5" r="5.5" />
               <line x1="13" y1="13" x2="18" y2="18" />
@@ -243,6 +262,7 @@ export function DatasetBrowserView() {
               class="dataset-search-input"
               placeholder="Search by filename or label..."
               value={searchInput}
+              disabled={datasetValidation.value && !datasetValidation.value.valid}
               onInput={(e) => {
                 setSearchInput(e.target.value);
                 setOffset(0);

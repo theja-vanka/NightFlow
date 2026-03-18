@@ -26,7 +26,6 @@ import {
   testPathError,
 } from "../state/projects.js";
 import {
-  wizardTutorialActive,
   wizardTutorialDismissed,
   wizardStepTips,
   maybeStartWizardTutorial,

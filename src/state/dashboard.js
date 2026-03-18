@@ -5,7 +5,6 @@ import {
   projectRuns,
   loadRuns,
   allRuns,
-  addRun,
   loadRunScalars,
 } from "./experiments.js";
 import { currentProject, currentProjectId } from "./projects.js";
@@ -260,6 +259,9 @@ export const datasetPathStatus = signal({
   testPath: null,
 });
 
+// Dataset structure validation result: { valid, errors, warnings, info } or null
+export const datasetValidation = signal(null);
+
 // ── Error helpers ─────────────────────────────────────────────────────────────
 
 export function clearSshConnectionError(projectId = currentProjectId.value) {
@@ -401,6 +403,7 @@ export async function syncDashboard() {
         uvInfo: state.uvInfo,
         envInfo: state.envInfo,
         datasetPathStatus: datasetPathStatus.value,
+        datasetValidation: datasetValidation.value,
         syncLogs: state.syncLogs,
       });
     } catch (e) {
@@ -659,6 +662,45 @@ async function doSync(projectId, abortController) {
         );
       }
       datasetPathStatus.value = status;
+
+      // Validate folder structure (only for folder-based formats on localhost)
+      const folderFormats = ["Folder", "COCO JSON", "COCO", "PNG Masks", "Cityscapes", "VOC"];
+      if (
+        !isSSH &&
+        project.folderPath &&
+        status.folderPath === true &&
+        folderFormats.includes(project.datasetFormat)
+      ) {
+        try {
+          addSyncLog(projectId, "Validating dataset structure...", "info");
+          const validation = await invoke("validate_dataset_structure", {
+            path: project.folderPath,
+            taskType: project.taskType,
+            format: project.datasetFormat,
+          });
+          datasetValidation.value = validation;
+          if (validation.valid) {
+            const parts = [];
+            if (validation.info?.classes) parts.push(`${validation.info.classes} classes`);
+            if (validation.info?.images) parts.push(`${validation.info.images} images`);
+            if (validation.info?.categories) parts.push(`${validation.info.categories} categories`);
+            const summary = parts.length > 0 ? ` (${parts.join(", ")})` : "";
+            addSyncLog(projectId, `✓ Dataset structure valid${summary}`, "success");
+          } else {
+            for (const err of validation.errors) {
+              addSyncLog(projectId, `✗ ${err}`, "error");
+            }
+          }
+          for (const w of validation.warnings || []) {
+            addSyncLog(projectId, `⚠ ${w}`, "warning");
+          }
+        } catch (valErr) {
+          console.warn("[doSync] Dataset validation failed:", valErr);
+          datasetValidation.value = null;
+        }
+      } else {
+        datasetValidation.value = null;
+      }
     }
 
     if (abortController.signal.aborted) throw new Error("AbortError");
@@ -776,6 +818,7 @@ export async function restoreSyncState(projectId) {
     if (metadata.datasetPathStatus) {
       datasetPathStatus.value = metadata.datasetPathStatus;
     }
+    datasetValidation.value = metadata.datasetValidation ?? null;
   } catch (e) {
     console.warn("[restoreSyncState] Failed to restore sync metadata:", e);
   }

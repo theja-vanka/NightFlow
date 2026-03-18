@@ -877,7 +877,6 @@ export function SettingsView() {
                         // Support new format { project, runs } and legacy flat config
                         const config = parsed.project ? { ...parsed.project } : parsed;
                         const runs = Array.isArray(parsed.runs) ? parsed.runs : [];
-                        const oldId = config.id;
                         // Assign new ID
                         config.id = String(
                           Math.max(0, ...projectList.value.map((p) => Number(p.id) || 0)) + 1,
@@ -931,6 +930,7 @@ export function SettingsView() {
               {draft.powerUserMode && <ClearAllDataRow />}
             </div>
           </section>
+
         </>
       )}
 

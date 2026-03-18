@@ -16,6 +16,7 @@ import { RunDetailView } from "./views/RunDetailView.jsx";
 import { CompareRunsView } from "./views/CompareRunsView.jsx";
 import { DatasetBrowserView } from "./views/DatasetBrowserView.jsx";
 import { KeyboardShortcutsModal } from "./components/KeyboardShortcutsModal.jsx";
+import { AboutModal } from "./components/AboutModal.jsx";
 
 // Ensure state modules initialize
 import "./state/theme.js";
@@ -24,6 +25,7 @@ import {
   initTrainingListeners,
   cleanupTrainingListeners,
 } from "./state/training.js";
+import { startUpdateChecker, stopUpdateChecker } from "./state/update.js";
 import { CreateProjectWizard } from "./components/CreateProjectWizard.jsx";
 import { DeleteProjectDialog } from "./components/DeleteProjectDialog.jsx";
 import { EmptyProjectsScreen } from "./components/EmptyProjectsScreen.jsx";
@@ -31,6 +33,7 @@ import { TutorialOverlay } from "./components/TutorialOverlay.jsx";
 import { maybeStartTutorial } from "./state/tutorial.js";
 
 const shortcutsOpen = signal(false);
+export const aboutOpen = signal(false);
 
 function CurrentView() {
   switch (currentPage.value) {
@@ -65,6 +68,9 @@ export function App() {
 
     // Start listening for training events
     initTrainingListeners();
+
+    // Check for updates
+    startUpdateChecker();
 
     // Start tutorial for first-time users
     maybeStartTutorial();
@@ -111,6 +117,7 @@ export function App() {
     return () => {
       clearTimeout(timer);
       cleanupTrainingListeners();
+      stopUpdateChecker();
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
@@ -138,6 +145,10 @@ export function App() {
       <KeyboardShortcutsModal
         open={shortcutsOpen.value}
         onClose={() => (shortcutsOpen.value = false)}
+      />
+      <AboutModal
+        open={aboutOpen.value}
+        onClose={() => (aboutOpen.value = false)}
       />
     </>
   );
