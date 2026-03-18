@@ -3,21 +3,77 @@ use tauri::command;
 use crate::env::python_cmd;
 use crate::home_dir;
 
-#[command]
-pub async fn get_system_metrics(ssh_command: Option<String>) -> Result<String, String> {
-    let python_module = "autotimm.flow.system_metrics";
+/// Inline Python script that collects system metrics without importing autotimm.
+/// This avoids the multi-second startup cost of loading PyTorch/timm via autotimm's __init__.
+const SYSTEM_METRICS_SCRIPT: &str = r#"
+import json,os,shutil,subprocess,sys
+r={}
+r["cpu_cores"]=os.cpu_count()
+try:
+ if sys.platform=="darwin":
+  mt=int(subprocess.check_output(["sysctl","-n","hw.memsize"]).strip())
+  vm=subprocess.check_output(["vm_stat"]).decode()
+  p={}
+  for l in vm.split("\n"):
+   if ":" in l:
+    k,v=l.split(":",1);v=v.strip().rstrip(".")
+    if v.isdigit():p[k.strip()]=int(v)
+  ps=int(subprocess.check_output(["sysctl","-n","vm.pagesize"]).strip())
+  anon=p.get("Anonymous pages",0);st=p.get("Pages stored in compressor",0);wi=p.get("Pages wired down",0)
+  mu=(anon-st)*ps+wi*ps+st*ps
+  r["mem_total"]=mt;r["mem_used"]=max(0,min(mu,mt))
+ elif sys.platform=="win32":
+  import ctypes
+  class M(ctypes.Structure):
+   _fields_=[("dwLength",ctypes.c_ulong),("dwMemoryLoad",ctypes.c_ulong),("ullTotalPhys",ctypes.c_ulonglong),("ullAvailPhys",ctypes.c_ulonglong),("ullTotalPageFile",ctypes.c_ulonglong),("ullAvailPageFile",ctypes.c_ulonglong),("ullTotalVirtual",ctypes.c_ulonglong),("ullAvailVirtual",ctypes.c_ulonglong),("ullAvailExtendedVirtual",ctypes.c_ulonglong)]
+  m=M();m.dwLength=ctypes.sizeof(M);ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m))
+  r["mem_total"]=m.ullTotalPhys;r["mem_used"]=m.ullTotalPhys-m.ullAvailPhys
+ else:
+  with open("/proc/meminfo") as f:lines=f.readlines()
+  mt=mf=ma=0
+  for l in lines:
+   if l.startswith("MemTotal:"):mt=int(l.split()[1])*1024
+   elif l.startswith("MemFree:"):mf=int(l.split()[1])*1024
+   elif l.startswith("MemAvailable:"):ma=int(l.split()[1])*1024
+  if mt>0:r["mem_total"]=mt;r["mem_used"]=mt-(ma if ma>0 else mf)
+except:pass
+try:
+ dp="C:\\\\" if sys.platform=="win32" else "/"
+ u=shutil.disk_usage(dp);r["disk_total"]=u.total;r["disk_used"]=u.used
+except:pass
+try:
+ g=subprocess.check_output(["nvidia-smi","--query-gpu=index,name,utilization.gpu,memory.total,memory.used,temperature.gpu","--format=csv,noheader,nounits"],stderr=subprocess.STDOUT,text=True)
+ gpus=[]
+ for l in g.strip().split("\n"):
+  if not l:continue
+  p=[x.strip() for x in l.split(",")]
+  if len(p)>=6:gpus.append({"index":int(p[0]),"name":p[1],"utilization":float(p[2]) if p[2].isdigit() else 0,"mem_total":float(p[3]),"mem_used":float(p[4]),"temperature":float(p[5]) if p[5].isdigit() else 0})
+ r["gpus"]=gpus
+except:r["gpus"]=[]
+try:
+ if hasattr(os,"getloadavg"):r["loadavg"]=os.getloadavg()
+except:pass
+print(json.dumps(r))
+"#;
 
+#[command]
+pub async fn get_system_metrics(ssh_command: Option<String>, project_path: Option<String>) -> Result<String, String> {
     if let Some(cmd_str) = ssh_command {
         let parts: Vec<String> = cmd_str.split_whitespace().map(String::from).collect();
         if parts.is_empty() {
             return Err("Empty SSH command".to_string());
         }
+
+        // For SSH: run inline script via python3 -c on remote
+        let escaped = SYSTEM_METRICS_SCRIPT.replace('\'', "'\\''");
+        let remote_cmd = format!("python3 -c '{escaped}'");
+
         let mut cmd = tokio::process::Command::new(&parts[0]);
         cmd.args(["-o", "BatchMode=yes", "-o", "ConnectTimeout=5"]);
         for arg in &parts[1..] {
             cmd.arg(arg);
         }
-        cmd.arg(format!("python3 -m {}", python_module));
+        cmd.arg(&remote_cmd);
 
         let output = cmd.output().await.map_err(|e| e.to_string())?;
         if output.status.success() {
@@ -26,9 +82,20 @@ pub async fn get_system_metrics(ssh_command: Option<String>) -> Result<String, S
             Err(String::from_utf8_lossy(&output.stderr).to_string())
         }
     } else {
-        let output = tokio::process::Command::new(python_cmd())
-            .arg("-m")
-            .arg(python_module)
+        let python = if let Some(ref pp) = project_path {
+            let venv_python = crate::env::venv_python(&std::path::PathBuf::from(pp).join(".venv"));
+            if venv_python.exists() {
+                venv_python.to_string_lossy().to_string()
+            } else {
+                python_cmd().to_string()
+            }
+        } else {
+            python_cmd().to_string()
+        };
+
+        let output = tokio::process::Command::new(&python)
+            .arg("-c")
+            .arg(SYSTEM_METRICS_SCRIPT)
             .output()
             .await
             .map_err(|e| e.to_string())?;
@@ -390,9 +457,11 @@ pub async fn push_to_hub(params: PushToHubParams) -> Result<PushToHubResult, Str
             return Err("Invalid SSH command".to_string());
         }
         let escaped_json = config_json.replace('\\', "\\\\").replace('"', "\\\"");
+        // Resolve python on remote: prefer project venv, fall back to python3
+        let venv_python = crate::env::venv_python(&pp_path.join(".venv"));
+        let venv_str = venv_python.to_string_lossy().to_string();
         let remote_cmd = format!(
-            "HF_PUSH_CFG=\"{}\" python3 -m {}",
-            escaped_json, push_module,
+            "HF_PUSH_CFG=\"{escaped_json}\" bash -c 'if [ -x \"{venv_str}\" ]; then \"{venv_str}\" -m {push_module}; else python3 -m {push_module}; fi'",
         );
         tokio::process::Command::new(&parts[0])
             .args(&parts[1..])

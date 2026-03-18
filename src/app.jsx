@@ -24,6 +24,7 @@ import {
   initTrainingListeners,
   cleanupTrainingListeners,
 } from "./state/training.js";
+import { startUpdateChecker, stopUpdateChecker } from "./state/update.js";
 import { CreateProjectWizard } from "./components/CreateProjectWizard.jsx";
 import { DeleteProjectDialog } from "./components/DeleteProjectDialog.jsx";
 import { EmptyProjectsScreen } from "./components/EmptyProjectsScreen.jsx";
@@ -65,6 +66,9 @@ export function App() {
 
     // Start listening for training events
     initTrainingListeners();
+
+    // Check for updates
+    startUpdateChecker();
 
     // Start tutorial for first-time users
     maybeStartTutorial();
@@ -111,6 +115,7 @@ export function App() {
     return () => {
       clearTimeout(timer);
       cleanupTrainingListeners();
+      stopUpdateChecker();
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, []);

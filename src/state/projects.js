@@ -487,7 +487,7 @@ export const wizardStep = signal(0);
 export const wizardData = signal({ ...defaultData });
 export const wizardCwd = signal("");
 
-// Path validation error signals (folder validation removed)
+// Path validation error signals
 export const trainPathError = signal("");
 export const valPathError = signal("");
 export const testPathError = signal("");

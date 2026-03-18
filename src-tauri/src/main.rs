@@ -126,6 +126,7 @@ fn main() {
             fs::browse_dataset,
             fs::detect_dataset_splits,
             fs::validate_file_path,
+            fs::validate_dataset_structure,
             training::start_training,
             training::stop_training,
             training::force_reset_training,

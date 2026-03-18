@@ -1,6 +1,13 @@
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { theme, toggleTheme } from "../state/theme.js";
 import { currentPage } from "../state/router.js";
 import { currentProject } from "../state/projects.js";
+import {
+  updateAvailable,
+  latestVersion,
+  releaseUrl,
+  dismissUpdate,
+} from "../state/update.js";
 
 const titles = {
   dashboard: "Dashboard",
@@ -27,17 +34,38 @@ export function Header() {
           <span class="header-project-badge">{currentProject.value.name}</span>
         )}
       </div>
-      <button
-        class="theme-toggle"
-        onClick={toggleTheme}
-        aria-label="Toggle theme"
-      >
-        <span
-          dangerouslySetInnerHTML={{
-            __html: theme.value === "dark" ? sunIcon : moonIcon,
-          }}
-        />
-      </button>
+      <div class="header-actions">
+        {updateAvailable.value && (
+          <div class="update-badge">
+            <span class="update-badge-dot" />
+            <span class="update-badge-text">v{latestVersion.value} available</span>
+            <button
+              class="update-badge-btn"
+              onClick={() => openUrl(releaseUrl.value)}
+            >
+              Download
+            </button>
+            <button
+              class="update-badge-dismiss"
+              onClick={dismissUpdate}
+              title="Dismiss"
+            >
+              &times;
+            </button>
+          </div>
+        )}
+        <button
+          class="theme-toggle"
+          onClick={toggleTheme}
+          aria-label="Toggle theme"
+        >
+          <span
+            dangerouslySetInnerHTML={{
+              __html: theme.value === "dark" ? sunIcon : moonIcon,
+            }}
+          />
+        </button>
+      </div>
     </header>
   );
 }

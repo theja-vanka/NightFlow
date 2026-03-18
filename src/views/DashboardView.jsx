@@ -18,6 +18,7 @@ import {
   syncShowingCompletion,
   syncLogs,
   datasetPathStatus,
+  datasetValidation,
   condaInfo,
   uvInfo,
   envInfo,
@@ -172,6 +173,7 @@ function SshErrorModal() {
 function DatasetStatusBanner() {
   const project = currentProject.value;
   const status = datasetPathStatus.value;
+  const validation = datasetValidation.value;
   if (!project) return null;
 
   const fmt = project.datasetFormat;
@@ -207,6 +209,20 @@ function DatasetStatusBanner() {
   }
 
   if (paths.length === 0) return null;
+
+  // Determine overall structure status for the folder path row
+  const structureValid = validation?.valid;
+  const structureErrors = validation?.errors || [];
+  const structureWarnings = validation?.warnings || [];
+  const structureInfo = validation?.info || {};
+
+  // Build info chips from validation stats
+  const infoChips = [];
+  if (structureInfo.classes) infoChips.push(`${structureInfo.classes} classes`);
+  if (structureInfo.images) infoChips.push(`${structureInfo.images} images`);
+  if (structureInfo.masks) infoChips.push(`${structureInfo.masks} masks`);
+  if (structureInfo.categories) infoChips.push(`${structureInfo.categories} categories`);
+  if (structureInfo.splits) infoChips.push(`splits: ${structureInfo.splits}`);
 
   return (
     <div class="dataset-status-banner">
@@ -244,7 +260,39 @@ function DatasetStatusBanner() {
             </span>
           </div>
         ))}
+        {validation && !usesSplitFiles && (
+          <div class={`dataset-status-item ${structureValid ? "" : "dataset-status-item--invalid"}`}>
+            <span
+              class={`dataset-status-dot ${structureValid ? "found" : "missing"}`}
+            />
+            <span class="dataset-status-label">Structure</span>
+            <span class="dataset-status-path">
+              {structureValid
+                ? infoChips.join(" · ") || "Valid"
+                : structureErrors[0] || "Invalid structure"}
+            </span>
+            <span
+              class={`dataset-status-tag ${structureValid ? "found" : "missing"}`}
+            >
+              {structureValid ? "Valid" : "Invalid"}
+            </span>
+          </div>
+        )}
       </div>
+      {!usesSplitFiles && structureErrors.length > 1 && (
+        <div class="dataset-validation-details">
+          {structureErrors.slice(1).map((e, i) => (
+            <div key={`e${i}`} class="dataset-validation-line dataset-validation-error">{e}</div>
+          ))}
+        </div>
+      )}
+      {!usesSplitFiles && structureWarnings.length > 0 && (
+        <div class="dataset-validation-details">
+          {structureWarnings.map((w, i) => (
+            <div key={`w${i}`} class="dataset-validation-line dataset-validation-warn">{w}</div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -598,6 +646,8 @@ function StartTrainingButton() {
   const testCommand = buildTestCommand(project);
   const commandDisplay = buildCommandDisplay(project);
   const testCommandDisplay = buildCommandDisplay(project, "test");
+  const validation = datasetValidation.value;
+  const datasetInvalid = validation && !validation.valid;
 
   const handleTrainClick = async () => {
     const runId = crypto.randomUUID();
@@ -717,7 +767,8 @@ function StartTrainingButton() {
         <button
           class="start-training-btn"
           onClick={handleTrainClick}
-          disabled={active}
+          disabled={active || datasetInvalid}
+          title={datasetInvalid ? "Fix dataset errors before training" : undefined}
         >
           <svg
             width="16"
@@ -770,6 +821,16 @@ function StartTrainingButton() {
       </div>
       {queueLength.value > 0 && (
         <span class="queue-indicator">Queue: {queueLength.value} remaining</span>
+      )}
+      {datasetInvalid && (
+        <div class="dataset-invalid-msg">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          Dataset structure has errors — fix them before training
+        </div>
       )}
     </div>
   );
