@@ -9,6 +9,7 @@ import {
   openDeleteDialog,
 } from "../state/projects.js";
 import { sshConnected, dashboardSynced } from "../state/dashboard.js";
+import { aboutOpen } from "../app.jsx";
 
 const navItems = [
   {
@@ -77,9 +78,13 @@ export function Sidebar() {
 
   return (
     <nav class="sidebar">
-      <div class="sidebar-logo">
+      <button
+        class="sidebar-logo"
+        onClick={() => (aboutOpen.value = true)}
+        title="About NightFlow"
+      >
         <img src="/assets/image.png" alt="NightFlow" width="28" height="28" />
-      </div>
+      </button>
       <div class="sidebar-nav">
         {visibleNavItems.map((item) => (
           <button

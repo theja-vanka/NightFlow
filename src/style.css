@@ -177,6 +177,21 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: center;
+  background: none;
+  border: none;
+  padding: 4px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.sidebar-logo:hover {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  transform: scale(1.08);
+}
+
+.sidebar-logo:active {
+  transform: scale(0.96);
 }
 
 .sidebar-logo img {
@@ -1988,99 +2003,299 @@ textarea {
   border-color: #e55;
 }
 
-/* — About section — */
+/* — About modal — */
 
-.about-section {
-  padding: 20px;
+.about-modal {
+  max-width: 420px;
+  width: 90%;
+  overflow: hidden;
+  padding: 0;
+  border-radius: 16px;
 }
 
-.about-header {
+.about-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  background: color-mix(in srgb, var(--bg-surface) 60%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid color-mix(in srgb, var(--border-color) 40%, transparent);
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px;
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 16px;
+  justify-content: center;
+  border-radius: 8px;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.about-modal-close:hover {
+  background: color-mix(in srgb, var(--bg-surface) 80%, transparent);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+.about-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 24px 28px;
+  text-align: center;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 0%, color-mix(in srgb, var(--accent) 6%, transparent), transparent),
+    var(--bg-surface);
+}
+
+.about-hero-glow {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%);
+  pointer-events: none;
 }
 
 .about-logo {
-  width: 56px;
-  height: 56px;
-  border-radius: 12px;
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
   object-fit: contain;
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 4px 24px var(--shadow-color);
 }
 
-.about-title-group {
+.about-hero-text {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  position: relative;
+  z-index: 1;
 }
 
 .about-app-name {
-  font-size: 1.2rem;
+  font-size: 1.35rem;
   font-weight: 700;
+  letter-spacing: -0.02em;
   color: var(--text-primary);
 }
 
-.about-version {
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  font-weight: 500;
+.about-version-badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
 }
 
-.about-description {
-  font-size: 0.84rem;
-  color: var(--text-secondary);
-  line-height: 1.55;
-  margin-bottom: 18px;
+.about-tagline {
+  margin-top: 10px;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+  position: relative;
+  z-index: 1;
+  max-width: 380px;
+}
+
+.about-body {
+  padding: 20px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  border-top: 1px solid color-mix(in srgb, var(--border-color) 50%, transparent);
 }
 
 .about-details {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 18px;
-  padding: 12px;
-  border-radius: 8px;
-  background: var(--bg-secondary, rgba(128, 128, 128, 0.05));
+  gap: 0;
 }
 
 .about-detail-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
   font-size: 0.8rem;
+  transition: background 0.15s;
+}
+
+.about-detail-row:hover {
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
+}
+
+.about-detail-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 .about-detail-label {
   color: var(--text-muted);
   font-weight: 500;
+  min-width: 70px;
 }
 
 .about-detail-value {
   color: var(--text-primary);
   font-weight: 500;
+  margin-left: auto;
+}
+
+.about-platform-chip {
+  text-transform: capitalize;
+}
+
+.about-tech {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.about-tech-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.about-tech-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.about-chip {
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  background: transparent;
+  transition: all 0.15s;
+}
+
+.about-chip:hover {
+  border-color: var(--text-muted);
+  color: var(--text-primary);
 }
 
 .about-links {
   display: flex;
+  justify-content: center;
   gap: 8px;
   flex-wrap: wrap;
 }
 
 .about-link-btn {
-  padding: 6px 14px;
-  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: 9px;
   border: 1px solid var(--border-color);
   background: transparent;
   color: var(--text-secondary);
   font-size: 0.78rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.2s;
 }
 
 .about-link-btn:hover {
   border-color: var(--text-muted);
   color: var(--text-primary);
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px var(--shadow-color);
+}
+
+.about-link-btn:active {
+  transform: translateY(0);
+}
+
+.about-link-btn svg {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.about-link-btn:hover svg {
+  opacity: 1;
+}
+
+.about-footer {
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  opacity: 0.7;
+  padding-top: 4px;
+}
+
+/* — About modal: light-mode overrides — */
+
+[data-theme="light"] .about-hero {
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 0%, rgba(0, 0, 0, 0.03), transparent),
+    var(--bg-surface);
+}
+
+[data-theme="light"] .about-hero-glow {
+  background: radial-gradient(circle, rgba(0, 0, 0, 0.04), transparent 70%);
+}
+
+[data-theme="light"] .about-version-badge {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .about-detail-icon {
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+}
+
+[data-theme="light"] .about-detail-row:hover {
+  background: var(--bg-secondary);
+}
+
+[data-theme="light"] .about-modal-close {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: var(--border-color);
+}
+
+[data-theme="light"] .about-modal-close:hover {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="light"] .about-link-btn:hover {
+  background: var(--bg-secondary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .about-chip:hover {
+  background: var(--bg-secondary);
 }
 
 .settings-action-btn {
