@@ -12,6 +12,7 @@ mod training;
 use std::collections::HashMap;
 use std::sync::Mutex;
 use tauri::{Manager, command, window::Color};
+use tauri::menu::{AboutMetadata, MenuBuilder, SubmenuBuilder};
 
 // ── Shared utility ───────────────────────────────────────────────────────────
 
@@ -96,6 +97,61 @@ fn main() {
             if let Some(splash) = app.get_webview_window("splashscreen") {
                 let _ = splash.set_background_color(Some(Color(0, 0, 0, 0)));
             }
+
+            // Build a custom menu with enriched About metadata
+            let about_metadata = AboutMetadata {
+                name: Some("NightFlow".into()),
+                version: Some(app.package_info().version.to_string()),
+                copyright: Some("Copyright \u{00A9} 2025 Krishnatheja Vanka".into()),
+                comments: Some("Manage and analyze deep learning experiments locally.\nBuilt with Tauri, Preact, and PyTorch Lightning.".into()),
+                website: Some("https://github.com/theja-vanka/NightFlow".into()),
+                website_label: Some("GitHub Repository".into()),
+                authors: Some(vec!["Krishnatheja Vanka".into()]),
+                license: Some("Apache-2.0".into()),
+                ..Default::default()
+            };
+
+            let app_submenu = SubmenuBuilder::new(app, "NightFlow")
+                .about(Some(about_metadata))
+                .separator()
+                .services()
+                .separator()
+                .hide()
+                .hide_others()
+                .show_all()
+                .separator()
+                .quit()
+                .build()?;
+
+            let edit_submenu = SubmenuBuilder::new(app, "Edit")
+                .undo()
+                .redo()
+                .separator()
+                .cut()
+                .copy()
+                .paste()
+                .select_all()
+                .build()?;
+
+            let view_submenu = SubmenuBuilder::new(app, "View")
+                .fullscreen()
+                .build()?;
+
+            let window_submenu = SubmenuBuilder::new(app, "Window")
+                .minimize()
+                .separator()
+                .close_window()
+                .build()?;
+
+            let menu = MenuBuilder::new(app)
+                .item(&app_submenu)
+                .item(&edit_submenu)
+                .item(&view_submenu)
+                .item(&window_submenu)
+                .build()?;
+
+            app.set_menu(menu)?;
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

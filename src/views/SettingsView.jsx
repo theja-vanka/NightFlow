@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "preact/hooks";
 import { invoke } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { theme, toggleTheme } from "../state/theme.js";
+import { currentVersion } from "../state/update.js";
 import {
   currentProject,
   updateProject,
@@ -928,6 +930,76 @@ export function SettingsView() {
                 </button>
               </div>
               {draft.powerUserMode && <ClearAllDataRow />}
+            </div>
+          </section>
+
+          {/* About */}
+          <section class="settings-section">
+            <div class="settings-section-header">
+              <h2 class="settings-heading">About</h2>
+            </div>
+            <div class="settings-card">
+              <div class="about-section">
+                <div class="about-header">
+                  <img
+                    src="/nightflow-logo.png"
+                    alt="NightFlow"
+                    class="about-logo"
+                    onError={(e) => { e.target.style.display = "none"; }}
+                  />
+                  <div class="about-title-group">
+                    <div class="about-app-name">NightFlow</div>
+                    <div class="about-version">
+                      Version {currentVersion.value || "0.1.0"}
+                    </div>
+                  </div>
+                </div>
+                <p class="about-description">
+                  A native desktop app for managing and analyzing deep learning
+                  experiments. Train, compare, and visualize models locally with
+                  full privacy — no cloud required.
+                </p>
+                <div class="about-details">
+                  <div class="about-detail-row">
+                    <span class="about-detail-label">Author</span>
+                    <span class="about-detail-value">Krishnatheja Vanka</span>
+                  </div>
+                  <div class="about-detail-row">
+                    <span class="about-detail-label">License</span>
+                    <span class="about-detail-value">Apache-2.0</span>
+                  </div>
+                  <div class="about-detail-row">
+                    <span class="about-detail-label">Built with</span>
+                    <span class="about-detail-value">
+                      Tauri v2, Preact, PyTorch Lightning
+                    </span>
+                  </div>
+                  <div class="about-detail-row">
+                    <span class="about-detail-label">Platform</span>
+                    <span class="about-detail-value">{platform.value || "unknown"}</span>
+                  </div>
+                </div>
+                <div class="about-links">
+                  <button
+                    class="about-link-btn"
+                    onClick={() => openUrl("https://github.com/theja-vanka/NightFlow")}
+                  >
+                    GitHub
+                  </button>
+                  <button
+                    class="about-link-btn"
+                    onClick={() => openUrl("https://github.com/theja-vanka/NightFlow/issues")}
+                  >
+                    Report Issue
+                  </button>
+                  <button
+                    class="about-link-btn"
+                    onClick={() => openUrl("https://github.com/theja-vanka/NightFlow/releases")}
+                  >
+                    Releases
+                  </button>
+                </div>
+              </div>
             </div>
           </section>
         </>

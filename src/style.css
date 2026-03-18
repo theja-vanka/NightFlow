@@ -1988,6 +1988,101 @@ textarea {
   border-color: #e55;
 }
 
+/* — About section — */
+
+.about-section {
+  padding: 20px;
+}
+
+.about-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.about-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  object-fit: contain;
+}
+
+.about-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.about-app-name {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.about-version {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.about-description {
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin-bottom: 18px;
+}
+
+.about-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 18px;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--bg-secondary, rgba(128, 128, 128, 0.05));
+}
+
+.about-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.about-detail-label {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.about-detail-value {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.about-links {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.about-link-btn {
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.about-link-btn:hover {
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+}
+
 .settings-action-btn {
   display: flex;
   align-items: center;
