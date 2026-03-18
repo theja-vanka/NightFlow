@@ -2848,6 +2848,42 @@ textarea {
   background: var(--bg-input);
 }
 
+.sidebar-project-tooltip {
+  position: fixed;
+  transform: translateY(-50%);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 8px var(--shadow-color);
+  z-index: 9999;
+}
+
+.sidebar-project-tooltip::before {
+  content: "";
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 5px solid transparent;
+  border-right-color: var(--border-color);
+}
+
+.sidebar-project-tooltip::after {
+  content: "";
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 4px solid transparent;
+  border-right-color: var(--bg-surface);
+}
+
 .sidebar-add-btn {
   width: 36px;
   height: 36px;

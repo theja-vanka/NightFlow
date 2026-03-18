@@ -1,4 +1,4 @@
-import { useState } from "preact/hooks";
+import { useState, useCallback } from "preact/hooks";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { currentPage, navigate } from "../state/router.js";
 import {
@@ -52,6 +52,14 @@ const chevronIcon = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none"
 
 export function Sidebar() {
   const [projectsOpen, setProjectsOpen] = useState(true);
+  const [tooltip, setTooltip] = useState(null);
+
+  const showTooltip = useCallback((e, name) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setTooltip({ name, top: rect.top + rect.height / 2, left: rect.right + 10 });
+  }, []);
+
+  const hideTooltip = useCallback(() => setTooltip(null), []);
 
   const synced = dashboardSynced.value;
   const connected = sshConnected.value;
@@ -110,7 +118,8 @@ export function Sidebar() {
                 <button
                   class={`sidebar-project-btn${currentProjectId.value === p.id ? " active" : ""}`}
                   onClick={() => selectProject(p.id)}
-                  title={p.name}
+                  onMouseEnter={(e) => showTooltip(e, p.name)}
+                  onMouseLeave={hideTooltip}
                 >
                   {p.name[0].toUpperCase()}
                 </button>
@@ -149,6 +158,14 @@ export function Sidebar() {
           <line x1="14" y1="2" x2="14" y2="4" />
         </svg>
       </button>
+      {tooltip && (
+        <div
+          class="sidebar-project-tooltip"
+          style={{ top: `${tooltip.top}px`, left: `${tooltip.left}px` }}
+        >
+          {tooltip.name}
+        </div>
+      )}
     </nav>
   );
 }
