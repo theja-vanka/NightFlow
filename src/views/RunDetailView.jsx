@@ -24,14 +24,14 @@ const METRIC_COLORS = [
 ];
 
 function fmtMetric(v) {
-  if (v == null) return "—";
+  if (v == null || !Number.isFinite(v)) return "—";
   if (Math.abs(v) < 0.001 && v !== 0) return v.toExponential(2);
   if (Math.abs(v) < 1) return v.toFixed(4);
   return v.toFixed(2);
 }
 
 function BarMetricCard({ label, value, index }) {
-  const pct = Math.min(Math.abs(value) * 100, 100);
+  const pct = Number.isFinite(value) ? Math.min(Math.abs(value) * 100, 100) : 0;
   const color = METRIC_COLORS[index % METRIC_COLORS.length];
   return (
     <div class="metric-card">
@@ -458,13 +458,13 @@ export function RunDetailView() {
         {run.epochs != null && (
           <span class="run-meta-tag">Epochs: {run.epochs}</span>
         )}
-        {run.bestAcc != null && (
+        {run.bestAcc != null && Number.isFinite(run.bestAcc) && (
           <span class="run-meta-tag">Val Acc: {run.bestAcc.toFixed(4)}</span>
         )}
-        {run.testAcc != null && (
+        {run.testAcc != null && Number.isFinite(run.testAcc) && (
           <span class="run-meta-tag">Test Acc: {run.testAcc.toFixed(4)}</span>
         )}
-        {run.valLoss != null && (
+        {run.valLoss != null && Number.isFinite(run.valLoss) && (
           <span class="run-meta-tag">Val Loss: {run.valLoss.toFixed(4)}</span>
         )}
         {run.status && <span class="run-meta-tag">Status: {run.status}</span>}
@@ -624,7 +624,10 @@ export function RunDetailView() {
                       const data =
                         typeof points[0] === "number"
                           ? points
-                          : points.map((s) => s.value);
+                          : points.map((s) => ({
+                              epoch: s.step ?? s.epoch ?? 0,
+                              value: s.value,
+                            }));
                       return (
                         <ChartPanel key={tag} title={stripPrefix(tag)}>
                           <LineChart

@@ -142,7 +142,10 @@ export function CompareRunsView() {
                                             const data =
                                                 typeof points[0] === "number"
                                                     ? points
-                                                    : points.map((s) => s.value);
+                                                    : points.map((s) => ({
+                                                        epoch: s.step ?? s.epoch ?? 0,
+                                                        value: s.value,
+                                                      }));
                                             series.push({
                                                 label: r.name || r.id,
                                                 data

@@ -151,8 +151,8 @@ export async function loadRunScalars(run, force = false) {
   if (!project?.projectPath) return null;
 
   try {
-    // 1. Try CSV parser first (preferred source)
-    let scalars = await invoke("parse_csv_run", {
+    // 1. Try CSV parser
+    let csvScalars = await invoke("parse_csv_run", {
       projectPath: project.projectPath,
       runId: run.id,
     }).catch((err) => {
@@ -160,23 +160,25 @@ export async function loadRunScalars(run, force = false) {
       return null;
     });
 
-    // 2. Also try JSONL — merge any tags not already in CSV (e.g. test metrics)
+    // 2. Try JSONL parser
     const jsonlScalars = await invoke("parse_run_jsonl", {
       projectPath: project.projectPath,
       runId: run.id,
     }).catch(() => null);
 
-    if (jsonlScalars && Object.keys(jsonlScalars).length > 0) {
-      if (!scalars || Object.keys(scalars).length === 0) {
-        scalars = jsonlScalars;
-      } else {
-        // Merge: add JSONL tags that are missing from CSV
-        for (const [tag, points] of Object.entries(jsonlScalars)) {
-          if (!scalars[tag]) {
-            scalars[tag] = points;
-          }
+    // 3. Merge: for each tag, keep whichever source has more data points.
+    //    CSVLogger can be overwritten when test runs as a separate process,
+    //    losing train/val history — JSONL is append-only and more reliable.
+    let scalars = null;
+    if (csvScalars && jsonlScalars) {
+      scalars = { ...csvScalars };
+      for (const [tag, points] of Object.entries(jsonlScalars)) {
+        if (!scalars[tag] || points.length > scalars[tag].length) {
+          scalars[tag] = points;
         }
       }
+    } else {
+      scalars = jsonlScalars || csvScalars;
     }
 
     const updates = {};
