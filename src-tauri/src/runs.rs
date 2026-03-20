@@ -69,15 +69,15 @@ pub fn parse_run_jsonl(
         for (tag, val) in metrics {
             if let Some(num) = val.as_f64() {
                 let entry = scalars.entry(tag.clone()).or_default();
-                entry.push(serde_json::json!({ "step": epoch, "value": num }));
+                entry.push(serde_json::json!({ "epoch": epoch, "value": num }));
             }
         }
     }
 
     for points in scalars.values_mut() {
         points.sort_by(|a, b| {
-            let sa = a.get("step").and_then(|v| v.as_i64()).unwrap_or(0);
-            let sb = b.get("step").and_then(|v| v.as_i64()).unwrap_or(0);
+            let sa = a.get("epoch").and_then(|v| v.as_i64()).unwrap_or(0);
+            let sb = b.get("epoch").and_then(|v| v.as_i64()).unwrap_or(0);
             sa.cmp(&sb)
         });
     }
@@ -117,6 +117,7 @@ pub fn parse_csv_run(
 
     if let Some(header_line) = lines.next() {
         let headers: Vec<&str> = header_line.split(',').collect();
+        let epoch_idx = headers.iter().position(|&h| h == "epoch");
         let step_idx = headers.iter().position(|&h| h == "step").unwrap_or(0);
 
         for line in lines {
@@ -125,17 +126,19 @@ pub fn parse_csv_run(
                 continue;
             }
 
-            let step: i64 = parts.get(step_idx).and_then(|s| s.parse().ok()).unwrap_or(0);
+            // Prefer epoch column, fall back to step
+            let epoch: i64 = epoch_idx
+                .and_then(|idx| parts.get(idx).and_then(|s| s.parse().ok()))
+                .unwrap_or_else(|| parts.get(step_idx).and_then(|s| s.parse().ok()).unwrap_or(0));
 
             for (i, &val_str) in parts.iter().enumerate() {
-                if i == step_idx { continue; }
+                if Some(i) == epoch_idx || i == step_idx { continue; }
                 if let Some(header) = headers.get(i) {
-                    if *header == "epoch" { continue; }
                     if val_str.is_empty() { continue; }
 
                     if let Ok(num) = val_str.parse::<f64>() {
                         let entry = scalars.entry(header.to_string()).or_default();
-                        entry.push(serde_json::json!({ "step": step, "value": num }));
+                        entry.push(serde_json::json!({ "epoch": epoch, "value": num }));
                     }
                 }
             }
@@ -144,8 +147,8 @@ pub fn parse_csv_run(
 
     for points in scalars.values_mut() {
         points.sort_by(|a, b| {
-            let sa = a.get("step").and_then(|v| v.as_i64()).unwrap_or(0);
-            let sb = b.get("step").and_then(|v| v.as_i64()).unwrap_or(0);
+            let sa = a.get("epoch").and_then(|v| v.as_i64()).unwrap_or(0);
+            let sb = b.get("epoch").and_then(|v| v.as_i64()).unwrap_or(0);
             sa.cmp(&sb)
         });
     }

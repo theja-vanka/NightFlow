@@ -4016,6 +4016,16 @@ select.wizard-input {
   color: var(--text-muted);
 }
 
+.wizard-coming-soon-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  padding: 2px 8px;
+  border-radius: 8px;
+  margin-top: 2px;
+}
+
 .wizard-category-models {
   font-size: 0.68rem;
   font-family: var(--font-mono, monospace);

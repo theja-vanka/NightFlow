@@ -131,11 +131,11 @@ export function TrainingPanel() {
                   .replace(/^test\//, "")
                   .replace(/_/g, " ");
                 const displayVal =
-                  typeof val === "number"
+                  typeof val === "number" && Number.isFinite(val)
                     ? val < 1 && val > -1
                       ? val.toFixed(4)
                       : val.toFixed(2)
-                    : val;
+                    : typeof val === "number" ? "—" : val;
                 return (
                   <div class="training-stat" key={key}>
                     <span class="training-stat-label">{label}</span>
@@ -228,11 +228,11 @@ export function TrainingPanel() {
                       : "";
                 const displayLabel = prefix ? `${prefix} ${label}` : label;
                 const displayVal =
-                  typeof val === "number"
+                  typeof val === "number" && Number.isFinite(val)
                     ? val < 1 && val > -1
                       ? val.toFixed(4)
                       : val.toFixed(2)
-                    : val;
+                    : typeof val === "number" ? "—" : val;
                 return (
                   <div class="training-stat" key={key}>
                     <span class="training-stat-label">{displayLabel}</span>
@@ -291,11 +291,11 @@ export function TrainingPanel() {
                   .replace(/^test\//, "")
                   .replace(/_/g, " ");
                 const displayVal =
-                  typeof val === "number"
+                  typeof val === "number" && Number.isFinite(val)
                     ? val < 1 && val > -1
                       ? val.toFixed(4)
                       : val.toFixed(2)
-                    : val;
+                    : typeof val === "number" ? "—" : val;
                 return (
                   <div class="training-stat" key={key}>
                     <span class="training-stat-label">{label}</span>

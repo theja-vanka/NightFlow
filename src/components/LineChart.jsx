@@ -6,21 +6,51 @@ export function LineChart({
   xLabel = "Epoch",
 }) {
   // series: [{ label, data, dash? }]
+  // data can be: number[] OR { epoch, value }[] OR { step, value }[]
   if (!series || !series.length) return <div class="chart-empty">No data</div>;
 
   const pad = { top: 18, right: 14, bottom: 28, left: 40 };
   const cw = width - pad.left - pad.right;
   const ch = height - pad.top - pad.bottom;
 
-  const allValues = series.flatMap((s) => s.data).filter((v) => Number.isFinite(v));
+  // Normalize each series data into [{ epoch, value }]
+  // Deduplicate points sharing the same epoch (e.g. step-level train metrics
+  // from CSVLogger) by keeping only the last value per epoch.
+  const normalized = series.map((s) => {
+    if (!s.data || !s.data.length) return { ...s, points: [] };
+    let raw;
+    if (typeof s.data[0] === "number") {
+      raw = s.data.map((v, i) => ({ epoch: i, value: v }));
+    } else {
+      raw = s.data.map((p) => ({
+        epoch: p.epoch ?? p.step ?? 0,
+        value: p.value,
+      }));
+    }
+    // Deduplicate: keep last value per epoch
+    const byEpoch = new Map();
+    for (const p of raw) byEpoch.set(p.epoch, p);
+    return { ...s, points: Array.from(byEpoch.values()) };
+  });
+
+  const allValues = normalized
+    .flatMap((s) => s.points.map((p) => p.value))
+    .filter((v) => Number.isFinite(v));
   if (!allValues.length) return <div class="chart-empty">No valid data</div>;
-  const maxLen = Math.max(...series.map((s) => s.data.length));
+
+  const allEpochs = normalized
+    .flatMap((s) => s.points.map((p) => p.epoch))
+    .filter((v) => Number.isFinite(v));
+  const epochMin = Math.min(...allEpochs);
+  const epochMax = Math.max(...allEpochs);
+  const epochRange = epochMax - epochMin || 1;
+
   const yMin = Math.min(...allValues);
   const yMax = Math.max(...allValues);
   const yRange = yMax - yMin || 1;
 
-  function toX(i) {
-    return pad.left + (i / Math.max(maxLen - 1, 1)) * cw;
+  function toX(epoch) {
+    return pad.left + ((epoch - epochMin) / epochRange) * cw;
   }
   function toY(v) {
     if (!Number.isFinite(v)) return pad.top + ch;
@@ -34,10 +64,10 @@ export function LineChart({
     (_, i) => yMin + (yRange * i) / (yTicks - 1),
   );
 
-  // X-axis ticks
-  const xTicks = Math.min(6, maxLen);
+  // X-axis ticks (based on epoch range)
+  const xTicks = Math.min(6, epochRange + 1);
   const xTickValues = Array.from({ length: xTicks }, (_, i) =>
-    Math.round((i / (xTicks - 1)) * (maxLen - 1)),
+    Math.round(epochMin + (i / (xTicks - 1)) * epochRange),
   );
 
   const strokes = [
@@ -101,14 +131,14 @@ export function LineChart({
       ))}
 
       {/* X labels */}
-      {xTickValues.map((idx) => (
+      {xTickValues.map((ep) => (
         <text
-          x={toX(idx)}
+          x={toX(ep)}
           y={pad.top + ch + 20}
           text-anchor="middle"
           class="chart-label"
         >
-          {idx}
+          {ep}
         </text>
       ))}
 
@@ -132,13 +162,14 @@ export function LineChart({
       </text>
 
       {/* Data lines */}
-      {series.map((s, si) => {
+      {normalized.map((s, si) => {
         // Split into segments at NaN/Infinity gaps so the line breaks cleanly
         const segments = [];
         let current = [];
-        for (let i = 0; i < s.data.length; i++) {
-          if (Number.isFinite(s.data[i])) {
-            current.push(`${toX(i).toFixed(1)},${toY(s.data[i]).toFixed(1)}`);
+        for (let i = 0; i < s.points.length; i++) {
+          const p = s.points[i];
+          if (Number.isFinite(p.value)) {
+            current.push(`${toX(p.epoch).toFixed(1)},${toY(p.value).toFixed(1)}`);
           } else if (current.length) {
             segments.push(current.join(" "));
             current = [];

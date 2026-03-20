@@ -1228,20 +1228,35 @@ function StepTaskType() {
       </p>
       <div class="wizard-task-layout">
         <div class="wizard-category-list">
-          {TASK_TYPES.map((t) => (
-            <button
-              key={t.id}
-              class={`wizard-category${d.taskType === t.id ? " selected" : ""}`}
-              onClick={() => {
-                wizardSetField("taskType", t.id);
-                wizardSetField("datasetFormat", "");
-                wizardSetField("lossFn", "");
-              }}
-            >
-              <span class="wizard-category-name">{t.label}</span>
-              <span class="wizard-category-desc">{t.desc}</span>
-            </button>
-          ))}
+          {TASK_TYPES.map((t) => {
+            const isDisabled =
+              t.id === "Multi-Label Classification" ||
+              t.id === "Semantic Segmentation" ||
+              t.id === "Instance Segmentation";
+            return (
+              <button
+                key={t.id}
+                class={`wizard-category${d.taskType === t.id ? " selected" : ""}${isDisabled ? " disabled" : ""}`}
+                onClick={
+                  isDisabled
+                    ? undefined
+                    : () => {
+                        wizardSetField("taskType", t.id);
+                        wizardSetField("datasetFormat", "");
+                        wizardSetField("lossFn", "");
+                      }
+                }
+                disabled={isDisabled}
+                style={isDisabled ? { opacity: 0.5, cursor: "not-allowed" } : {}}
+              >
+                <span class="wizard-category-name">{t.label}</span>
+                <span class="wizard-category-desc">{t.desc}</span>
+                {isDisabled && (
+                  <span class="wizard-coming-soon-badge">Coming soon</span>
+                )}
+              </button>
+            );
+          })}
         </div>
         {selectedTask && (
           <div class="wizard-task-preview">
