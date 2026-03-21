@@ -1,6 +1,6 @@
-export function SummaryCard({ label, value, icon }) {
+export function SummaryCard({ label, value, icon, title }) {
   return (
-    <div class="summary-card">
+    <div class="summary-card" tabIndex="0" title={title}>
       <div
         class="summary-card-icon"
         dangerouslySetInnerHTML={{ __html: icon }}

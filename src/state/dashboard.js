@@ -196,6 +196,7 @@ export const stats = computed(() => {
     queued: queued.length,
     bestAcc,
     bestTestAcc,
+    activeRunName: running.length > 0 ? (running[0].name || running[0].id) : null,
   };
 });
 

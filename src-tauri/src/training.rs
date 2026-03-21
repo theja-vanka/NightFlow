@@ -11,6 +11,31 @@ use crate::env::{get_shell_env, resolve_conda_path};
 const TRAINING_META_FILE: &str = ".nightflow_training.json";
 const TRAINING_LOG_FILE_DEFAULT: &str = "training_events.jsonl";
 
+/// Kill a process and its entire process tree.
+/// On Unix we used `setsid()` when spawning, so the child is a session/group
+/// leader — sending the signal to the negative PID kills the whole group.
+fn kill_process_tree(pid: u32) {
+    if pid == 0 {
+        return;
+    }
+    #[cfg(unix)]
+    unsafe {
+        // Kill the entire process group (negative PID)
+        libc::kill(-(pid as i32), libc::SIGTERM);
+        // Also send SIGTERM to the process itself in case it's not in its own group
+        libc::kill(pid as i32, libc::SIGTERM);
+    }
+    #[cfg(windows)]
+    {
+        // /T = kill child processes, /F = force
+        let _ = std::process::Command::new("taskkill")
+            .args(["/PID", &pid.to_string(), "/T", "/F"])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status();
+    }
+}
+
 /// Managed state for training processes (keyed by project/session id).
 pub struct TrainingState {
     pub processes: Mutex<HashMap<String, TrainingProcess>>,
@@ -660,26 +685,20 @@ pub async fn stop_training(
         }
         procs.remove(&session_id);
     }
-    if let Some(mut child) = child_to_kill {
+    if let Some(ref mut child) = child_to_kill {
+        // Kill the process group first (covers child subprocesses), then the handle
+        if let Some(pid) = child.id() {
+            kill_process_tree(pid);
+        }
         let _ = child.kill().await;
     }
     if let Some(ref dir) = project_path {
         let expanded = expand_tilde(dir);
         if let Some(meta) = read_training_meta(&expanded)
+            && meta.pid != 0
             && is_pid_alive(meta.pid)
         {
-            #[cfg(unix)]
-            unsafe {
-                libc::kill(meta.pid as i32, libc::SIGTERM);
-            }
-            #[cfg(windows)]
-            {
-                let _ = std::process::Command::new("taskkill")
-                    .args(["/PID", &meta.pid.to_string(), "/F"])
-                    .stdout(std::process::Stdio::null())
-                    .stderr(std::process::Stdio::null())
-                    .status();
-            }
+            kill_process_tree(meta.pid);
         }
         remove_training_meta(&expanded);
     }
@@ -709,20 +728,10 @@ pub async fn force_reset_training(
     if let Some(ref dir) = project_path {
         let expanded = expand_tilde(dir);
         if let Some(meta) = read_training_meta(&expanded)
+            && meta.pid != 0
             && is_pid_alive(meta.pid)
         {
-            #[cfg(unix)]
-            unsafe {
-                libc::kill(meta.pid as i32, libc::SIGTERM);
-            }
-            #[cfg(windows)]
-            {
-                let _ = std::process::Command::new("taskkill")
-                    .args(["/PID", &meta.pid.to_string(), "/F"])
-                    .stdout(std::process::Stdio::null())
-                    .stderr(std::process::Stdio::null())
-                    .status();
-            }
+            kill_process_tree(meta.pid);
         }
         remove_training_meta(&expanded);
     }

@@ -64,6 +64,7 @@ export const trainingMaxEpochs = computed(
 );
 export const trainingStep = computed(() => _get(currentProjectId.value).step);
 export const trainingLoss = computed(() => _get(currentProjectId.value).loss);
+export const trainingLossCurve = computed(() => _get(currentProjectId.value).lossCurve);
 export const trainingMetrics = computed(
   () => _get(currentProjectId.value).metrics,
 );

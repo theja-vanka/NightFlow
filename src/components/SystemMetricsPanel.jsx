@@ -1,7 +1,59 @@
-import { useState, useEffect } from "preact/hooks";
+import { useState, useEffect, useCallback } from "preact/hooks";
 import { invoke } from "@tauri-apps/api/core";
 import { currentProject } from "../state/projects.js";
 import { sshConnected } from "../state/dashboard.js";
+
+// Shared hook so SystemMetricsPanel and GpuMetricsPanel share a single poll
+function useSystemMetrics() {
+    const [metrics, setMetrics] = useState(null);
+    const [error, setError] = useState(null);
+    const connected = sshConnected.value;
+    const project = currentProject.value;
+    const projectId = project?.id;
+    const sshCommand = project?.sshCommand;
+
+    const retry = useCallback(() => {
+        setError(null);
+        setMetrics(null);
+    }, []);
+
+    useEffect(() => {
+        if (!connected || !projectId) {
+            setMetrics(null);
+            setError(null);
+            return;
+        }
+
+        let mounted = true;
+        let timer;
+
+        async function fetchMetrics() {
+            try {
+                const cmd = sshCommand?.trim().toLowerCase() === "localhost" ? null : sshCommand;
+                const resStr = await invoke("get_system_metrics", { sshCommand: cmd, projectPath: project?.projectPath || null });
+                if (mounted) {
+                    setMetrics(JSON.parse(resStr));
+                    setError(null);
+                }
+            } catch (err) {
+                if (mounted) setError(String(err));
+            }
+
+            if (mounted) {
+                timer = setTimeout(fetchMetrics, 3000);
+            }
+        }
+
+        fetchMetrics();
+
+        return () => {
+            mounted = false;
+            clearTimeout(timer);
+        };
+    }, [connected, projectId, sshCommand]);
+
+    return { metrics, error, connected, retry };
+}
 
 // Returns a color that transitions from the base color through amber to red
 // based on usage percentage thresholds
@@ -43,50 +95,13 @@ function ProgressBar({ label, valueStr, percentage, colorPrimary, dynamic = fals
     );
 }
 
-export function SystemMetricsPanel() {
-    const [metrics, setMetrics] = useState(null);
-    const [error, setError] = useState(null);
-    const connected = sshConnected.value;
-    const project = currentProject.value;
-    // Use stable primitive values as effect dependencies to avoid
-    // teardown/restart cycles when the project object reference changes.
-    const projectId = project?.id;
-    const sshCommand = project?.sshCommand;
+export function SystemMetricsPanel({ onMetrics }) {
+    const { metrics, error, connected, retry } = useSystemMetrics();
 
+    // Share metrics with parent so GpuMetricsPanel doesn't need its own poll
     useEffect(() => {
-        if (!connected || !projectId) {
-            setMetrics(null);
-            setError(null);
-            return;
-        }
-
-        let mounted = true;
-        let timer;
-
-        async function fetchMetrics() {
-            try {
-                const cmd = sshCommand?.trim().toLowerCase() === "localhost" ? null : sshCommand;
-                const resStr = await invoke("get_system_metrics", { sshCommand: cmd, projectPath: project?.projectPath || null });
-                if (mounted) {
-                    setMetrics(JSON.parse(resStr));
-                    setError(null);
-                }
-            } catch (err) {
-                if (mounted) setError(String(err));
-            }
-
-            if (mounted) {
-                timer = setTimeout(fetchMetrics, 3000); // Poll every 3s
-            }
-        }
-
-        fetchMetrics();
-
-        return () => {
-            mounted = false;
-            clearTimeout(timer);
-        };
-    }, [connected, projectId, sshCommand]);
+        if (onMetrics) onMetrics(metrics);
+    }, [metrics, onMetrics]);
 
     if (!connected) return null;
 
@@ -95,6 +110,7 @@ export function SystemMetricsPanel() {
             <div class="system-metrics-panel metrics-error">
                 <span class="metrics-error-icon">⚠️</span>
                 <span class="metrics-error-text">Failed to fetch system metrics: {error}</span>
+                <button class="metrics-retry-btn" onClick={retry}>Retry</button>
             </div>
         );
     }
@@ -177,37 +193,8 @@ export function SystemMetricsPanel() {
     );
 }
 
-export function GpuMetricsPanel() {
-    const [metrics, setMetrics] = useState(null);
-    const connected = sshConnected.value;
-    const project = currentProject.value;
-    const projectId = project?.id;
-    const sshCommand = project?.sshCommand;
-
-    useEffect(() => {
-        if (!connected || !projectId) {
-            setMetrics(null);
-            return;
-        }
-
-        let mounted = true;
-        let timer;
-
-        async function fetchMetrics() {
-            try {
-                const cmd = sshCommand?.trim().toLowerCase() === "localhost" ? null : sshCommand;
-                const resStr = await invoke("get_system_metrics", { sshCommand: cmd, projectPath: project?.projectPath || null });
-                if (mounted) setMetrics(JSON.parse(resStr));
-            } catch (_) { /* errors shown by SystemMetricsPanel */ }
-
-            if (mounted) timer = setTimeout(fetchMetrics, 3000);
-        }
-
-        fetchMetrics();
-        return () => { mounted = false; clearTimeout(timer); };
-    }, [connected, projectId, sshCommand]);
-
-    if (!connected || !metrics || !metrics.gpus || metrics.gpus.length === 0) return null;
+export function GpuMetricsPanel({ metrics }) {
+    if (!metrics || !metrics.gpus || metrics.gpus.length === 0) return null;
 
     const formatPct = (val) => val.toFixed(1) + "%";
 
