@@ -88,6 +88,10 @@ jobs:
         working-directory: src-tauri
         run: cargo clippy --target ${{ matrix.target }} -- -D warnings
 
+      - name: Rust tests
+        working-directory: src-tauri
+        run: cargo test --target ${{ matrix.target }}
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         with:

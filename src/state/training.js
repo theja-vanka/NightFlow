@@ -705,6 +705,12 @@ export async function initTrainingListeners() {
   setTimeout(() => recoverOrphanedSessions(), 500);
 }
 
+/** Remove per-project training state when a project is deleted. */
+export function cleanupTrainingState(projectId) {
+  const { [projectId]: _, ...rest } = _trainingState.value;
+  _trainingState.value = rest;
+}
+
 export function cleanupTrainingListeners() {
   if (_unlistenEvent) {
     _unlistenEvent();
