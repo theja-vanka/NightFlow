@@ -35,7 +35,11 @@ Google AutoML Vision, and Azure Custom Vision.
 
 <br>
 
-[Overview](#-overview) · [Features](#-features) · [How It Compares](#-how-it-compares) · [Quick Start](#-quick-start) · [Download](#-download) · [Architecture](#-architecture) · [Contributing](#-contributing) · [License](#-license)
+[Overview](#-overview) · [Features](#-features) · [How It Compares](#-how-it-compares) · [Quick Start](#-quick-start) · [Download](#-download) · [Architecture](#-architecture) · [Docs](https://theja-vanka.github.io/NightFlow/) · [Contributing](#-contributing) · [License](#-license)
+
+<br>
+
+<img src="assets/image.png" width="800" alt="NightFlow screenshot" />
 
 <br>
 
@@ -83,7 +87,8 @@ Whether you're training an image classifier, an object detector, or a segmentati
 - **One-click training** — guided project wizard from raw images to trained model
 - **Auto-tuning** — automatic learning-rate and batch-size discovery
 - **1 000+ backbones** — ResNet, EfficientNet, ViT, ConvNeXt, Swin, and more via timm
-- **Smart augmentation** — built-in presets with live preview before training
+- **Augmentation preview** — visualize augmentation presets before training
+- **Training queue** — queue multiple training jobs for sequential execution
 - **Multi-task** — classification, object detection, semantic & instance segmentation
 
 </td>
@@ -96,6 +101,7 @@ Whether you're training an image classifier, an object detector, or a segmentati
 - **Run history** — searchable table of every experiment with hyperparameters
 - **Run comparison** — side-by-side metric charts across experiments
 - **Dashboard** — instant project health overview and status cards
+- **Inference** — run predictions on new images with trained models
 
 </td>
 </tr>
@@ -107,7 +113,8 @@ Whether you're training an image classifier, an object detector, or a segmentati
 - **Interactive charts** — high-fidelity training and validation plots
 - **Model interpretation** — GradCAM, GradCAM++, Integrated Gradients, SmoothGrad, Attention Rollout, Attention Flow
 - **Confusion matrix** — per-class performance breakdown for train, validation, and test splits
-- **Dataset browser** — visual explorer with class-level filtering
+- **Per-class metrics** — detailed precision, recall, and F1 scores per class
+- **Dataset browser** — visual explorer with class-level filtering and split detection
 - **Netron integration** — built-in architecture visualization
 
 </td>
@@ -116,11 +123,12 @@ Whether you're training an image classifier, an object detector, or a segmentati
 ### Infrastructure & Deployment
 
 - **Integrated terminal** — full PTY with WebGL-accelerated rendering
-- **Remote training via SSH** — train on GPU servers seamlessly
-- **System metrics** — live CPU, memory, and GPU utilization
+- **Remote training via SSH** — train on GPU servers using system OpenSSH
+- **System metrics** — live CPU, memory, and GPU utilization (NVIDIA)
 - **Model export** — TorchScript (.pt), ONNX (.onnx), and TensorRT (.engine) for production
 - **Hugging Face Hub** — push models directly to HF Hub with model card metadata
 - **Checkpoint management** — best-model selection and remote download
+- **Crash recovery** — automatic training session recovery after unexpected exits
 
 </td>
 </tr>
@@ -134,6 +142,11 @@ Whether you're training an image classifier, an object detector, or a segmentati
 
 All data stays on your device. No cloud accounts, no telemetry, no tracking.
 Storage is local IndexedDB. The entire application works offline.
+
+### First-Run Experience
+
+Built-in tutorial overlay, keyboard shortcuts reference, and a guided project wizard
+to get new users productive in minutes.
 
 </td>
 </tr>
@@ -159,7 +172,7 @@ NightFlow is built with **Tauri v2** (Rust) and **Preact** — delivering native
 ```mermaid
 graph TD
     subgraph Frontend["Frontend · Preact + Signals"]
-        UI["User Interface"] --> State["Reactive State"]
+        UI["User Interface · 10 Views"] --> State["Reactive State · 10 Modules"]
         State --> DB[("IndexedDB")]
         UI --> Terminal["xterm.js · WebGL"]
         UI --> Charts["Interactive Charts"]
@@ -167,14 +180,16 @@ graph TD
     end
 
     subgraph Backend["Backend · Rust + Tauri v2"]
-        Tauri["Tauri Core"] --> PTY["Portable PTY"]
+        Tauri["Tauri Core · 47 Commands"] --> PTY["Portable PTY"]
         Tauri --> FS["File System"]
-        Tauri --> SSH["SSH · Tokio"]
+        Tauri --> SSH["SSH · OpenSSH"]
         Tauri --> Training["Training Manager"]
         Tauri --> Interpret["Interpretation Engine"]
+        Tauri --> Env["Environment Detection"]
+        Tauri --> System["System Metrics"]
     end
 
-    UI <== "IPC" ==> Tauri
+    UI <== "IPC + Events" ==> Tauri
 ```
 
 <details>
@@ -185,13 +200,15 @@ graph TD
 | :--- | :--- | :--- |
 | **UI Framework** | Preact + Signals | Lightweight reactive rendering |
 | **Terminal** | xterm.js + WebGL addon | Hardware-accelerated terminal |
+| **Model Viewer** | Netron | Neural network architecture visualization |
 | **Styling** | Vanilla CSS | Custom design system |
-| **Bundler** | Vite | Fast HMR and builds |
+| **Bundler** | Vite 7 | Fast HMR and builds |
 | **Desktop Runtime** | Tauri v2 | Native window, IPC, and system APIs |
 | **Backend** | Rust (Edition 2024) | Memory-safe, high-performance core |
 | **PTY** | portable-pty | Cross-platform pseudo-terminal |
-| **Async Runtime** | Tokio | Non-blocking I/O and SSH |
-| **Storage** | IndexedDB | Client-side persistent storage |
+| **SSH** | System OpenSSH | Remote training and file operations |
+| **Async Runtime** | Tokio | Non-blocking I/O and process management |
+| **Storage** | IndexedDB (idb) | Client-side persistent storage |
 
 </details>
 
@@ -278,6 +295,12 @@ bunx tauri dev
 brew tap theja-vanka/nightflow https://github.com/theja-vanka/NightFlow
 brew install --cask nightflow
 ```
+
+---
+
+## Documentation
+
+Full documentation is available at **[theja-vanka.github.io/NightFlow](https://theja-vanka.github.io/NightFlow/)** — covering architecture, getting started, and contribution guides.
 
 ---
 
