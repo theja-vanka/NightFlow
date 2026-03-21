@@ -39,7 +39,7 @@ Google AutoML Vision, and Azure Custom Vision.
 
 <br>
 
-<img src="assets/image.png" width="800" alt="NightFlow screenshot" />
+<img src="assets/app.png" width="800" alt="NightFlow screenshot" />
 
 <br>
 
