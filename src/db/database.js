@@ -1,27 +1,32 @@
 import { openDB, deleteDB } from "idb";
 
 const DB_NAME = "nightflow-db";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 // Initialize the database
 export async function initDB() {
   return openDB(DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      // Create projects store
-      if (!db.objectStoreNames.contains("projects")) {
+    upgrade(db, oldVersion, _newVersion, transaction) {
+      // v1: initial schema
+      if (oldVersion < 1) {
         const projectStore = db.createObjectStore("projects", {
           keyPath: "id",
         });
         projectStore.createIndex("name", "name", { unique: false });
         projectStore.createIndex("taskType", "taskType", { unique: false });
-      }
 
-      // Create runs store
-      if (!db.objectStoreNames.contains("runs")) {
         const runStore = db.createObjectStore("runs", { keyPath: "id" });
         runStore.createIndex("projectId", "projectId", { unique: false });
         runStore.createIndex("status", "status", { unique: false });
         runStore.createIndex("created", "created", { unique: false });
+      }
+
+      // v2: add compound index for efficient per-project queries sorted by time
+      if (oldVersion >= 1 && oldVersion < 2) {
+        const runStore = transaction.objectStore("runs");
+        if (!runStore.indexNames.contains("projectId_created")) {
+          runStore.createIndex("projectId_created", ["projectId", "created"], { unique: false });
+        }
       }
     },
   });

@@ -50,7 +50,7 @@ pub fn spawn_terminal(
 ) -> Result<(), String> {
     // Skip if this session is already alive
     {
-        let sessions = state.sessions.lock().unwrap();
+        let sessions = state.sessions.lock().map_err(|e| format!("Lock poisoned: {}", e))?;
         if sessions
             .get(&session_id)
             .map(|s| s.alive.load(Ordering::SeqCst))
@@ -71,9 +71,18 @@ pub fn spawn_terminal(
         .map_err(|e| e.to_string())?;
 
     let cmd = if let Some(ref ssh_cmd) = ssh_command {
-        let parts: Vec<&str> = ssh_cmd.split_whitespace().collect();
-        if parts.is_empty() {
+        let trimmed = ssh_cmd.trim();
+        if trimmed.is_empty() {
             return Err("Empty SSH command".to_string());
+        }
+        // Validate the command starts with a known SSH binary
+        let parts: Vec<&str> = trimmed.split_whitespace().collect();
+        let binary = std::path::Path::new(parts[0])
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or(parts[0]);
+        if !["ssh", "ssh.exe"].contains(&binary) {
+            return Err(format!("SSH command must use 'ssh' binary, got: {}", binary));
         }
         let mut cmd = CommandBuilder::new(parts[0]);
         for arg in &parts[1..] {
@@ -108,7 +117,7 @@ pub fn spawn_terminal(
     let alive_flag = Arc::new(AtomicBool::new(true));
 
     {
-        let mut sessions = state.sessions.lock().unwrap();
+        let mut sessions = state.sessions.lock().map_err(|e| format!("Lock poisoned: {}", e))?;
         sessions.insert(
             session_id.clone(),
             SessionData {
@@ -160,7 +169,7 @@ pub fn spawn_terminal(
 
 #[command]
 pub fn pty_write(session_id: String, data: String, state: State<'_, PtyState>) -> Result<(), String> {
-    let mut sessions = state.sessions.lock().unwrap();
+    let mut sessions = state.sessions.lock().map_err(|e| format!("Lock poisoned: {}", e))?;
     if let Some(session) = sessions.get_mut(&session_id)
         && let Some(ref mut writer) = session.writer
     {
@@ -179,7 +188,7 @@ pub fn pty_resize(
     cols: u16,
     state: State<'_, PtyState>,
 ) -> Result<(), String> {
-    let sessions = state.sessions.lock().unwrap();
+    let sessions = state.sessions.lock().map_err(|e| format!("Lock poisoned: {}", e))?;
     if let Some(session) = sessions.get(&session_id)
         && let Some(ref master) = session.master
     {
@@ -197,7 +206,7 @@ pub fn pty_resize(
 
 #[command]
 pub fn kill_terminal(session_id: String, state: State<'_, PtyState>) -> Result<(), String> {
-    let mut sessions = state.sessions.lock().unwrap();
+    let mut sessions = state.sessions.lock().map_err(|e| format!("Lock poisoned: {}", e))?;
     if let Some(session) = sessions.get_mut(&session_id) {
         session.alive.store(false, Ordering::SeqCst);
         session.writer = None;
@@ -209,7 +218,7 @@ pub fn kill_terminal(session_id: String, state: State<'_, PtyState>) -> Result<(
 
 #[command]
 pub fn is_terminal_alive(session_id: String, state: State<'_, PtyState>) -> bool {
-    let sessions = state.sessions.lock().unwrap();
+    let Ok(sessions) = state.sessions.lock() else { return false };
     sessions
         .get(&session_id)
         .map(|s| s.alive.load(Ordering::SeqCst))
@@ -242,8 +251,8 @@ pub fn get_terminal_info(
     }
     info.insert("pid".into(), std::process::id().to_string());
 
-    let sessions = state.sessions.lock().unwrap();
-    if let Some(session) = sessions.get(&session_id)
+    if let Ok(sessions) = state.sessions.lock()
+        && let Some(session) = sessions.get(&session_id)
         && let Some(ref ssh_cmd) = session.ssh_command
     {
         info.insert("isSSH".into(), "true".into());

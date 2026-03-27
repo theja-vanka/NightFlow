@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "preact/hooks";
+import { useState, useEffect, useRef, useCallback } from "preact/hooks";
 import { SummaryCard } from "../components/SummaryCard.jsx";
 import { TrainingPanel } from "../components/TrainingPanel.jsx";
 import { SystemMetricsPanel, GpuMetricsPanel } from "../components/SystemMetricsPanel.jsx";
@@ -72,7 +72,13 @@ function SshStatusBanner() {
         <span class="ssh-status-host">{info.host}</span>
       </div>
       {info.connected && !connecting && (
-        <span class="ssh-status-uptime">Uptime: {uptime}</span>
+        <span class="ssh-status-uptime">
+          Uptime: {uptime}
+          {info.lastActivity && (() => {
+            const idle = Math.floor((Date.now() - new Date(info.lastActivity).getTime()) / 60000);
+            return idle >= 1 ? ` · Idle: ${idle >= 60 ? `${Math.floor(idle / 60)}h ${idle % 60}m` : `${idle}m`}` : null;
+          })()}
+        </span>
       )}
       <button
         class={`ssh-toggle-btn ${info.connected ? "ssh-toggle-disconnect" : ""}`}
@@ -156,6 +162,19 @@ function SshErrorModal() {
             </svg>
           </div>
           <p class="ssh-error-message">{error.message}</p>
+          {error.message && (
+            <p class="ssh-error-hint" style="color:var(--text-muted);font-size:0.82rem;margin-top:8px">
+              {/timed?\s*out|timeout/i.test(error.message)
+                ? "Check that the host is reachable and the SSH port (default 22) is open."
+                : /refused/i.test(error.message)
+                  ? "The remote machine actively refused the connection. Verify sshd is running."
+                  : /permission|auth|denied|publickey/i.test(error.message)
+                    ? "Authentication failed. Check your SSH key or credentials in the project settings."
+                    : /resolve|unknown host|no such host/i.test(error.message)
+                      ? "Could not resolve the hostname. Verify the address in project settings."
+                      : "Check the SSH command in project settings and ensure the remote machine is accessible."}
+            </p>
+          )}
         </div>
         <div class="modal-footer">
           <button
@@ -515,8 +534,8 @@ function SyncScreen() {
         </div>
         <h2 class="dashboard-sync-title">Sync Project Data</h2>
         <p class="dashboard-sync-desc">
-          Fetch the latest runs, metrics, and experiment history from the
-          connected machine.
+          Scan the project directory for MLflow runs, parse metrics and
+          checkpoints, and import them into the local database.
         </p>
         <button
           class="dashboard-sync-btn"
@@ -768,7 +787,7 @@ function StartTrainingButton() {
           class="start-training-btn"
           onClick={handleTrainClick}
           disabled={active || datasetInvalid}
-          title={datasetInvalid ? "Fix dataset errors before training" : undefined}
+          title={datasetInvalid ? "Fix dataset errors before training" : active ? "A training run is already active" : undefined}
         >
           <svg
             width="16"
@@ -789,7 +808,7 @@ function StartTrainingButton() {
             class="start-test-btn"
             onClick={handleTestClick}
             disabled={active}
-            title={project.powerUserMode ? testCommandDisplay : "Run evaluation only"}
+            title={active ? "A training run is already active" : project.powerUserMode ? testCommandDisplay : "Run evaluation only"}
           >
             <svg
               width="16"
@@ -843,7 +862,16 @@ export function DashboardView() {
   const syncing = dashboardSyncing.value;
   const showingCompletion = syncShowingCompletion.value;
   const isPowerUser = currentProject.value?.powerUserMode;
-  const [syncLogsOpen, setSyncLogsOpen] = useState(false);
+  const [sharedMetrics, setSharedMetrics] = useState(null);
+  const handleMetrics = useCallback((m) => setSharedMetrics(m), []);
+  const [syncLogsOpen, setSyncLogsOpen] = useState(() => {
+    try { return localStorage.getItem("nf-sync-logs-open") === "true"; } catch { return false; }
+  });
+
+  // Persist syncLogsOpen preference
+  useEffect(() => {
+    try { localStorage.setItem("nf-sync-logs-open", String(syncLogsOpen)); } catch { /* ignore */ }
+  }, [syncLogsOpen]);
 
   // Close sync logs drawer on Escape
   useEffect(() => {
@@ -877,6 +905,7 @@ export function DashboardView() {
               label="Running"
               value={s.running}
               icon={icons.running}
+              title={s.activeRunName ? `Active: ${s.activeRunName}` : undefined}
             />
             <SummaryCard
               label="Best Val Acc"
@@ -905,6 +934,9 @@ export function DashboardView() {
                       <div class="queue-item-info">
                         <span class="queue-item-index">#{i + 1}</span>
                         <span>Queued run</span>
+                        <span class="queue-item-time" style="color:var(--text-muted);font-size:0.75rem;margin-left:auto">
+                          {new Date(q.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </span>
                       </div>
                       <button
                         class="queue-item-remove"
@@ -925,10 +957,10 @@ export function DashboardView() {
               <EnvStatusBanner />
             </div>
             <div class="dashboard-split-right">
-              <SystemMetricsPanel />
+              <SystemMetricsPanel onMetrics={handleMetrics} />
             </div>
           </div>
-          <GpuMetricsPanel />
+          <GpuMetricsPanel metrics={sharedMetrics} />
           <ResyncButton />
         </>
       )}

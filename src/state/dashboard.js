@@ -11,7 +11,7 @@ import { currentProject, currentProjectId } from "./projects.js";
 import { navigate, currentPage } from "./router.js";
 import { saveSyncMetadata, getSyncMetadata } from "../db/database.js";
 import { buildConfigYaml } from "../utils/configBuilder.js";
-import { getTrainingRunId } from "./training.js";
+import { getTrainingRunId, cleanupTrainingState } from "./training.js";
 
 // ── Per-project SSH state ─────────────────────────────────────────────────────
 // Each project maintains its own independent connection state.
@@ -196,6 +196,7 @@ export const stats = computed(() => {
     queued: queued.length,
     bestAcc,
     bestTestAcc,
+    activeRunName: running.length > 0 ? (running[0].name || running[0].id) : null,
   };
 });
 
@@ -266,6 +267,14 @@ export const datasetValidation = signal(null);
 
 export function clearSshConnectionError(projectId = currentProjectId.value) {
   _setState(projectId, { error: null });
+}
+
+/** Remove per-project state when a project is deleted to prevent memory leaks. */
+export function cleanupProjectState(projectId) {
+  const { [projectId]: _, ...rest } = _projectState.value;
+  _projectState.value = rest;
+  delete _syncAbortControllers[projectId];
+  cleanupTrainingState(projectId);
 }
 
 // ── Connect / disconnect ──────────────────────────────────────────────────────

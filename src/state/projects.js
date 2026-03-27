@@ -6,7 +6,7 @@ import {
   deleteProject as dbDeleteProject,
   migrateProjectIds,
 } from "../db/database.js";
-import { restoreSyncState, platform } from "./dashboard.js";
+import { restoreSyncState, platform, cleanupProjectState } from "./dashboard.js";
 
 export const projectList = signal([]);
 export const currentProjectId = signal(null);
@@ -681,6 +681,7 @@ export async function confirmDeleteProject() {
   const id = deleteTargetId.value;
   try {
     await dbDeleteProject(id);
+    cleanupProjectState(id);
     const list = projectList.value.filter((p) => p.id !== id);
     projectList.value = list;
     if (currentProjectId.value === id) {

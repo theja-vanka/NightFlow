@@ -6,6 +6,7 @@ import {
   trainingMaxEpochs,
   trainingStep,
   trainingLoss,
+  trainingLossCurve,
   trainingProgress,
   trainingError,
   trainingFastDevRun,
@@ -19,6 +20,7 @@ import {
   stopTraining,
   forceResetTraining,
 } from "../state/training.js";
+import { Sparkline } from "./Sparkline.jsx";
 
 function formatDuration(ms) {
   if (ms == null || ms <= 0) return null;
@@ -120,7 +122,7 @@ export function TrainingPanel() {
             )}
           </div>
 
-          {active && showTest && event !== "testing_complete" && (
+          {active && showTest && event !== "testing_complete" && trainingTestProgress.value > 0 && (
             <ProgressBar value={trainingTestProgress.value} />
           )}
 
@@ -197,21 +199,20 @@ export function TrainingPanel() {
               <div class="training-stat">
                 <span class="training-stat-label">Epoch</span>
                 <span class="training-stat-value">
-                  {epoch + 1} / {maxEpochs}
+                  {epoch + 1} / {maxEpochs} · Step {step}
                   {(() => {
                     const eta = formatDuration(trainingEstimatedRemaining.value);
-                    return eta ? <span class="training-eta"> (~{eta} remaining)</span> : null;
+                    return eta ? <span class="training-eta"> · ~{eta} left</span> : null;
                   })()}
                 </span>
-              </div>
-              <div class="training-stat">
-                <span class="training-stat-label">Step</span>
-                <span class="training-stat-value">{step}</span>
               </div>
               {loss != null && (
                 <div class="training-stat">
                   <span class="training-stat-label">Loss</span>
-                  <span class="training-stat-value">{loss.toFixed(4)}</span>
+                  <span class="training-stat-value" style="display:flex;align-items:center;gap:6px">
+                    {loss.toFixed(4)}
+                    <Sparkline data={trainingLossCurve.value} width={80} height={20} />
+                  </span>
                 </div>
               )}
               {Object.entries(metrics).map(([key, val]) => {
@@ -280,7 +281,7 @@ export function TrainingPanel() {
             )}
           </div>
 
-          {event !== "testing_complete" && (
+          {event !== "testing_complete" && trainingTestProgress.value > 0 && (
             <ProgressBar value={trainingTestProgress.value} />
           )}
 

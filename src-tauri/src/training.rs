@@ -11,6 +11,31 @@ use crate::env::{get_shell_env, resolve_conda_path};
 const TRAINING_META_FILE: &str = ".nightflow_training.json";
 const TRAINING_LOG_FILE_DEFAULT: &str = "training_events.jsonl";
 
+/// Kill a process and its entire process tree.
+/// On Unix we used `setsid()` when spawning, so the child is a session/group
+/// leader — sending the signal to the negative PID kills the whole group.
+fn kill_process_tree(pid: u32) {
+    if pid == 0 {
+        return;
+    }
+    #[cfg(unix)]
+    unsafe {
+        // Kill the entire process group (negative PID)
+        libc::kill(-(pid as i32), libc::SIGTERM);
+        // Also send SIGTERM to the process itself in case it's not in its own group
+        libc::kill(pid as i32, libc::SIGTERM);
+    }
+    #[cfg(windows)]
+    {
+        // /T = kill child processes, /F = force
+        let _ = std::process::Command::new("taskkill")
+            .args(["/PID", &pid.to_string(), "/T", "/F"])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status();
+    }
+}
+
 /// Managed state for training processes (keyed by project/session id).
 pub struct TrainingState {
     pub processes: Mutex<HashMap<String, TrainingProcess>>,
@@ -141,8 +166,9 @@ fn spawn_tail_task(
                                     data: display_line,
                                 },
                             );
-                            if let Some(ref b_mutex) = buf {
-                                let mut b = b_mutex.lock().unwrap();
+                            if let Some(ref b_mutex) = buf
+                                && let Ok(mut b) = b_mutex.lock()
+                            {
                                 b.push(line);
                                 if b.len() > 20 {
                                     b.remove(0);
@@ -173,7 +199,7 @@ pub async fn start_training(
 ) -> Result<(), String> {
     // Don't allow two training processes for the same session
     {
-        let procs = state.processes.lock().unwrap();
+        let procs = state.processes.lock().map_err(|e| format!("Lock poisoned: {}", e))?;
         if procs
             .get(&session_id)
             .map(|p| p.alive.load(Ordering::SeqCst))
@@ -210,7 +236,7 @@ pub async fn start_training(
         let alive = Arc::new(AtomicBool::new(true));
 
         {
-            let mut procs = state.processes.lock().unwrap();
+            let mut procs = state.processes.lock().map_err(|e| format!("Lock poisoned: {}", e))?;
             procs.insert(
                 session_id.clone(),
                 TrainingProcess {
@@ -305,8 +331,30 @@ pub async fn start_training(
             if run_fit {
                 let fit_stdout_path = logs_dir.join("fit_stdout.log");
                 let fit_stderr_path = logs_dir.join("fit_stderr.log");
-                let fit_stdout_file = std::fs::OpenOptions::new().create(true).append(true).open(&fit_stdout_path).unwrap();
-                let fit_stderr_file = std::fs::OpenOptions::new().create(true).append(true).open(&fit_stderr_path).unwrap();
+                let fit_stdout_file = match std::fs::OpenOptions::new().create(true).append(true).open(&fit_stdout_path) {
+                    Ok(f) => f,
+                    Err(e) => {
+                        let _ = app2.emit("training-event", TrainingEvent {
+                            session_id: sid.clone(),
+                            data: serde_json::json!({ "event": "training_error", "error": format!("Failed to open fit stdout log: {}", e) }),
+                        });
+                        alive2.store(false, Ordering::SeqCst);
+                        remove_training_meta(&cwd2);
+                        return;
+                    }
+                };
+                let fit_stderr_file = match std::fs::OpenOptions::new().create(true).append(true).open(&fit_stderr_path) {
+                    Ok(f) => f,
+                    Err(e) => {
+                        let _ = app2.emit("training-event", TrainingEvent {
+                            session_id: sid.clone(),
+                            data: serde_json::json!({ "event": "training_error", "error": format!("Failed to open fit stderr log: {}", e) }),
+                        });
+                        alive2.store(false, Ordering::SeqCst);
+                        remove_training_meta(&cwd2);
+                        return;
+                    }
+                };
 
                 let mut fit_cmd = tokio::process::Command::new(&fit_args[0]);
                 fit_cmd.args(&fit_args[1..]);
@@ -380,7 +428,7 @@ pub async fn start_training(
 
                 if !fit_ok || !alive2.load(Ordering::SeqCst) {
                     tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-                    let stderr_tail = fit_stderr_buf.lock().unwrap().join("\n");
+                    let stderr_tail = fit_stderr_buf.lock().map(|b| b.join("\n")).unwrap_or_default();
                     let error_msg = if stderr_tail.is_empty() {
                         "fit step failed".to_string()
                     } else {
@@ -400,8 +448,30 @@ pub async fn start_training(
             if run_test && !fit_failed {
                 let test_stdout_path = logs_dir.join("test_stdout.log");
                 let test_stderr_path = logs_dir.join("test_stderr.log");
-                let test_stdout_file = std::fs::OpenOptions::new().create(true).append(true).open(&test_stdout_path).unwrap();
-                let test_stderr_file = std::fs::OpenOptions::new().create(true).append(true).open(&test_stderr_path).unwrap();
+                let test_stdout_file = match std::fs::OpenOptions::new().create(true).append(true).open(&test_stdout_path) {
+                    Ok(f) => f,
+                    Err(e) => {
+                        let _ = app2.emit("training-event", TrainingEvent {
+                            session_id: sid.clone(),
+                            data: serde_json::json!({ "event": "training_error", "error": format!("Failed to open test stdout log: {}", e) }),
+                        });
+                        alive2.store(false, Ordering::SeqCst);
+                        remove_training_meta(&cwd2);
+                        return;
+                    }
+                };
+                let test_stderr_file = match std::fs::OpenOptions::new().create(true).append(true).open(&test_stderr_path) {
+                    Ok(f) => f,
+                    Err(e) => {
+                        let _ = app2.emit("training-event", TrainingEvent {
+                            session_id: sid.clone(),
+                            data: serde_json::json!({ "event": "training_error", "error": format!("Failed to open test stderr log: {}", e) }),
+                        });
+                        alive2.store(false, Ordering::SeqCst);
+                        remove_training_meta(&cwd2);
+                        return;
+                    }
+                };
 
                 let test_progress_args: Vec<String> = vec![
                     "--trainer.json_progress=true".into(),
@@ -551,7 +621,7 @@ pub async fn start_training(
     write_training_meta(&resolved_cwd, &meta)?;
 
     {
-        let mut procs = state.processes.lock().unwrap();
+        let mut procs = state.processes.lock().map_err(|e| format!("Lock poisoned: {}", e))?;
         procs.insert(
             session_id.clone(),
             TrainingProcess {
@@ -608,33 +678,27 @@ pub async fn stop_training(
 ) -> Result<(), String> {
     let mut child_to_kill = None;
     {
-        let mut procs = state.processes.lock().unwrap();
+        let mut procs = state.processes.lock().map_err(|e| format!("Lock poisoned: {}", e))?;
         if let Some(proc) = procs.get_mut(&session_id) {
             proc.alive.store(false, Ordering::SeqCst);
             child_to_kill = proc.child.take();
         }
         procs.remove(&session_id);
     }
-    if let Some(mut child) = child_to_kill {
+    if let Some(ref mut child) = child_to_kill {
+        // Kill the process group first (covers child subprocesses), then the handle
+        if let Some(pid) = child.id() {
+            kill_process_tree(pid);
+        }
         let _ = child.kill().await;
     }
     if let Some(ref dir) = project_path {
         let expanded = expand_tilde(dir);
         if let Some(meta) = read_training_meta(&expanded)
+            && meta.pid != 0
             && is_pid_alive(meta.pid)
         {
-            #[cfg(unix)]
-            unsafe {
-                libc::kill(meta.pid as i32, libc::SIGTERM);
-            }
-            #[cfg(windows)]
-            {
-                let _ = std::process::Command::new("taskkill")
-                    .args(["/PID", &meta.pid.to_string(), "/F"])
-                    .stdout(std::process::Stdio::null())
-                    .stderr(std::process::Stdio::null())
-                    .status();
-            }
+            kill_process_tree(meta.pid);
         }
         remove_training_meta(&expanded);
     }
@@ -650,7 +714,7 @@ pub async fn force_reset_training(
     // Kill process if it's still alive
     let mut child_to_kill = None;
     {
-        let mut procs = state.processes.lock().unwrap();
+        let mut procs = state.processes.lock().map_err(|e| format!("Lock poisoned: {}", e))?;
         if let Some(proc) = procs.get_mut(&session_id) {
             proc.alive.store(false, Ordering::SeqCst);
             child_to_kill = proc.child.take();
@@ -664,20 +728,10 @@ pub async fn force_reset_training(
     if let Some(ref dir) = project_path {
         let expanded = expand_tilde(dir);
         if let Some(meta) = read_training_meta(&expanded)
+            && meta.pid != 0
             && is_pid_alive(meta.pid)
         {
-            #[cfg(unix)]
-            unsafe {
-                libc::kill(meta.pid as i32, libc::SIGTERM);
-            }
-            #[cfg(windows)]
-            {
-                let _ = std::process::Command::new("taskkill")
-                    .args(["/PID", &meta.pid.to_string(), "/F"])
-                    .stdout(std::process::Stdio::null())
-                    .stderr(std::process::Stdio::null())
-                    .status();
-            }
+            kill_process_tree(meta.pid);
         }
         remove_training_meta(&expanded);
     }
@@ -686,7 +740,7 @@ pub async fn force_reset_training(
 
 #[command]
 pub fn is_training_alive(session_id: String, state: State<'_, TrainingState>) -> bool {
-    let procs = state.processes.lock().unwrap();
+    let Ok(procs) = state.processes.lock() else { return false };
     procs
         .get(&session_id)
         .map(|p| p.alive.load(Ordering::SeqCst))

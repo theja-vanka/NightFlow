@@ -64,6 +64,7 @@ export const trainingMaxEpochs = computed(
 );
 export const trainingStep = computed(() => _get(currentProjectId.value).step);
 export const trainingLoss = computed(() => _get(currentProjectId.value).loss);
+export const trainingLossCurve = computed(() => _get(currentProjectId.value).lossCurve);
 export const trainingMetrics = computed(
   () => _get(currentProjectId.value).metrics,
 );
@@ -703,6 +704,12 @@ export async function initTrainingListeners() {
   // Check for orphaned sessions from a previous app crash
   // Small delay to let projects and runs load first
   setTimeout(() => recoverOrphanedSessions(), 500);
+}
+
+/** Remove per-project training state when a project is deleted. */
+export function cleanupTrainingState(projectId) {
+  const { [projectId]: _, ...rest } = _trainingState.value;
+  _trainingState.value = rest;
 }
 
 export function cleanupTrainingListeners() {

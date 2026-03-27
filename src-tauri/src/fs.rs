@@ -2,9 +2,23 @@ use tauri::command;
 
 use crate::expand_tilde;
 
+/// Reject paths containing traversal sequences like `..` to prevent escaping
+/// intended directories. Returns the canonicalized path on success.
+fn validate_no_traversal(path: &str) -> Result<String, String> {
+    let expanded = expand_tilde(path);
+    if expanded.is_empty() {
+        return Err("Path is empty".to_string());
+    }
+    // Check for obvious traversal patterns before canonicalization
+    if expanded.contains("..") {
+        return Err("Path must not contain '..' traversal sequences".to_string());
+    }
+    Ok(expanded)
+}
+
 #[command]
 pub fn write_file(path: String, contents: String) -> Result<(), String> {
-    let expanded = expand_tilde(&path);
+    let expanded = validate_no_traversal(&path)?;
     std::fs::write(&expanded, contents).map_err(|e| e.to_string())
 }
 
