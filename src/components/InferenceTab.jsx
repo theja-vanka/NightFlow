@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "preact/hooks";
 import { invoke } from "@tauri-apps/api/core";
 import { notify } from "../utils/notifications.js";
-import { platform } from "../state/dashboard.js";
+import { platform, gpuAvailable } from "../state/dashboard.js";
 
 /**
  * Lightweight Python syntax highlighter.
@@ -905,6 +905,13 @@ export function InferenceTab({ run, project }) {
   const projectClassNames = project?.classNames || [];
   const [classNames, setClassNames] = useState(projectClassNames.join(", "));
 
+  // Fall back from TensorRT if GPU becomes unavailable
+  useEffect(() => {
+    if (exportFormat === "tensorrt" && !gpuAvailable.value) {
+      handleFormatChange("torchscript");
+    }
+  }, [gpuAvailable.value]);
+
   // Update model path extension when format changes
   function handleFormatChange(newFormat) {
     setExportFormat(newFormat);
@@ -966,17 +973,19 @@ export function InferenceTab({ run, project }) {
                 )
               },
               {
-                id: "tensorrt", label: "TensorRT", desc: "NVIDIA optimized", icon: (
+                id: "tensorrt", label: "TensorRT", desc: gpuAvailable.value ? "NVIDIA optimized" : "No GPU detected", icon: (
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                   </svg>
-                )
+                ), disabled: !gpuAvailable.value
               },
             ].map(f => (
               <button
                 key={f.id}
-                class={`deploy-format-btn${exportFormat === f.id ? " active" : ""}`}
-                onClick={() => handleFormatChange(f.id)}
+                class={`deploy-format-btn${exportFormat === f.id ? " active" : ""}${f.disabled ? " disabled" : ""}`}
+                onClick={() => !f.disabled && handleFormatChange(f.id)}
+                disabled={f.disabled}
+                title={f.disabled ? "Requires an NVIDIA GPU on the connected system" : ""}
               >
                 {f.icon}
                 <div>

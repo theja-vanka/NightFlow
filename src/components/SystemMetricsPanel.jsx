@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "preact/hooks";
 import { invoke } from "@tauri-apps/api/core";
 import { currentProject } from "../state/projects.js";
-import { sshConnected } from "../state/dashboard.js";
+import { sshConnected, gpuAvailable } from "../state/dashboard.js";
 
 // Shared hook so SystemMetricsPanel and GpuMetricsPanel share a single poll
 function useSystemMetrics() {
@@ -21,6 +21,7 @@ function useSystemMetrics() {
         if (!connected || !projectId) {
             setMetrics(null);
             setError(null);
+            gpuAvailable.value = false;
             return;
         }
 
@@ -32,8 +33,10 @@ function useSystemMetrics() {
                 const cmd = sshCommand?.trim().toLowerCase() === "localhost" ? null : sshCommand;
                 const resStr = await invoke("get_system_metrics", { sshCommand: cmd, projectPath: project?.projectPath || null });
                 if (mounted) {
-                    setMetrics(JSON.parse(resStr));
+                    const parsed = JSON.parse(resStr);
+                    setMetrics(parsed);
                     setError(null);
+                    gpuAvailable.value = !!(parsed.gpus && parsed.gpus.length > 0);
                 }
             } catch (err) {
                 if (mounted) setError(String(err));
@@ -142,7 +145,10 @@ export function SystemMetricsPanel({ onMetrics }) {
     // Calculate specific metrics
     let cpuStr = "—";
     let cpuPct = 0;
-    if (metrics.loadavg && metrics.cpu_cores) {
+    if (metrics.cpu_percent != null) {
+        cpuPct = Math.min(100, metrics.cpu_percent);
+        cpuStr = `${cpuPct.toFixed(1)}% (${metrics.cpu_cores || "?"} cores)`;
+    } else if (metrics.loadavg && metrics.cpu_cores) {
         const load = metrics.loadavg[0];
         cpuStr = `Load: ${load.toFixed(2)} (${metrics.cpu_cores} cores)`;
         cpuPct = Math.min(100, (load / metrics.cpu_cores) * 100);
@@ -152,14 +158,14 @@ export function SystemMetricsPanel({ onMetrics }) {
 
     let memStr = "—";
     let memPct = 0;
-    if (metrics.mem_total && metrics.mem_used) {
+    if (metrics.mem_total != null && metrics.mem_used != null) {
         memStr = `${formatGB(metrics.mem_used)} / ${formatGB(metrics.mem_total)} GB`;
         memPct = (metrics.mem_used / metrics.mem_total) * 100;
     }
 
     let diskStr = "—";
     let diskPct = 0;
-    if (metrics.disk_total && metrics.disk_used) {
+    if (metrics.disk_total != null && metrics.disk_used != null) {
         diskStr = `${formatGB(metrics.disk_used)} / ${formatGB(metrics.disk_total)} GB`;
         diskPct = (metrics.disk_used / metrics.disk_total) * 100;
     }

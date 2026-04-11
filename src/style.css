@@ -120,6 +120,9 @@ body {
   background: var(--bg-primary);
   transition: background 0.3s ease;
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 /* Disable autocomplete tooltips */
@@ -271,6 +274,68 @@ textarea {
 .theme-toggle:hover {
   color: var(--text-primary);
   background: none;
+}
+
+/* ========================================
+   Windows Custom Titlebar
+   ======================================== */
+
+.header--windows {
+  -webkit-app-region: drag;
+}
+
+.header--windows .header-title-group,
+.header--windows .header-actions,
+.header--windows button,
+.header--windows a,
+.header--windows .update-badge {
+  -webkit-app-region: no-drag;
+}
+
+.win-controls {
+  display: flex;
+  align-items: center;
+  margin-left: 8px;
+  margin-right: calc(var(--shell-pad) * -1);
+  height: 100%;
+}
+
+.win-control-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 100%;
+  min-height: var(--header-h);
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+  padding: 0;
+}
+
+.win-control-btn:hover {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.win-control-btn--close:hover {
+  background: #e81123;
+  color: #ffffff;
+}
+
+.win-controls--floating {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 9999;
+  display: flex;
+  height: var(--header-h);
+}
+
+.win-controls--floating .win-control-btn {
+  min-height: var(--header-h);
 }
 
 /* Header actions wrapper */
@@ -7850,6 +7915,12 @@ select.wizard-input {
 .deploy-format-btn svg {
   flex-shrink: 0;
   color: var(--text-secondary);
+}
+
+.deploy-format-btn.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .inference-params {

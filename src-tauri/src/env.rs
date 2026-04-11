@@ -3,6 +3,7 @@ use tauri::command;
 
 use crate::expand_tilde;
 use crate::{default_shell, home_dir};
+use crate::{StdCommandNoWindow, TokioCommandNoWindow};
 
 /// Returns the correct Python path inside a venv (Scripts/python.exe on Windows,
 /// bin/python on Unix).
@@ -53,6 +54,7 @@ pub fn find_conda() -> Option<String> {
     if let Ok(conda_exe) = std::env::var("CONDA_EXE")
         && !conda_exe.is_empty()
         && let Ok(output) = std::process::Command::new(&conda_exe)
+            .no_window()
             .arg("--version")
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
@@ -89,6 +91,7 @@ pub fn find_conda() -> Option<String> {
 
     for path in &candidates {
         if let Ok(output) = std::process::Command::new(path)
+            .no_window()
             .arg("--version")
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
@@ -103,6 +106,7 @@ pub fn find_conda() -> Option<String> {
     if !cfg!(windows) {
         let shell = default_shell();
         if let Ok(output) = std::process::Command::new(&shell)
+            .no_window()
             .args(["-l", "-c", "echo $CONDA_EXE"])
             .output()
             && output.status.success()
@@ -110,6 +114,7 @@ pub fn find_conda() -> Option<String> {
             let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
             if !path.is_empty()
                 && let Ok(check) = std::process::Command::new(&path)
+                    .no_window()
                     .arg("--version")
                     .stdout(std::process::Stdio::null())
                     .stderr(std::process::Stdio::null())
@@ -143,6 +148,7 @@ pub fn find_uv() -> Option<String> {
 
     for path in candidates.iter().chain(extra.iter()) {
         if let Ok(output) = std::process::Command::new(path)
+            .no_window()
             .arg("--version")
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
@@ -164,6 +170,7 @@ async fn ensure_uv_available() -> Result<String, String> {
 
     let install = if cfg!(windows) {
         tokio::process::Command::new("powershell")
+            .no_window()
             .args([
                 "-NoProfile",
                 "-ExecutionPolicy", "ByPass",
@@ -175,6 +182,7 @@ async fn ensure_uv_available() -> Result<String, String> {
             .map_err(|e| format!("Failed to run uv installer: {}", e))?
     } else {
         tokio::process::Command::new("sh")
+            .no_window()
             .args(["-c", "curl -LsSf https://astral.sh/uv/install.sh | sh"])
             .output()
             .await
@@ -206,6 +214,7 @@ pub async fn ensure_uv() -> Result<UvStatus, String> {
     };
 
     let version = tokio::process::Command::new(&uv_bin)
+        .no_window()
         .arg("--version")
         .output()
         .await
@@ -243,6 +252,7 @@ else \
 fi"#;
 
     let mut cmd = tokio::process::Command::new(&parts[0]);
+    cmd.no_window();
     cmd.args(["-o", "BatchMode=yes", "-o", "ConnectTimeout=10"]);
     for arg in &parts[1..] {
         cmd.arg(arg);
@@ -282,6 +292,7 @@ pub async fn get_shell_env() -> HashMap<String, String> {
 
     let shell = default_shell();
     let output = tokio::process::Command::new(&shell)
+        .no_window()
         .args(["-l", "-i", "-c", "env"])
         .stderr(std::process::Stdio::null())
         .output()
@@ -310,6 +321,7 @@ pub async fn resolve_conda_path() -> Option<String> {
     if !cfg!(windows) {
         let shell = default_shell();
         if let Ok(output) = tokio::process::Command::new(&shell)
+            .no_window()
             .args(["-l", "-i", "-c", "echo $CONDA_EXE"])
             .output()
             .await
@@ -339,6 +351,7 @@ pub async fn check_conda() -> Result<CondaStatus, String> {
     };
 
     let version = tokio::process::Command::new(&conda_bin)
+        .no_window()
         .arg("--version")
         .output()
         .await
@@ -388,6 +401,7 @@ else
 fi"#;
 
     let mut cmd = tokio::process::Command::new(&parts[0]);
+    cmd.no_window();
     cmd.args(["-o", "BatchMode=yes", "-o", "ConnectTimeout=10"]);
     for arg in &parts[1..] {
         cmd.arg(arg);
@@ -422,6 +436,7 @@ async fn get_venv_versions(venv_path: &std::path::Path) -> (Option<String>, Opti
     let python = venv_python(venv_path);
 
     let py_ver = tokio::process::Command::new(&python)
+        .no_window()
         .args(["--version"])
         .output()
         .await
@@ -435,6 +450,7 @@ async fn get_venv_versions(venv_path: &std::path::Path) -> (Option<String>, Opti
         });
 
     let at_ver = tokio::process::Command::new(&python)
+        .no_window()
         .args(["-c", "import autotimm; print(autotimm.__version__)"])
         .output()
         .await
@@ -461,6 +477,7 @@ pub async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, St
             let venv_py = venv_python(&venv_path);
             let venv_py_str = venv_py.to_string_lossy().to_string();
             let _ = tokio::process::Command::new(&uv_bin)
+                .no_window()
                 .args(["pip", "install", "--upgrade", "autotimm[all]", "--python", &venv_py_str])
                 .current_dir(&expanded)
                 .output()
@@ -485,6 +502,7 @@ pub async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, St
 
     // 2. Check if the system/active Python already has autotimm installed
     let sys_check = tokio::process::Command::new(python_cmd())
+        .no_window()
         .args(["-c", "import autotimm; print(autotimm.__version__)"])
         .output()
         .await;
@@ -493,6 +511,7 @@ pub async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, St
     {
         let at_ver = String::from_utf8_lossy(&out.stdout).trim().to_string();
         let py_ver = tokio::process::Command::new(python_cmd())
+            .no_window()
             .args(["--version"])
             .output()
             .await
@@ -520,6 +539,7 @@ pub async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, St
 
     if let Some(conda_bin) = resolve_conda_path().await {
         let create_output = tokio::process::Command::new(&conda_bin)
+            .no_window()
             .args(["create", "-p", ".venv", "python=3.12", "-y"])
             .stdin(std::process::Stdio::null())
             .current_dir(&expanded)
@@ -540,6 +560,7 @@ pub async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, St
         }
 
         let install_output = tokio::process::Command::new(&conda_bin)
+            .no_window()
             .args(["run", "-p", ".venv", "pip", "install", "--upgrade", "autotimm[all]"])
             .stdin(std::process::Stdio::null())
             .current_dir(&expanded)
@@ -574,6 +595,7 @@ pub async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, St
     let _ = tokio::time::timeout(
         std::time::Duration::from_secs(120),
         tokio::process::Command::new(&uv_bin)
+            .no_window()
             .args(["python", "install", "3.12"])
             .output(),
     )
@@ -587,6 +609,7 @@ pub async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, St
     ];
 
     let venv_output = tokio::process::Command::new(&uv_bin)
+        .no_window()
         .args(&uv_args)
         .current_dir(&expanded)
         .output()
@@ -608,6 +631,7 @@ pub async fn setup_python_env(project_path: String) -> Result<EnvSetupResult, St
     let final_venv_py = venv_python(&venv_path);
     let final_venv_py_str = final_venv_py.to_string_lossy().to_string();
     let install_output = tokio::process::Command::new(&uv_bin)
+        .no_window()
         .args(["pip", "install", "--upgrade", "autotimm[all]", "--python", &final_venv_py_str])
         .current_dir(&expanded)
         .output()
@@ -736,6 +760,7 @@ fi"#,
     );
 
     let mut cmd = tokio::process::Command::new(&parts[0]);
+    cmd.no_window();
     cmd.args(["-o", "BatchMode=yes", "-o", "ConnectTimeout=10"]);
     for arg in &parts[1..] {
         cmd.arg(arg);

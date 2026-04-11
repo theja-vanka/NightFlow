@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use tauri::command;
 
 use crate::expand_tilde;
+use crate::TokioCommandNoWindow;
 
 /// Write a base64-encoded image to the interpretation directory for a run.
 /// Returns the written file path.
@@ -108,6 +109,7 @@ pub async fn run_interpretation(
             r#"find "{ckpt_dir_str}" -name "*.ckpt" -type f 2>/dev/null | head -1"#
         );
         let find_output = tokio::process::Command::new(&parts[0])
+            .no_window()
             .args(&parts[1..])
             .arg(&find_script)
             .output()
@@ -129,6 +131,7 @@ pub async fn run_interpretation(
             "if [ -x \"{venv_python}\" ]; then echo \"{venv_python}\"; else echo python3; fi"
         );
         let py_output = tokio::process::Command::new(&parts[0])
+            .no_window()
             .args(&parts[1..])
             .arg(&python_cmd)
             .output()
@@ -146,6 +149,7 @@ pub async fn run_interpretation(
         );
 
         let output = tokio::process::Command::new(&parts[0])
+            .no_window()
             .args(&parts[1..])
             .arg(&run_cmd)
             .output()
@@ -202,6 +206,7 @@ pub async fn run_interpretation(
         scp_args.push(local_output.to_string_lossy().to_string());
 
         let scp_result = tokio::process::Command::new("scp")
+            .no_window()
             .args(&scp_args)
             .output()
             .await
@@ -258,6 +263,7 @@ pub async fn run_interpretation(
         };
 
         let output = tokio::process::Command::new(&python)
+            .no_window()
             .arg("-m")
             .arg("autotimm.cli.interpret_cli")
             .arg("--checkpoint")
@@ -322,6 +328,7 @@ pub async fn preview_augmentation(
     };
 
     let output = tokio::process::Command::new(&python)
+        .no_window()
         .args(["-m", "autotimm.flow.augmentation_preview", "--image", &image_path, "--preset", &preset])
         .current_dir(&pp)
         .output()
@@ -396,6 +403,7 @@ pub async fn export_jit_model(
             r#"find "{ckpt_dir_str}" -name "*.ckpt" -type f 2>/dev/null | head -1"#
         );
         let find_output = tokio::process::Command::new(&parts[0])
+            .no_window()
             .args(&parts[1..])
             .arg(&find_script)
             .output()
@@ -417,6 +425,7 @@ pub async fn export_jit_model(
             "if [ -x \"{venv_python}\" ]; then echo \"{venv_python}\"; else echo python3; fi"
         );
         let py_output = tokio::process::Command::new(&parts[0])
+            .no_window()
             .args(&parts[1..])
             .arg(&python_cmd)
             .output()
@@ -434,6 +443,7 @@ pub async fn export_jit_model(
         );
 
         let output = tokio::process::Command::new(&parts[0])
+            .no_window()
             .args(&parts[1..])
             .arg(&run_cmd)
             .output()
@@ -480,6 +490,7 @@ pub async fn export_jit_model(
         scp_args.push(local_pt.to_string_lossy().to_string());
 
         let scp_result = tokio::process::Command::new("scp")
+            .no_window()
             .args(&scp_args)
             .output()
             .await
@@ -521,6 +532,7 @@ pub async fn export_jit_model(
         let cwd = if run_logs_dir.exists() { run_logs_dir.clone() } else { PathBuf::from(&pp) };
 
         let mut cmd = tokio::process::Command::new(&python);
+        cmd.no_window();
         cmd.arg("-m")
             .arg("autotimm.export.export_jit")
             .arg("--checkpoint")

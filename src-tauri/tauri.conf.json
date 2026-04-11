@@ -32,6 +32,13 @@
       "signingIdentity": "-",
       "minimumSystemVersion": "10.13"
     },
+    "windows": {
+      "nsis": {
+        "installMode": "perMachine",
+        "displayLanguageSelector": false,
+        "installerIcon": "icons/icon.ico"
+      }
+    },
     "linux": {
       "deb": {
         "depends": [

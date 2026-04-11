@@ -7,6 +7,8 @@ use tauri::{Emitter, State, command};
 
 use crate::expand_tilde;
 use crate::env::{get_shell_env, resolve_conda_path};
+#[cfg(windows)]
+use crate::StdCommandNoWindow;
 
 const TRAINING_META_FILE: &str = ".nightflow_training.json";
 const TRAINING_LOG_FILE_DEFAULT: &str = "training_events.jsonl";
@@ -29,6 +31,7 @@ fn kill_process_tree(pid: u32) {
     {
         // /T = kill child processes, /F = force
         let _ = std::process::Command::new("taskkill")
+            .no_window()
             .args(["/PID", &pid.to_string(), "/T", "/F"])
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
@@ -369,7 +372,7 @@ pub async fn start_training(
                 #[cfg(unix)]
                 unsafe { fit_cmd.pre_exec(|| { libc::setsid(); Ok(()) }); }
                 #[cfg(windows)]
-                { fit_cmd.creation_flags(0x00000200); } // CREATE_NEW_PROCESS_GROUP
+                { fit_cmd.creation_flags(0x00000200 | 0x08000000); } // CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
 
                 let mut fit_child = match fit_cmd.spawn() {
                     Ok(c) => c,
@@ -493,7 +496,7 @@ pub async fn start_training(
                 #[cfg(unix)]
                 unsafe { c.pre_exec(|| { libc::setsid(); Ok(()) }); }
                 #[cfg(windows)]
-                { c.creation_flags(0x00000200); } // CREATE_NEW_PROCESS_GROUP
+                { c.creation_flags(0x00000200 | 0x08000000); } // CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
                 match c.spawn() {
                     Ok(mut child) => {
                         spawn_tail_task(
@@ -600,7 +603,7 @@ pub async fn start_training(
     }
     #[cfg(windows)]
     {
-        cmd.creation_flags(0x00000200); // CREATE_NEW_PROCESS_GROUP
+        cmd.creation_flags(0x00000200 | 0x08000000); // CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
     }
 
     let child = cmd.spawn().map_err(|e| e.to_string())?;

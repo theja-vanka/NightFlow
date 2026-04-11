@@ -83,6 +83,10 @@ export const syncLogs = computed(
   () => _getState(currentProjectId.value).syncLogs,
 );
 
+// ── GPU availability (updated from system metrics polling) ──────────────────
+
+export const gpuAvailable = signal(false);
+
 // ── Platform detection (cached) ──────────────────────────────────────────────
 
 export const platform = signal("unknown");

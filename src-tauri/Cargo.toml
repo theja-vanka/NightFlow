@@ -14,11 +14,12 @@ serde_yaml = "0.9"
 portable-pty = "0.9.0"
 hostname = "0.4.2"
 tokio = { version = "1", features = ["process", "time", "io-util"] }
+window-vibrancy = "0.5"
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.59", features = ["Win32_System_Threading", "Win32_Foundation"] }
+windows-sys = { version = "0.59", features = ["Win32_System_Threading", "Win32_Foundation", "Win32_System_SystemInformation", "Win32_UI_WindowsAndMessaging"] }
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

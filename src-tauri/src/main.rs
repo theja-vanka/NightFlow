@@ -14,6 +14,49 @@ use std::sync::Mutex;
 use tauri::{Manager, command, window::Color};
 use tauri::menu::{AboutMetadata, MenuBuilder, SubmenuBuilder};
 
+// ── Hide console windows on Windows ─────────────────────────────────────────
+//
+// On Windows, spawning a subprocess via std::process::Command or
+// tokio::process::Command opens a visible console window by default.
+// These traits add a `.no_window()` builder method that sets the
+// CREATE_NO_WINDOW flag (0x08000000) on Windows and is a no-op elsewhere.
+
+#[cfg(windows)]
+use std::os::windows::process::CommandExt as _;
+
+#[cfg(windows)]
+const _CREATE_NO_WINDOW: u32 = 0x08000000;
+
+pub trait StdCommandNoWindow {
+    fn no_window(&mut self) -> &mut Self;
+}
+
+impl StdCommandNoWindow for std::process::Command {
+    #[inline]
+    fn no_window(&mut self) -> &mut Self {
+        #[cfg(windows)]
+        {
+            self.creation_flags(_CREATE_NO_WINDOW);
+        }
+        self
+    }
+}
+
+pub trait TokioCommandNoWindow {
+    fn no_window(&mut self) -> &mut Self;
+}
+
+impl TokioCommandNoWindow for tokio::process::Command {
+    #[inline]
+    fn no_window(&mut self) -> &mut Self {
+        #[cfg(windows)]
+        {
+            self.creation_flags(_CREATE_NO_WINDOW);
+        }
+        self
+    }
+}
+
 // ── Shared utility ───────────────────────────────────────────────────────────
 
 /// Cross-platform home directory: HOME (Unix), USERPROFILE (Windows),
@@ -81,9 +124,59 @@ fn close_splash(app: tauri::AppHandle) {
     }
 }
 
+// ── Window control commands (for custom titlebar on Windows) ────────────────
+
+#[command]
+fn window_minimize(app: tauri::AppHandle) {
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = win.minimize();
+    }
+}
+
+#[command]
+fn window_maximize(app: tauri::AppHandle) {
+    if let Some(win) = app.get_webview_window("main") {
+        if win.is_maximized().unwrap_or(false) {
+            let _ = win.unmaximize();
+        } else {
+            let _ = win.maximize();
+        }
+    }
+}
+
+#[command]
+fn window_close(app: tauri::AppHandle) {
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = win.close();
+    }
+}
+
+// ── Windows 11 version check ────────────────────────────────────────────────
+
+/// Ensures the app only runs on Windows 11 (build 22000) or later.
+#[cfg(target_os = "windows")]
+fn check_windows_version() {
+    use windows_sys::Win32::System::SystemInformation::{GetVersionExW, OSVERSIONINFOW};
+    let mut info: OSVERSIONINFOW = unsafe { std::mem::zeroed() };
+    info.dwOSVersionInfoSize = std::mem::size_of::<OSVERSIONINFOW>() as u32;
+    let ok = unsafe { GetVersionExW(&mut info) };
+    if ok == 0 || info.dwBuildNumber < 22000 {
+        use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_OK, MB_ICONERROR};
+        let title: Vec<u16> = "NightFlow\0".encode_utf16().collect();
+        let msg: Vec<u16> = "NightFlow requires Windows 11 (build 22000) or later.\0"
+            .encode_utf16().collect();
+        unsafe {
+            MessageBoxW(std::ptr::null_mut(), msg.as_ptr(), title.as_ptr(), MB_OK | MB_ICONERROR);
+        }
+        std::process::exit(1);
+    }
+}
+
 // ── Entry point ──────────────────────────────────────────────────────────────
 
 fn main() {
+    #[cfg(target_os = "windows")]
+    check_windows_version();
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
@@ -96,6 +189,13 @@ fn main() {
         .setup(|app| {
             if let Some(splash) = app.get_webview_window("splashscreen") {
                 let _ = splash.set_background_color(Some(Color(0, 0, 0, 0)));
+            }
+
+            // On Windows 11: remove native decorations and apply Mica backdrop
+            #[cfg(target_os = "windows")]
+            if let Some(main_win) = app.get_webview_window("main") {
+                let _ = main_win.set_decorations(false);
+                let _ = window_vibrancy::apply_mica(&main_win, None);
             }
 
             // Build a custom menu with enriched About metadata
@@ -157,6 +257,9 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             close_splash,
             get_platform,
+            window_minimize,
+            window_maximize,
+            window_close,
             pty::spawn_terminal,
             pty::pty_write,
             pty::pty_resize,
