@@ -1,6 +1,7 @@
 use tauri::command;
 
 use crate::home_dir;
+use crate::TokioCommandNoWindow;
 
 #[derive(serde::Serialize)]
 pub struct SshKeyInfo {
@@ -72,6 +73,7 @@ pub async fn test_ssh(ssh_command: String) -> Result<String, String> {
         return Err("Empty SSH command".to_string());
     }
     let mut cmd = tokio::process::Command::new(&parts[0]);
+    cmd.no_window();
     cmd.args(["-o", "BatchMode=yes", "-o", "ConnectTimeout=5"]);
     for arg in &parts[1..] {
         cmd.arg(arg);
@@ -104,6 +106,7 @@ pub async fn ssh_mkdir(ssh_command: String, path: String) -> Result<String, Stri
         return Err("Empty SSH command".to_string());
     }
     let mut cmd = tokio::process::Command::new(&parts[0]);
+    cmd.no_window();
     cmd.args(["-o", "BatchMode=yes", "-o", "ConnectTimeout=5"]);
     for arg in &parts[1..] {
         cmd.arg(arg);
@@ -150,6 +153,7 @@ pub async fn ssh_check_path(ssh_command: String, path: String) -> Result<bool, S
         path.clone()
     };
     let mut cmd = tokio::process::Command::new(&parts[0]);
+    cmd.no_window();
     cmd.args(["-o", "BatchMode=yes", "-o", "ConnectTimeout=5"]);
     for arg in &parts[1..] {
         cmd.arg(arg);
@@ -178,6 +182,7 @@ pub async fn ssh_write_file(ssh_command: String, path: String, contents: String)
         path.clone()
     };
     let mut cmd = tokio::process::Command::new(&parts[0]);
+    cmd.no_window();
     cmd.args(["-o", "BatchMode=yes", "-o", "ConnectTimeout=10"]);
     for arg in &parts[1..] {
         cmd.arg(arg);

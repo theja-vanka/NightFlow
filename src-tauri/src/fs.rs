@@ -1,6 +1,7 @@
 use tauri::command;
 
 use crate::expand_tilde;
+use crate::StdCommandNoWindow;
 
 /// Reject paths containing traversal sequences like `..` to prevent escaping
 /// intended directories. Returns the canonicalized path on success.
@@ -67,6 +68,7 @@ pub fn ensure_project_dir(path: String) -> Result<String, String> {
             expanded.replace('\'', "'\\''")
         );
         let output = std::process::Command::new("osascript")
+            .no_window()
             .arg("-e")
             .arg(&script)
             .output()
@@ -85,6 +87,7 @@ pub fn ensure_project_dir(path: String) -> Result<String, String> {
     #[cfg(target_os = "linux")]
     {
         let output = std::process::Command::new("pkexec")
+            .no_window()
             .arg("mkdir")
             .arg("-p")
             .arg(&expanded)
@@ -104,6 +107,7 @@ pub fn ensure_project_dir(path: String) -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
         let output = std::process::Command::new("powershell")
+            .no_window()
             .args([
                 "-Command",
                 &format!(

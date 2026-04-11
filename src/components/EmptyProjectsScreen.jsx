@@ -1,8 +1,41 @@
+import { invoke } from "@tauri-apps/api/core";
 import { openWizard } from "../state/projects.js";
+import { platform } from "../state/dashboard.js";
+
+const minimizeIcon = `<svg width="12" height="12" viewBox="0 0 12 12"><rect x="1" y="5.5" width="10" height="1" fill="currentColor"/></svg>`;
+const maximizeIcon = `<svg width="12" height="12" viewBox="0 0 12 12"><rect x="1.5" y="1.5" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>`;
+const closeIcon = `<svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`;
 
 export function EmptyProjectsScreen() {
+  const isWindows = platform.value === "windows";
+
   return (
-    <div class="empty-projects-screen">
+    <div class="empty-projects-screen" data-tauri-drag-region>
+      {isWindows && (
+        <div class="win-controls win-controls--floating">
+          <button
+            class="win-control-btn"
+            onClick={() => invoke("window_minimize")}
+            aria-label="Minimize"
+          >
+            <span dangerouslySetInnerHTML={{ __html: minimizeIcon }} />
+          </button>
+          <button
+            class="win-control-btn"
+            onClick={() => invoke("window_maximize")}
+            aria-label="Maximize"
+          >
+            <span dangerouslySetInnerHTML={{ __html: maximizeIcon }} />
+          </button>
+          <button
+            class="win-control-btn win-control-btn--close"
+            onClick={() => invoke("window_close")}
+            aria-label="Close"
+          >
+            <span dangerouslySetInnerHTML={{ __html: closeIcon }} />
+          </button>
+        </div>
+      )}
       <div class="empty-projects-content">
         <div class="empty-projects-logo">
           <img src="/assets/image.png" alt="NightFlow" width="140" />

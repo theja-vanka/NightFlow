@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "preact/hooks";
 import { invoke } from "@tauri-apps/api/core";
 import { currentProject } from "../state/projects.js";
-import { sshConnected } from "../state/dashboard.js";
+import { sshConnected, gpuAvailable } from "../state/dashboard.js";
 
 // Shared hook so SystemMetricsPanel and GpuMetricsPanel share a single poll
 function useSystemMetrics() {
@@ -21,6 +21,7 @@ function useSystemMetrics() {
         if (!connected || !projectId) {
             setMetrics(null);
             setError(null);
+            gpuAvailable.value = false;
             return;
         }
 
@@ -32,8 +33,10 @@ function useSystemMetrics() {
                 const cmd = sshCommand?.trim().toLowerCase() === "localhost" ? null : sshCommand;
                 const resStr = await invoke("get_system_metrics", { sshCommand: cmd, projectPath: project?.projectPath || null });
                 if (mounted) {
-                    setMetrics(JSON.parse(resStr));
+                    const parsed = JSON.parse(resStr);
+                    setMetrics(parsed);
                     setError(null);
+                    gpuAvailable.value = !!(parsed.gpus && parsed.gpus.length > 0);
                 }
             } catch (err) {
                 if (mounted) setError(String(err));

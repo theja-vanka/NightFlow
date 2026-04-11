@@ -2,6 +2,7 @@ use tauri::command;
 
 use crate::env::python_cmd;
 use crate::home_dir;
+use crate::TokioCommandNoWindow;
 
 /// Inline Python script that collects system metrics without importing autotimm.
 /// This avoids the multi-second startup cost of loading PyTorch/timm via autotimm's __init__.
@@ -69,6 +70,7 @@ pub async fn get_system_metrics(ssh_command: Option<String>, project_path: Optio
         let remote_cmd = format!("python3 -c '{escaped}'");
 
         let mut cmd = tokio::process::Command::new(&parts[0]);
+        cmd.no_window();
         cmd.args(["-o", "BatchMode=yes", "-o", "ConnectTimeout=5"]);
         for arg in &parts[1..] {
             cmd.arg(arg);
@@ -94,6 +96,7 @@ pub async fn get_system_metrics(ssh_command: Option<String>, project_path: Optio
         };
 
         let output = tokio::process::Command::new(&python)
+            .no_window()
             .arg("-c")
             .arg(SYSTEM_METRICS_SCRIPT)
             .output()
@@ -161,6 +164,7 @@ pub async fn download_model(
             r#"test -f "{model_pt_path}" && echo "EXISTS" || echo "MISSING""#
         );
         let check_output = tokio::process::Command::new(&parts[0])
+            .no_window()
             .args(&parts[1..])
             .arg(&check_script)
             .output()
@@ -174,6 +178,7 @@ pub async fn download_model(
                 r#"find "{ckpt_dir}" -name "*.ckpt" -type f 2>/dev/null | head -1"#
             );
             let find_output = tokio::process::Command::new(&parts[0])
+                .no_window()
                 .args(&parts[1..])
                 .arg(&find_script)
                 .output()
@@ -192,6 +197,7 @@ pub async fn download_model(
                 "if [ -x \"{venv_python}\" ]; then echo \"{venv_python}\"; else echo python3; fi"
             );
             let py_output = tokio::process::Command::new(&parts[0])
+                .no_window()
                 .args(&parts[1..])
                 .arg(&python_check)
                 .output()
@@ -205,6 +211,7 @@ pub async fn download_model(
             );
 
             let export_output = tokio::process::Command::new(&parts[0])
+                .no_window()
                 .args(&parts[1..])
                 .arg(&export_cmd)
                 .output()
@@ -224,6 +231,7 @@ pub async fn download_model(
                 );
 
                 let trt_output = tokio::process::Command::new(&parts[0])
+                    .no_window()
                     .args(&parts[1..])
                     .arg(&trt_cmd)
                     .output()
@@ -267,6 +275,7 @@ pub async fn download_model(
 
         let scp_bin = if cfg!(windows) { "scp.exe" } else { "scp" };
         let scp_output = tokio::process::Command::new(scp_bin)
+            .no_window()
             .args(&scp_args)
             .output()
             .await
@@ -332,6 +341,7 @@ pub async fn download_model(
             };
 
             let export_output = tokio::process::Command::new(&python)
+                .no_window()
                 .args(&args)
                 .current_dir(&run_logs_dir)
                 .output()
@@ -348,6 +358,7 @@ pub async fn download_model(
                 let trt_path = model_pt_path.replace(".onnx", ".engine");
 
                 let trt_output = tokio::process::Command::new(&python)
+                    .no_window()
                     .args(["-m", "autotimm.flow.tensorrt_convert", "--onnx", &model_pt_path, "--output", &trt_path])
                     .current_dir(&run_logs_dir)
                     .output()
@@ -464,6 +475,7 @@ pub async fn push_to_hub(params: PushToHubParams) -> Result<PushToHubResult, Str
             "HF_PUSH_CFG=\"{escaped_json}\" bash -c 'if [ -x \"{venv_str}\" ]; then \"{venv_str}\" -m {push_module}; else python3 -m {push_module}; fi'",
         );
         tokio::process::Command::new(&parts[0])
+            .no_window()
             .args(&parts[1..])
             .arg(remote_cmd)
             .output()
@@ -477,6 +489,7 @@ pub async fn push_to_hub(params: PushToHubParams) -> Result<PushToHubResult, Str
             python_cmd().to_string()
         };
         tokio::process::Command::new(&python)
+            .no_window()
             .arg("-m")
             .arg(push_module)
             .env("HF_PUSH_CFG", &config_json)

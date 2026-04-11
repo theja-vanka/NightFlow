@@ -92,6 +92,23 @@ jobs:
         working-directory: src-tauri
         run: cargo test --target ${{ matrix.target }}
 
+      - name: Create self-signed certificate and configure signing (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $cert = New-SelfSignedCertificate `
+            -Type CodeSigningCert `
+            -Subject "CN=NightFlow Self-Signed, O=NightFlow" `
+            -CertStoreLocation Cert:\CurrentUser\My `
+            -NotAfter (Get-Date).AddYears(5)
+          $thumbprint = $cert.Thumbprint
+          echo "Certificate created with thumbprint: $thumbprint"
+
+          $conf = Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json
+          $conf.bundle.windows | Add-Member -NotePropertyName "signCommand" `
+            -NotePropertyValue "signtool sign /fd SHA256 /sha1 $thumbprint /t http://timestamp.digicert.com %1" -Force
+          $conf | ConvertTo-Json -Depth 10 | Set-Content src-tauri/tauri.conf.json
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         with:
