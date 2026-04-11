@@ -96,6 +96,19 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          # Find signtool and add to PATH
+          $signtoolPath = Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits" -Recurse -Filter "signtool.exe" -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -like "*x64*" } |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+          if ($signtoolPath) {
+            $signtoolDir = Split-Path $signtoolPath.FullName
+            echo "$signtoolDir" >> $env:GITHUB_PATH
+            echo "Added signtool to PATH from: $signtoolDir"
+          } else {
+            echo "::warning::signtool.exe not found"
+          }
+
           $cert = New-SelfSignedCertificate `
             -Type CodeSigningCert `
             -Subject "CN=NightFlow Self-Signed, O=NightFlow" `
