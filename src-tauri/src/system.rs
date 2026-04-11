@@ -7,9 +7,46 @@ use crate::TokioCommandNoWindow;
 /// Inline Python script that collects system metrics without importing autotimm.
 /// This avoids the multi-second startup cost of loading PyTorch/timm via autotimm's __init__.
 const SYSTEM_METRICS_SCRIPT: &str = r#"
-import json,os,shutil,subprocess,sys
+import json,os,shutil,subprocess,sys,time
+def sfloat(s):
+ try:return float(s)
+ except:return 0.0
 r={}
-r["cpu_cores"]=os.cpu_count()
+r["cpu_cores"]=os.cpu_count() or 1
+try:
+ if sys.platform=="win32":
+  import ctypes
+  class FT(ctypes.Structure):
+   _fields_=[("dwLow",ctypes.c_ulong),("dwHigh",ctypes.c_ulong)]
+  def ft2int(ft):return ft.dwHigh<<32|ft.dwLow
+  idle1,kern1,user1=FT(),FT(),FT()
+  ctypes.windll.kernel32.GetSystemTimes(ctypes.byref(idle1),ctypes.byref(kern1),ctypes.byref(user1))
+  time.sleep(0.25)
+  idle2,kern2,user2=FT(),FT(),FT()
+  ctypes.windll.kernel32.GetSystemTimes(ctypes.byref(idle2),ctypes.byref(kern2),ctypes.byref(user2))
+  idle_d=ft2int(idle2)-ft2int(idle1);kern_d=ft2int(kern2)-ft2int(kern1);user_d=ft2int(user2)-ft2int(user1)
+  total=kern_d+user_d;busy=total-idle_d
+  r["cpu_percent"]=round(busy/total*100,1) if total>0 else 0
+ elif sys.platform=="darwin":
+  o=subprocess.check_output(["top","-l","1","-n","0","-s","0"]).decode()
+  for l in o.split("\n"):
+   if "CPU usage" in l:
+    parts=l.split(",")
+    u=s=0
+    for p in parts:
+     p=p.strip()
+     if "user" in p:u=sfloat(p.split("%")[0].split()[-1])
+     elif "sys" in p:s=sfloat(p.split("%")[0].split()[-1])
+    r["cpu_percent"]=round(u+s,1);break
+ else:
+  with open("/proc/stat") as f:c1=f.readline().split()[1:]
+  time.sleep(0.25)
+  with open("/proc/stat") as f:c2=f.readline().split()[1:]
+  t1=sum(int(x) for x in c1);t2=sum(int(x) for x in c2)
+  i1=int(c1[3]);i2=int(c2[3])
+  td=t2-t1;id_=i2-i1
+  r["cpu_percent"]=round((td-id_)/td*100,1) if td>0 else 0
+except:pass
 try:
  if sys.platform=="darwin":
   mt=int(subprocess.check_output(["sysctl","-n","hw.memsize"]).strip())
@@ -39,7 +76,7 @@ try:
   if mt>0:r["mem_total"]=mt;r["mem_used"]=mt-(ma if ma>0 else mf)
 except:pass
 try:
- dp="C:\\\\" if sys.platform=="win32" else "/"
+ dp="C:\\" if sys.platform=="win32" else "/"
  u=shutil.disk_usage(dp);r["disk_total"]=u.total;r["disk_used"]=u.used
 except:pass
 try:
@@ -48,7 +85,7 @@ try:
  for l in g.strip().split("\n"):
   if not l:continue
   p=[x.strip() for x in l.split(",")]
-  if len(p)>=6:gpus.append({"index":int(p[0]),"name":p[1],"utilization":float(p[2]) if p[2].isdigit() else 0,"mem_total":float(p[3]),"mem_used":float(p[4]),"temperature":float(p[5]) if p[5].isdigit() else 0})
+  if len(p)>=6:gpus.append({"index":int(p[0]),"name":p[1],"utilization":sfloat(p[2]),"mem_total":sfloat(p[3]),"mem_used":sfloat(p[4]),"temperature":sfloat(p[5])})
  r["gpus"]=gpus
 except:r["gpus"]=[]
 try:
