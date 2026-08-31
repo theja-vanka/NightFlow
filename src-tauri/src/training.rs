@@ -559,7 +559,7 @@ pub async fn start_training(
     if !final_parts.iter().any(|a| a.contains("json_progress=")) {
         final_parts.push("--trainer.json_progress=true".into());
     }
-    let tb_jsonl_path = std::path::Path::new("logs").join(&run_id).join(format!("{}.jsonl", &run_id));
+    let tb_jsonl_path = std::path::Path::new("logs").join(&run_id).join(format!("{}.jsonl", run_id));
     let tb_jsonl_path = tb_jsonl_path.to_string_lossy().to_string();
     if !final_parts
         .iter()
