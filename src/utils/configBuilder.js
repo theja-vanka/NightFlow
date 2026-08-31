@@ -145,11 +145,11 @@ export function buildConfigYaml(project, runId = "default") {
   const fmt = project.datasetFormat;
   if (fmt === "CSV" || fmt === "JSONL") {
     if (project.trainPath)
-      lines.push(`    train_path: ${trimSlash(project.trainPath)}`);
+      lines.push(`    train_csv: ${trimSlash(project.trainPath)}`);
     if (project.valPath)
-      lines.push(`    val_path: ${trimSlash(project.valPath)}`);
+      lines.push(`    val_csv: ${trimSlash(project.valPath)}`);
     if (project.testPath)
-      lines.push(`    test_path: ${trimSlash(project.testPath)}`);
+      lines.push(`    test_csv: ${trimSlash(project.testPath)}`);
   } else if (project.folderPath) {
     lines.push(`    data_dir: ${trimSlash(project.folderPath)}`);
   }
